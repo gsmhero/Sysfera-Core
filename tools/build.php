@@ -11,7 +11,7 @@ declare(strict_types=1);
  *   dist/updates/manifest.json           what the in-app updater reads
  *
  * Environment (all optional):
- *   SYSFERA_UPDATE_BASE   public URL of the dist/updates folder (default https://www.sysfera.ru/updates)
+ *   SYSFERA_UPDATE_BASE   public URL of the dist/updates folder (default https://core.sysfera.ru/updates)
  *   SYSFERA_SIGN_SECRET   base64 Ed25519 secret key (sodium_crypto_sign_keypair → secret) to sign packages
  *   SYSFERA_NOTES_EN / SYSFERA_NOTES_RU   release notes shown in the updater
  */
@@ -19,7 +19,7 @@ $root = dirname(__DIR__);
 $ver = trim((string)file_get_contents("$root/core/VERSION"));
 if (!preg_match('/^\d+\.\d+\.\d+$/', $ver)) { fwrite(STDERR, "core/VERSION must look like 1.2.3\n"); exit(1); }
 $base = rtrim((string)getenv('SYSFERA_UPDATE_BASE'), '/');
-if (!preg_match('~^https?://~', $base)) $base = 'https://www.sysfera.ru/updates';
+if (!preg_match('~^https?://~', $base)) $base = 'https://core.sysfera.ru/updates';
 $dist = "$root/dist";
 @mkdir("$dist/updates/plugins", 0755, true);
 foreach (glob("$dist/*.{zip,php}", GLOB_BRACE) ?: [] as $f) unlink($f);

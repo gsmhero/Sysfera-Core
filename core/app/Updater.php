@@ -13,7 +13,7 @@ namespace Sysfera;
  */
 final class Updater
 {
-    public const DEFAULT_URL = 'https://www.sysfera.ru/updates/manifest.json';
+    public const DEFAULT_URL = 'https://core.sysfera.ru/updates/manifest.json';
 
     public function __construct(private App $app) {}
 

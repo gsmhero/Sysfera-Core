@@ -5,7 +5,7 @@ Pushing to `main` runs `.github/workflows/deploy.yml`: tests → build → uploa
 ## Secrets (Settings → Secrets and variables → Actions)
 | Secret | Example | Needed for |
 |---|---|---|
-| `SITE_URL` | `https://www.sysfera.ru` | update URLs in the manifest, health check |
+| `SITE_URL` | `https://core.sysfera.ru` | update URLs in the manifest, health check |
 | `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `SSH_PASS` | | SSH/rsync deploy (preferred) |
 | `DEPLOY_PATH` | `/var/www/sysfera.ru` | folder the site lives in (no trailing `/`) |
 | `FTP_HOST`, `FTP_USER`, `FTP_PASS`, `FTP_PATH` | | FTP deploy (used if no `SSH_HOST`, or when started manually with method *ftp*) |
@@ -25,7 +25,7 @@ Pushing to `main` runs `.github/workflows/deploy.yml`: tests → build → uploa
 ## First time
 1. Add the secrets, push (or *Run workflow*).
 2. Create an empty MySQL database for the site.
-3. Open `https://www.sysfera.ru/install.php` and run the wizard.
+3. Open `https://core.sysfera.ru/install.php` and run the wizard.
 4. From now on every push to `main` redeploys; sites you installed elsewhere see the new version under **Updates**.
 
 ## Note on FTP deploys

@@ -4,7 +4,7 @@
 **Updates** page → *Check for updates* → *Update to x.y.z*. The same page lists component updates and the backups that were made.
 
 ## What happens during a core update
-1. `manifest.json` is fetched from the update server (HTTPS; default `https://www.sysfera.ru/updates/manifest.json`, changeable in Settings).
+1. `manifest.json` is fetched from the update server (HTTPS; default `https://core.sysfera.ru/updates/manifest.json`, changeable in Settings).
 2. The package is downloaded and its **SHA-256** must match the manifest; if `core/app/update_key.php` contains a public key, its **Ed25519 signature** must verify too.
 3. **Backup**: `storage/backups/<date>-core-<old>/files.zip` (the files about to be replaced) and `database.sql` (full dump of this install's tables). The 5 newest backups are kept.
 4. Maintenance flag on (visitors see "Updating…" for the few seconds it takes).
