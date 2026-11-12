@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sysfera — a modular business platform</title>
+<meta name="description" content="Sysfera: install the core on your hosting, add components (warehouse, Basebase connector, messenger, activity, news) and work as an Agent with your own users.">
+<link rel="icon" type="image/svg+xml" href="sysfera-logo.svg">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--mut:#6b7280;--line:#e3e6eb;--acc:#4f46e5;--acc-ink:#fff;--ok:#15803d;--warn:#a16207;--warnbg:#fdf3dc}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaee;--mut:#9aa1ad;--line:#262b35;--acc:#7c78f0;--acc-ink:#0f1115;--ok:#4ade80;--warn:#facc15;--warnbg:#2b2410}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc)}h1{font-size:clamp(28px,5vw,46px);line-height:1.15;margin:0 0 14px}h2{font-size:26px;margin:0 0 8px}h3{font-size:17px;margin:0 0 6px}p{margin:8px 0}
+.w{max-width:1000px;margin:0 auto;padding:0 20px}
+header{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}header .w{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:60px;flex-wrap:wrap}
+.logo{font-size:24px;font-weight:300;letter-spacing:.5px;color:var(--ink);text-decoration:none}.logo b{font-weight:700;color:var(--acc)}
+nav{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:14px}nav a{color:var(--ink);text-decoration:none}
+.lang button{background:none;border:0;color:var(--mut);cursor:pointer;font:inherit;font-size:13px;padding:2px 4px}.lang button.on{color:var(--acc);font-weight:700}
+.btn{display:inline-block;padding:11px 22px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);text-decoration:none;font-weight:500}.btn.p{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+.hero{text-align:center;padding:64px 0 40px}.lead{font-size:18px;color:var(--mut);max-width:700px;margin:0 auto 24px}.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+section{padding:44px 0}section.alt{background:var(--card);border-block:1px solid var(--line)}.c{text-align:center}.mut{color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:22px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+section.alt .card{background:var(--bg)}.card.soon{border-style:dashed;opacity:.75}.card p{color:var(--mut);font-size:14px;margin:0}.tag{font-size:11px;font-weight:600;background:var(--warnbg);color:var(--warn);border-radius:20px;padding:2px 8px;margin-left:4px}
+ol.steps{list-style:none;counter-reset:s;padding:0;margin:24px 0 0;display:grid;gap:14px}
+ol.steps>li{counter-increment:s;position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px 16px 62px}
+ol.steps>li:before{content:counter(s);position:absolute;left:18px;top:16px;width:30px;height:30px;border-radius:50%;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;font-weight:700}
+ol.steps p{margin:4px 0;color:var(--mut);font-size:15px}code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font:13px ui-monospace,Menlo,Consolas,monospace}
+.note{background:var(--warnbg);color:var(--ink);border-radius:10px;padding:12px 16px;margin-top:18px;font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:14px}td,th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+footer{padding:26px 0;color:var(--mut);font-size:13px}footer .w{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+[data-l]{display:none}html[lang=en] [data-l=en],html[lang=ru] [data-l=ru]{display:revert}
+</style></head><body>
+<header><div class="w"><a class="logo" href="#">Sys<b>fera</b></a>
+<nav><a href="#components"><span data-l="en">Components</span><span data-l="ru">Компоненты</span></a><a href="#agents"><span data-l="en">For Agents</span><span data-l="ru">Агентам</span></a><a href="#users"><span data-l="en">For users</span><span data-l="ru">Пользователям</span></a>
+<span class="lang"><button data-set="en">EN</button><button data-set="ru">RU</button></span>
+<a class="btn p" href="https://core.sysfera.ru"><span data-l="en">Open demo</span><span data-l="ru">Открыть демо</span></a></nav></div></header>
+
+<section class="hero"><div class="w">
+<h1><span data-l="en">A modular business platform you install on your own hosting</span><span data-l="ru">Модульная бизнес-платформа, которую вы ставите на свой хостинг</span></h1>
+<p class="lead"><span data-l="en">Install the Sysfera core in two minutes, add only the components you need and work as an Agent: register your own users and sellers and earn an Agency fee on their sales.</span><span data-l="ru">Установите ядро Sysfera за две минуты, подключите только нужные компоненты и работайте как Агент: регистрируйте своих пользователей и продавцов и получайте агентское вознаграждение с их продаж.</span></p>
+<p class="cta"><a class="btn p" href="#agents"><span data-l="en">How to start as an Agent</span><span data-l="ru">Как начать работать Агентом</span></a><a class="btn" href="https://github.com/gsmhero/Sysfera-Core/releases"><span data-l="en">Download Sysfera</span><span data-l="ru">Скачать Sysfera</span></a></p>
+</div></section>
+
+<section id="components" class="alt"><div class="w"><h2 class="c"><span data-l="en">Components</span><span data-l="ru">Компоненты</span></h2>
+<p class="c mut"><span data-l="en">Each works on its own and plays well with the others.</span><span data-l="ru">Каждый работает сам по себе и дружит с остальными.</span></p>
+<div class="grid">
+<div class="card"><h3>WMS</h3><p><span data-l="en">Products, warehouses with zones and cells, stock, receipts, write-offs, transfers, inventory, orders, shipments, reports.</span><span data-l="ru">Товары, склады с зонами и ячейками, остатки, оприходования, списания, перемещения, инвентаризации, заказы, отгрузки, отчёты.</span></p></div>
+<div class="card"><h3><span data-l="en">Basebase connector</span><span data-l="ru">Подключение к Basebase</span></h3><p><span data-l="en">Publish warehouse products on the Basebase marketplace, sync stock, receive orders automatically.</span><span data-l="ru">Публикация товаров склада на маркетплейсе Basebase, синхронизация остатков, автоматический приём заказов.</span></p></div>
+<div class="card"><h3>Messenger</h3><p><span data-l="en">Chat with attachments between users of all Sysfera sites; every user has a Sysfera ID.</span><span data-l="ru">Чат с вложениями между пользователями всех сайтов Sysfera; у каждого есть Sysfera ID.</span></p></div>
+<div class="card"><h3>Activity</h3><p><span data-l="en">Short public posts, a scrolling ticker on the dashboard and an embed code for any page.</span><span data-l="ru">Короткие публикации, бегущая строка на главной и код для вставки на любую страницу.</span></p></div>
+<div class="card"><h3><span data-l="en">News</span><span data-l="ru">Новости</span></h3><p><span data-l="en">Publish news for your users; core news arrive with every update.</span><span data-l="ru">Публикуйте новости для своих пользователей; новости ядра приходят с каждым обновлением.</span></p></div>
+<div class="card soon"><h3><span data-l="en">Accounting</span><span data-l="ru">Бухгалтерия</span></h3><span class="tag"><span data-l="en">soon</span><span data-l="ru">скоро</span></span></div>
+<div class="card soon"><h3>CRM</h3><span class="tag"><span data-l="en">soon</span><span data-l="ru">скоро</span></span></div>
+<div class="card soon"><h3><span data-l="en">Vacancy Manager</span><span data-l="ru">Вакансии</span></h3><span class="tag"><span data-l="en">soon</span><span data-l="ru">скоро</span></span></div>
+</div></div></section>
+
+<section id="agents"><div class="w"><h2><span data-l="en">Manual for Agents</span><span data-l="ru">Инструкция для Агентов</span></h2>
+<p class="mut"><span data-l="en">An Agent runs his own Sysfera site, registers users and sellers on it, connects it to the Basebase marketplace and earns an Agency fee (a share of the platform commission) on every sale of his sellers.</span><span data-l="ru">Агент ведёт собственный сайт на Sysfera, регистрирует на нём пользователей и продавцов, подключает его к маркетплейсу Basebase и получает агентское вознаграждение (часть комиссии платформы) с каждой продажи своих продавцов.</span></p>
+<ol class="steps">
+<li><h3><span data-l="en">Prepare hosting</span><span data-l="ru">Подготовьте хостинг</span></h3><p><span data-l="en">You need a domain or sub-domain with <b>HTTPS</b>, PHP 8.1+ (<code>pdo_mysql</code>, <code>mbstring</code>, <code>zip</code>) and one empty MySQL database. HTTPS and a public domain name are required by Messenger and the Basebase connector.</span><span data-l="ru">Нужен домен или поддомен с <b>HTTPS</b>, PHP 8.1+ (<code>pdo_mysql</code>, <code>mbstring</code>, <code>zip</code>) и одна пустая база MySQL. HTTPS и публичное доменное имя нужны для Messenger и подключения к Basebase.</span></p></li>
+<li><h3><span data-l="en">Install the core</span><span data-l="ru">Установите ядро</span></h3><p><span data-l="en">Upload <code>sysfera-install.php</code> to the domain folder by FTP, open <code>https://your-domain/sysfera-install.php</code>, press <i>Unpack and continue</i> and follow the wizard: server check → database → site name and administrator. At the end delete <code>install.php</code>.</span><span data-l="ru">Загрузите <code>sysfera-install.php</code> в папку домена по FTP, откройте <code>https://ваш-домен/sysfera-install.php</code>, нажмите «Распаковать и продолжить» и пройдите мастер: проверка сервера → база данных → название сайта и администратор. В конце удалите <code>install.php</code>.</span></p></li>
+<li><h3><span data-l="en">Install components</span><span data-l="ru">Установите компоненты</span></h3><p><span data-l="en">Sign in → <b>Components</b> → install <b>WMS</b> and <b>WMS → Basebase</b> (and, if you like, Messenger, Activity, News).</span><span data-l="ru">Войдите → <b>Компоненты</b> → установите <b>WMS</b> и <b>WMS → Basebase</b> (и при желании Messenger, Activity, Новости).</span></p></li>
+<li><h3><span data-l="en">Open registration for your users</span><span data-l="ru">Откройте регистрацию для своих пользователей</span></h3><p><span data-l="en">Settings → tick <i>Allow visitors to register themselves</i> and choose what new users may use. Visitors who are not signed in will see the Sysfera home page with <b>Create account</b> and <b>Sign in</b> buttons.</span><span data-l="ru">Настройки → отметьте «Разрешить посетителям регистрироваться» и выберите, чем смогут пользоваться новые пользователи. Посетители без входа увидят главную страницу Sysfera с кнопками «Создать аккаунт» и «Войти».</span></p></li>
+<li><h3><span data-l="en">Get your AGENT_KEY</span><span data-l="ru">Получите AGENT_KEY</span></h3><p><span data-l="en">Open <i>Basebase → Connection</i> in your Sysfera: the page shows the <b>AGENT_KEY</b> (created automatically).</span><span data-l="ru">Откройте <i>Basebase → Подключение</i> в вашем Sysfera: на странице показан <b>AGENT_KEY</b> (создаётся автоматически).</span></p></li>
+<li><h3><span data-l="en">Become an Agent on Basebase</span><span data-l="ru">Станьте Агентом на Basebase</span></h3><p><span data-l="en">Register at <a href="https://basebase.ru">basebase.ru</a>, switch the account type to <b>Agent</b> (Settings), open <i>Cabinet → Partner site</i>, enter your site address and the AGENT_KEY and press <i>Save connection</i>. Agents are approved automatically; the Basebase administrator may suspend an Agent later.</span><span data-l="ru">Зарегистрируйтесь на <a href="https://basebase.ru">basebase.ru</a>, переключите тип аккаунта на <b>Агент</b> (Настройки), откройте <i>Кабинет → Партнёрский сайт</i>, введите адрес сайта и AGENT_KEY и нажмите «Сохранить подключение». Агенты подтверждаются автоматически; администратор Basebase может позже приостановить Агента.</span></p></li>
+<li><h3><span data-l="en">Copy the API access back</span><span data-l="ru">Перенесите доступ к API обратно</span></h3><p><span data-l="en">On the same Basebase page copy <b>Agent ID</b>, <b>API address</b> and <b>API secret</b> into <i>Sysfera → Basebase → Connection</i> and press <i>Test connection</i>. Keep the secret private.</span><span data-l="ru">На той же странице Basebase скопируйте <b>Agent ID</b>, <b>адрес API</b> и <b>API secret</b> в <i>Sysfera → Basebase → Подключение</i> и нажмите «Проверить подключение». Храните секрет в тайне.</span></p></li>
+<li><h3><span data-l="en">Create a seller</span><span data-l="ru">Создайте продавца</span></h3><p><span data-l="en">On the Connection page press <i>Create seller</i>: a Supplier account linked to you is created and its <b>Seller ID</b> is filled in. (Or ask the Basebase administrator to assign an existing seller to you.)</span><span data-l="ru">На странице подключения нажмите «Создать продавца»: создаётся аккаунт поставщика, привязанный к вам, а <b>Seller ID</b> подставляется сам. (Или попросите администратора Basebase закрепить за вами существующего продавца.)</span></p></li>
+<li><h3><span data-l="en">Publish products and take orders</span><span data-l="ru">Публикуйте товары и принимайте заказы</span></h3><p><span data-l="en">In WMS add products, tick the ones to sell on Basebase, choose the warehouse whose available stock is sold. Stock syncs after every document; new Basebase orders arrive in WMS automatically. All commissions are set in Basebase, not in the connector.</span><span data-l="ru">В WMS добавьте товары, отметьте те, что продаются на Basebase, выберите склад, чей доступный остаток продаётся. Остатки синхронизируются после каждого документа; новые заказы Basebase попадают в WMS автоматически. Все комиссии задаются в Basebase, а не в коннекторе.</span></p></li>
+</ol>
+<div class="note"><span data-l="en"><b>Your earnings.</b> Your Agency fee is a percentage of the margin (selling price − supplier price) on every sale of your sellers. It is part of the platform commission, so sellers and bloggers never pay more. The money arrives in your Basebase wallet when the order item is marked Delivered.</span><span data-l="ru"><b>Ваш заработок.</b> Агентское вознаграждение — процент от маржи (цена продажи − цена поставщика) с каждой продажи ваших продавцов. Оно входит в комиссию платформы, поэтому продавцы и блогеры не платят больше. Деньги поступают в кошелёк Basebase, когда позиция заказа отмечена как «Доставлено».</span></div>
+<p class="mut" style="margin-top:18px"><span data-l="en">Details: install guide, WMS and connector documentation are in the </span><span data-l="ru">Подробности: руководства по установке, WMS и коннектору — в </span><a href="https://github.com/gsmhero/Sysfera-Core/tree/main/docs">docs</a>.</p>
+</div></section>
+
+<section id="users" class="alt"><div class="w c"><h2><span data-l="en">For users</span><span data-l="ru">Пользователям</span></h2>
+<p class="mut"><span data-l="en">You do not install anything. Open the site of your Agent, press <b>Create account</b>, register with your e-mail and start working.</span><span data-l="ru">Ничего устанавливать не нужно. Откройте сайт вашего Агента, нажмите <b>«Создать аккаунт»</b>, зарегистрируйтесь по e-mail и начинайте работать.</span></p>
+<p class="cta"><a class="btn p" href="https://core.sysfera.ru"><span data-l="en">See the demo</span><span data-l="ru">Посмотреть демо</span></a></p></div></section>
+
+<footer><div class="w"><span>© Sysfera</span><span><a href="https://core.sysfera.ru">core.sysfera.ru</a> · <a href="https://github.com/gsmhero/Sysfera-Core">GitHub</a></span></div></footer>
+<script>
+(function(){var h=document.documentElement,b=document.querySelectorAll('.lang button'),s;
+try{s=localStorage.getItem('sflang')}catch(e){}
+function set(l){h.lang=l;b.forEach(function(x){x.classList.toggle('on',x.dataset.set===l)});try{localStorage.setItem('sflang',l)}catch(e){}}
+b.forEach(function(x){x.onclick=function(){set(x.dataset.set)}});
+set(s||((navigator.language||'').toLowerCase().indexOf('ru')===0?'ru':'en'))})();
+</script></body></html>
