@@ -52,3 +52,16 @@ function ago(?string $ts): string {
     $d = time() - strtotime($ts);
     return $d < 60 ? t('time.now') : ($d < 3600 ? t('time.min', ['n' => (int)($d / 60)]) : ($d < 86400 ? t('time.hour', ['n' => (int)($d / 3600)]) : t('time.day', ['n' => (int)($d / 86400)])));
 }
+
+/** The Sysfera logo as inline SVG (colours come from CSS so it stays readable in dark mode and on the dark sidebar). */
+function sf_logo(): string {
+    static $svg = null;
+    if ($svg === null) {
+        $s = (string)@file_get_contents(SF_ROOT . '/assets/sysfera-logo.svg');
+        $s = preg_replace('~<defs>.*?</defs>~s', '', $s);
+        $s = str_replace(['class="cls-1"', 'class="cls-2"', 'class="cls-3"'], ['class="lg-a"', 'class="lg-b"', 'class="lg-b"'], (string)$s);
+        $s = preg_replace('~ (id|data-name)="[^"]*"~', '', $s);
+        $svg = $s === '' || $s === null ? 'sys<b>fera</b>' : str_replace('<svg ', '<svg class="logo" role="img" aria-label="Sysfera" ', $s);
+    }
+    return $svg;
+}

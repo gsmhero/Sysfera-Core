@@ -104,7 +104,7 @@ $home = (App::basePath() ?: '') . '/';
 <html lang="<?= $esc($L) ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= $esc($T('title')) ?></title><style><?= $css ?></style></head>
 <body class="bare"><main class="auth"><div class="auth-box wide">
-<div class="wordmark">sys<b>fera</b></div>
+<div class="wordmark"><?= sf_logo() ?></div>
 <p class="langs"><?php foreach ($langs as $c => $n): ?><a class="<?= $c === $L ? 'on' : '' ?>" href="<?= $esc($self) ?>?lang=<?= $esc($c) ?>"><?= $esc($n) ?></a><?php endforeach; ?></p>
 <?php if ($step <= 4): ?><div class="steps"><?php for ($i = 1; $i <= $total; $i++): ?><i class="<?= $i < $step ? 'done' : ($i === $step ? 'on' : '') ?>"></i><?php endfor; ?></div>
 <small class="muted"><?= $esc($T('step', ['n' => min($step, $total), 'total' => $total])) ?></small><?php endif; ?>

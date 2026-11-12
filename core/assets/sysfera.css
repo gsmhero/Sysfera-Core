@@ -44,3 +44,8 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 .checks{list-style:none;padding:0;margin:0 0 16px}.checks li{padding:8px 0;border-bottom:1px solid var(--line)}.checks b{display:inline-block;min-width:78px;font-size:12px;text-transform:uppercase}
 .checks .ok b{color:var(--ok)}.checks .bad b{color:var(--bad)}.checks .warn b{color:var(--warn)}.steps-list{padding-left:20px}
 @media (max-width:760px){.shell{display:block}.side{position:static;width:auto;height:auto}.side nav{display:flex;flex-wrap:wrap;gap:4px}.side-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.item{flex-direction:column;align-items:stretch}}
+/* logo */
+.logo{display:block;height:34px;width:auto}.lg-a{fill:#003faf}.lg-b{fill:var(--ink)}
+@media (prefers-color-scheme:dark){.lg-a{fill:#5b8cff}}
+.side .logo{height:30px;margin:0 8px}.side .lg-a{fill:#6d9bff}.side .lg-b{fill:#fff}
+.auth-box .wordmark{display:block}.auth-box .logo{height:46px;margin:0 auto 4px}

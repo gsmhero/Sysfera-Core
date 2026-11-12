@@ -12,15 +12,16 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
 ?><!doctype html>
 <html lang="<?= e($cur) ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($title) ?> — <?= e($siteName) ?></title>
+<link rel="icon" type="image/svg+xml" href="<?= e(url("/assets/sysfera-logo.svg")) ?>">
 <link rel="stylesheet" href="<?= e(url('/assets/sysfera.css')) ?>?v=<?= e(SF_VERSION) ?>">
 </head><body class="<?= $bare ? 'bare' : '' ?>">
 <?php if ($bare): ?>
-<main class="auth"><div class="auth-box"><div class="wordmark">sys<b>fera</b></div><?= $content ?>
+<main class="auth"><div class="auth-box"><div class="wordmark"><?= sf_logo() ?></div><?= $content ?>
   <p class="langs"><?php foreach ($langs as $c => $n): ?><a class="<?= $c === $cur ? 'on' : '' ?>" href="<?= e(url('/lang/' . $c)) ?>"><?= e($n) ?></a><?php endforeach; ?></p></div></main>
 <?php else: ?>
 <div class="shell">
   <aside class="side">
-    <a class="wordmark" href="<?= e(url('/')) ?>">sys<b>fera</b></a>
+    <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo() ?></a>
     <div class="site"><?= e($siteName) ?></div>
     <nav>
       <?php foreach ($menu as $m):
