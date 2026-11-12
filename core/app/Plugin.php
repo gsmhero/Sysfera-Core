@@ -36,6 +36,10 @@ final class Plugin
     public function url(string $path = ''): string { return url('/p/' . $this->slug . ($path === '' ? '' : '/' . ltrim($path, '/'))); }
     public function asset(string $file): string { return url('/assets/p/' . $this->slug . '/' . ltrim($file, '/')); }
 
+    /** Email: send($to, $subject, $text, $html = null) → null or error text; notify($subject, $text) mails the administrators. Both are silent no-ops until SMTP is set up in Settings. */
+    public function mail(string|array $to, string $subject, string $text, ?string $html = null): ?string { return Mailer::send($to, $subject, $text, $html); }
+    public function notify(string $subject, string $text): ?string { return Mailer::notify($subject, $text); }
+
     /** Shared records (same for every plugin). */
     public function contacts(): Repo { return $this->app->contacts(); }
     public function orders(): Documents { return $this->app->orders(); }

@@ -26,3 +26,22 @@ $app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps'
   <div class="row"><input name="confirm" placeholder="RESET" style="max-width:160px" autocomplete="off"><button class="btn danger"><?= e(t('settings.demo_reset_btn')) ?></button></div>
 </form>
 <?php endif; ?>
+
+<form class="card" method="post"><?= csrf_field() ?>
+  <h3><?= e(t('mail.title')) ?></h3><p class="muted sm"><?= e(t('mail.hint')) ?></p>
+  <div class="cols">
+    <label class="fld"><span><?= e(t('mail.host')) ?></span><input name="smtp_host" value="<?= e($app->setting('smtp_host')) ?>" placeholder="smtp.example.com"></label>
+    <label class="fld"><span><?= e(t('mail.port')) ?></span><input name="smtp_port" value="<?= e($app->setting('smtp_port', '587')) ?>" inputmode="numeric"></label>
+    <label class="fld"><span><?= e(t('mail.secure')) ?></span><select name="smtp_secure"><?php foreach (['auto' => t('mail.secure_auto'), 'ssl' => 'SSL/TLS (465)', 'tls' => 'STARTTLS (587)', 'none' => t('mail.secure_none')] as $k => $l): ?><option value="<?= $k ?>" <?= $app->setting('smtp_secure', 'auto') === $k ? 'selected' : '' ?>><?= e($l) ?></option><?php endforeach; ?></select></label>
+  </div>
+  <div class="cols">
+    <label class="fld"><span><?= e(t('mail.user')) ?></span><input name="smtp_user" value="<?= e($app->setting('smtp_user')) ?>" autocomplete="off"></label>
+    <label class="fld"><span><?= e(t('mail.pass')) ?></span><input name="smtp_pass" type="password" autocomplete="new-password" placeholder="<?= $app->setting('smtp_pass') !== '' ? e(t('mail.pass_saved')) : '' ?>"></label>
+  </div>
+  <div class="cols">
+    <label class="fld"><span><?= e(t('mail.from')) ?></span><input name="smtp_from" type="email" value="<?= e($app->setting('smtp_from')) ?>" placeholder="noreply@example.com"></label>
+    <label class="fld"><span><?= e(t('mail.from_name')) ?></span><input name="smtp_from_name" value="<?= e($app->setting('smtp_from_name')) ?>" maxlength="80"></label>
+  </div>
+  <label class="fld"><span><?= e(t('mail.notify')) ?></span><input name="notify_email" value="<?= e($app->setting('notify_email')) ?>" placeholder="<?= e(t('mail.notify_ph')) ?>"></label>
+  <div class="row"><button class="btn primary" name="do" value="mail_save"><?= e(t('common.save')) ?></button><button class="btn" name="do" value="mail_test"><?= e(t('mail.test_btn')) ?></button></div>
+</form>

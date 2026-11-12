@@ -139,7 +139,11 @@ final class Sync
     private function makeOrder(array $it): void
     {
         $id = $it['item_id']; $docs = $this->wms['docs'];
-        $err = function (string $e) use ($id): void { $this->db->q('UPDATE {p}wmsbb_items SET error = ? WHERE item_id = ?', [mb_substr($e, 0, 250), $id]); };
+        $err = function (string $e) use ($id, $it): void {
+            $prev = $this->db->val('SELECT error FROM {p}wmsbb_items WHERE item_id = ?', [$id]);
+            $this->db->q('UPDATE {p}wmsbb_items SET error = ? WHERE item_id = ?', [mb_substr($e, 0, 250), $id]);
+            if ($prev !== mb_substr($e, 0, 250)) $this->note('order.failed', ['item' => $id, 'order' => $it['order_id'], 'error' => $e]);   // tell once, not on every retry
+        };
         $row = $this->db->row('SELECT * FROM {p}wmsbb_items WHERE item_id = ?', [$id]);
         $map = $it['external_id'] !== '' ? $this->db->row('SELECT product_id FROM {p}wmsbb_products WHERE external_id = ?', [$it['external_id']]) : null;
         if (!$map) { $err('err_unknown_product'); return; }
@@ -154,7 +158,7 @@ final class Sync
         if ($doc['status'] === 'draft') {
             $problems = $docs->post((int)$doc['id']);
             if ($problems) { $err(implode(' | ', $problems)); return; }
-            $this->note('order.received', ['id' => (int)$doc['id'], 'number' => $doc['number'], 'item' => $id]);
+            $this->note('order.received', ['id' => (int)$doc['id'], 'number' => $doc['number'], 'item' => $id, 'order' => $it['order_id']]);
         }
         $this->db->q('UPDATE {p}wmsbb_items SET error = NULL WHERE item_id = ?', [$id]);
         if (($it['status'] ?? 'pending') === 'pending') $this->tell($id, 'prepare');

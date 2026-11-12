@@ -38,5 +38,7 @@ return [
 
     'err_nostock' => 'Not enough “{name}”: {have} available, {need} needed.', 'err_unknown_product' => 'The product is not published from the warehouse (no such SKU).', 'err_no_warehouse' => 'No warehouse chosen for sales.',
     'err_has_shipment' => 'The order is already partly shipped — cancel the shipment manually.', 'err_category' => 'Choose a category.', 'err_price' => 'Set a selling price.', 'err_name' => 'No name.',
+    'mail_order_subject' => 'New Basebase order → {n}', 'mail_order_text' => "Basebase order #{order} was accepted; warehouse document {n} was created and posted.\n\nOpen orders: {url}",
+    'mail_fail_subject' => 'Basebase order #{order} needs attention', 'mail_fail_text' => "Basebase order #{order} could not be processed in the warehouse.\nReason: {why}\n\nFix it and press “Retry”: {url}",
     'not_connected' => 'Not connected.', 'err_state' => 'The document has another status.', 'err_warehouse' => 'No warehouse set.', 'err_no_lines' => 'The order has no lines.', 'err_qty' => 'Wrong quantity.', 'err_customer' => 'No customer set.',
 ];

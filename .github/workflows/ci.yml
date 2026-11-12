@@ -29,6 +29,8 @@ jobs:
         run: php tests/wms.php
       - name: Basebase connector tests
         run: php tests/wmsbb.php
+      - name: Mailer tests
+        run: php tests/mail.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

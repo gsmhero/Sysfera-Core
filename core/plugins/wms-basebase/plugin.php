@@ -18,7 +18,19 @@ return function (\Sysfera\Plugin $sf): void {
         if ($s) return $s;
         $svc = \Sysfera\Hooks::filter('wms.services', []);
         if (empty($svc['docs']) || empty($svc['stock'])) return null;
-        return $s = new Sync($db, $svc, $client, $cfg, $set, $sf->contacts(), fn(string $t, array $d) => $sf->log($t, $d));
+        $note = function (string $t, array $d) use ($sf): void {
+            $sf->log($t, $d);
+            $link = 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . url('/p/wms-basebase/orders');
+            if ($t === 'order.received') $sf->notify($sf->t('mail_order_subject', ['n' => $d['number'] ?? '']), $sf->t('mail_order_text', ['order' => $d['order'] ?? '', 'n' => $d['number'] ?? '', 'url' => $link]));
+            elseif ($t === 'order.failed') {
+                $why = array_map(function (string $k) use ($sf): string {
+                    if (str_starts_with($k, 'stock:')) { [$n, $have, $need] = array_pad(explode('|', substr($k, 6)), 3, ''); return $sf->t('err_nostock', ['name' => $n, 'have' => $have, 'need' => $need]); }
+                    return preg_match('/^[a-z_]+$/', $k) ? $sf->t($k) : $k;
+                }, explode(' | ', (string)($d['error'] ?? '')));
+                $sf->notify($sf->t('mail_fail_subject', ['order' => $d['order'] ?? '']), $sf->t('mail_fail_text', ['order' => $d['order'] ?? '', 'why' => implode('; ', $why), 'url' => $link]));
+            }
+        };
+        return $s = new Sync($db, $svc, $client, $cfg, $set, $sf->contacts(), $note);
     };
     $page = fn(string $view, array $vars, string $title, string $tab) => $sf->render($view, $vars + ['tab' => $tab, 'client' => $client, 'cfg' => $cfg, 'sync' => $sync()], $title);
     $route = function (string $method, string $path, callable $fn, string $cap = 'wmsbb.use') use ($sf, $sync): void {

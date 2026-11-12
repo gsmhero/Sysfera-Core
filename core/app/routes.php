@@ -135,6 +135,19 @@ return function (App $app): void {
                 if (!Demo::on() || ($_POST['confirm'] ?? '') !== 'RESET') { flash(t('settings.demo_confirm_bad'), 'bad'); redirect('/settings'); }
                 Demo::reset($app); flash(t('settings.demo_done')); redirect('/settings');
             }
+            if (in_array($_POST['do'] ?? '', ['mail_save', 'mail_test'], true)) {
+                $set = fn(string $k, int $max = 190) => $app->setSetting($k, mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max));
+                $set('smtp_host'); $set('smtp_user'); $set('smtp_from'); $set('smtp_from_name', 80); $set('notify_email', 300);
+                $app->setSetting('smtp_port', (string)(max(1, min(65535, (int)($_POST['smtp_port'] ?? 587)))));
+                $app->setSetting('smtp_secure', in_array($_POST['smtp_secure'] ?? '', ['auto', 'ssl', 'tls', 'none'], true) ? $_POST['smtp_secure'] : 'auto');
+                if (trim((string)($_POST['smtp_pass'] ?? '')) !== '') $app->setSetting('smtp_pass', (string)$_POST['smtp_pass']);
+                if (($_POST['do'] ?? '') === 'mail_test') {
+                    $to = (string)($app->auth()->user()['email'] ?? '');
+                    $err = \Sysfera\Mailer::send($to, t('mail.test_subject'), t('mail.test_text', ['site' => $app->setting('site_name', 'Sysfera')]));
+                    $err === null ? flash(t('mail.test_ok', ['to' => $to])) : flash(t('mail.test_fail', ['e' => $err]), 'bad');
+                } else flash(t('settings.saved'));
+                redirect('/settings');
+            }
             $app->setSetting('demo_mode', !empty($_POST['demo_mode']) ? '1' : '0');
             if (in_array((int)($_POST['demo_hours'] ?? 0), Demo::HOURS, true)) $app->setSetting('demo_hours', (string)(int)$_POST['demo_hours']);
             if (!empty($_POST['demo_mode']) && $app->setting('demo_last_reset', '0') === '0') $app->setSetting('demo_last_reset', (string)time());
