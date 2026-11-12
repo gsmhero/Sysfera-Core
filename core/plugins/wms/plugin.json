@@ -1,0 +1,14 @@
+{
+  "slug": "wms",
+  "version": "0.1.0",
+  "name": { "en": "Sysfera WMS", "ru": "Sysfera WMS" },
+  "description": {
+    "en": "Warehouse management: products, warehouses with zones and cells, stock, receipts, write-offs, transfers, inventory counts, supplier and customer orders, shipments, reports.",
+    "ru": "Складской учёт: товары, склады с зонами и ячейками, остатки, оприходования, списания, перемещения, инвентаризации, заказы поставщикам и покупателей, отгрузки, отчёты."
+  },
+  "requires": { "core": ">=0.1.1" },
+  "capabilities": {
+    "wms.use":   { "en": "WMS: work with stock and documents", "ru": "WMS: работа со складом и документами" },
+    "wms.admin": { "en": "WMS: warehouses and settings",       "ru": "WMS: склады и настройки" }
+  }
+}

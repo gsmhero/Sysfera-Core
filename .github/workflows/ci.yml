@@ -25,6 +25,8 @@ jobs:
           exit $fail
       - name: Tests (no database needed)
         run: php tests/run.php
+      - name: WMS tests
+        run: php tests/wms.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

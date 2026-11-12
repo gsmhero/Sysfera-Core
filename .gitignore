@@ -5,6 +5,7 @@ core/storage/*
 !core/storage/.gitkeep
 core/plugins/*
 !core/plugins/hello/
+!core/plugins/wms/
 .DS_Store
 Thumbs.db
 *.log
