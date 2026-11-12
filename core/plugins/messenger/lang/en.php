@@ -1,6 +1,6 @@
 <?php
 return [
-    'menu' => 'Messenger', 'title' => 'Sysfera Messenger', 'settings' => 'Connection', 'saved' => 'Saved.',
+    'menu' => 'Messenger', 'title' => 'Sysfera Messenger', 'settings' => 'Connection', 'save' => 'Save', 'saved' => 'Saved.',
     'n_demo' => 'Messenger is switched off in the demo', 'n_demo_hint' => 'Demo visitors cannot write to real people. Install Sysfera on your own site to use it.',
     'n_not_connected' => 'Messenger is not connected yet', 'n_not_connected_hint' => 'An administrator has to connect this installation to the Sysfera hub once (Messenger → Connection).',
     'your_id' => 'Your Sysfera ID', 'your_id_hint' => 'give it to anyone who wants to write to you; it works on every Sysfera site.',
