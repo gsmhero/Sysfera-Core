@@ -38,7 +38,7 @@ final class Stock
         $a = []; $join = '';
         if (!empty($f['warehouse_id'])) { $join = ' AND m.warehouse_id = ' . (int)$f['warehouse_id']; }
         $w = $this->where($f, $a);
-        $having = match ($f['only'] ?? 'all') { 'in' => ' HAVING on_hand > 0', 'zero' => ' HAVING on_hand <= 0', 'low' => ' HAVING p.min_stock > 0 AND (on_hand - reserve) < p.min_stock', default => '' };
+        $having = match ($f['only'] ?? 'all') { 'in' => ' HAVING on_hand > 0', 'zero' => ' HAVING on_hand <= 0', 'low' => ' HAVING min_stock > 0 AND (on_hand - reserve) < min_stock', default => '' };
         $limit = max(1, min(500, $limit)); $offset = max(0, $offset);
         return $this->db->rows("SELECT p.*, (SELECT name FROM {p}wms_groups WHERE id = p.group_id) AS group_name, COALESCE(SUM(m.on_hand),0) AS on_hand, COALESCE(SUM(m.reserve),0) AS reserve, COALESCE(SUM(m.expected),0) AS expected,
             COALESCE(SUM(m.on_hand),0) - COALESCE(SUM(m.reserve),0) AS available
@@ -50,7 +50,7 @@ final class Stock
     {
         $a = []; $join = !empty($f['warehouse_id']) ? ' AND m.warehouse_id = ' . (int)$f['warehouse_id'] : '';
         $w = $this->where($f, $a);
-        $having = match ($f['only'] ?? 'all') { 'in' => ' HAVING on_hand > 0', 'zero' => ' HAVING on_hand <= 0', 'low' => ' HAVING p.min_stock > 0 AND (on_hand - reserve) < p.min_stock', default => '' };
+        $having = match ($f['only'] ?? 'all') { 'in' => ' HAVING on_hand > 0', 'zero' => ' HAVING on_hand <= 0', 'low' => ' HAVING min_stock > 0 AND (on_hand - reserve) < min_stock', default => '' };
         return count($this->db->rows("SELECT p.id, p.min_stock, COALESCE(SUM(m.on_hand),0) AS on_hand, COALESCE(SUM(m.reserve),0) AS reserve FROM {p}wms_products p LEFT JOIN {p}wms_moves m ON m.product_id = p.id$join$w GROUP BY p.id$having", $a));
     }
 
@@ -101,8 +101,8 @@ final class Stock
     {
         $r = $this->db->row('SELECT COALESCE(SUM(t.h * p.buy_price),0) AS value, COALESCE(SUM(t.h),0) AS qty, COALESCE(SUM(t.r),0) AS reserve, COALESCE(SUM(t.e),0) AS expected
             FROM (SELECT product_id, SUM(on_hand) h, SUM(reserve) r, SUM(expected) e FROM {p}wms_moves GROUP BY product_id) t JOIN {p}wms_products p ON p.id = t.product_id') ?: [];
-        $low = (int)$this->db->val('SELECT COUNT(*) FROM (SELECT p.id FROM {p}wms_products p LEFT JOIN {p}wms_moves m ON m.product_id = p.id WHERE p.archived = 0 AND p.min_stock > 0
-            GROUP BY p.id HAVING COALESCE(SUM(m.on_hand),0) - COALESCE(SUM(m.reserve),0) < p.min_stock) x');
+        $low = (int)$this->db->val('SELECT COUNT(*) FROM (SELECT p.id, p.min_stock FROM {p}wms_products p LEFT JOIN {p}wms_moves m ON m.product_id = p.id WHERE p.archived = 0 AND p.min_stock > 0
+            GROUP BY p.id HAVING COALESCE(SUM(m.on_hand),0) - COALESCE(SUM(m.reserve),0) < min_stock) x');
         return ['value' => (float)($r['value'] ?? 0), 'qty' => (float)($r['qty'] ?? 0), 'reserve' => (float)($r['reserve'] ?? 0), 'expected' => (float)($r['expected'] ?? 0), 'low' => $low,
             'products' => (int)$this->db->val('SELECT COUNT(*) FROM {p}wms_products WHERE archived = 0')];
     }
