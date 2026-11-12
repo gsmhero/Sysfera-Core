@@ -1,0 +1,69 @@
+name: Deploy website (sysfera.ru home page)
+
+# Publishes the static page from website/ to the sysfera.ru home page. It uses its OWN secrets (prefix WEB_), separate from the
+# core.sysfera.ru deploy, and does nothing when they are not set. Runs only when website/ changes (or by hand).
+
+on:
+  push:
+    branches: [main]
+    paths: ['website/**', '.github/workflows/deploy-website.yml']
+  workflow_dispatch:
+
+concurrency: deploy-website
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check which deploy method is configured
+        id: cfg
+        env:
+          SSH_HOST: ${{ secrets.WEB_SSH_HOST }}
+          FTP_HOST: ${{ secrets.WEB_FTP_HOST }}
+        run: |
+          m=none
+          if [ -n "$SSH_HOST" ]; then m=ssh; elif [ -n "$FTP_HOST" ]; then m=ftp; fi
+          echo "method=$m" >> "$GITHUB_OUTPUT"
+          [ "$m" = none ] && echo "::notice::No WEB_SSH_HOST / WEB_FTP_HOST secret set - website deploy skipped."
+          exit 0
+
+      - name: Deploy via SSH (rsync)
+        if: steps.cfg.outputs.method == 'ssh'
+        env:
+          SSHPASS: ${{ secrets.WEB_SSH_PASS }}
+          SSH_PORT: ${{ secrets.WEB_SSH_PORT }}
+          HOST: ${{ secrets.WEB_SSH_USER }}@${{ secrets.WEB_SSH_HOST }}
+          DEST: ${{ secrets.WEB_PATH }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
+          SSH="ssh -o StrictHostKeyChecking=accept-new -p ${SSH_PORT:-22}"
+          # only the two files of the page; nothing else in the folder is touched or deleted
+          sshpass -e rsync -az -e "$SSH" website/index.html website/sysfera-logo.svg "$HOST:$DEST/"
+
+      - name: Deploy via FTP
+        if: steps.cfg.outputs.method == 'ftp'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.WEB_FTP_HOST }}
+          username: ${{ secrets.WEB_FTP_USER }}
+          password: ${{ secrets.WEB_FTP_PASS }}
+          server-dir: ${{ secrets.WEB_FTP_PATH }}
+          local-dir: website/
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            README.md
+
+      - name: Health check
+        if: steps.cfg.outputs.method != 'none'
+        env:
+          WEB_URL: ${{ secrets.WEB_URL }}
+        run: |
+          [ -z "$WEB_URL" ] && exit 0
+          sleep 3
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$WEB_URL/")
+          echo "GET $WEB_URL/ -> $code"
+          [ "$code" = 200 ] || echo "::warning::Unexpected status $code"

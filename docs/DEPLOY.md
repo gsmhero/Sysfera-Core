@@ -30,3 +30,15 @@ Pushing to `main` runs `.github/workflows/deploy.yml`: tests → build → uploa
 
 ## Note on FTP deploys
 The FTP action excludes `core/plugins/**` and `core/storage/**` (it cannot do per-folder "never delete"). Bundled component changes therefore reach FTP-deployed sites through the Updates page rather than the deploy.
+
+## Home page of sysfera.ru (separate secrets)
+The static page in `website/` has its own workflow, `.github/workflows/deploy-website.yml`, and its own secrets, so it can go to a different hosting account or folder than core.sysfera.ru. It runs when `website/` changes (or by hand) and is skipped when no `WEB_*` secret exists.
+
+| Secret | Value |
+|---|---|
+| `WEB_SSH_HOST`, `WEB_SSH_USER`, `WEB_SSH_PASS`, `WEB_SSH_PORT` (optional) | SSH access (preferred) |
+| `WEB_PATH` | folder of the sysfera.ru home page on the server (SSH) |
+| `WEB_FTP_HOST`, `WEB_FTP_USER`, `WEB_FTP_PASS`, `WEB_FTP_PATH` | FTP alternative to SSH |
+| `WEB_URL` | `https://sysfera.ru` (health check, optional) |
+
+The folder must not be the one that serves core.sysfera.ru.
