@@ -13,7 +13,7 @@ return function (App $app): void {
     $app->addMenu(['label' => 'nav.plugins', 'path' => '/plugins', 'cap' => '__admin__', 'order' => 90, 'icon' => 'puzzle']);
     $app->addMenu(['label' => 'nav.users', 'path' => '/users', 'cap' => '__admin__', 'order' => 91, 'icon' => 'users']);
     $app->addMenu(['label' => 'nav.settings', 'path' => '/settings', 'cap' => '__admin__', 'order' => 92, 'icon' => 'cog']);
-    $app->addMenu(['label' => 'nav.updates', 'path' => '/updates', 'cap' => '__admin__', 'order' => 93, 'icon' => 'refresh']);
+    $app->addMenu(['label' => 'nav.updates', 'path' => '/upgrade', 'cap' => '__admin__', 'order' => 93, 'icon' => 'refresh']);
 
     /* ---------- language switch ---------- */
     $r->add('GET', '/lang/{code}', function ($p) use ($auth, $db) {
@@ -167,7 +167,7 @@ return function (App $app): void {
     }, ['admin' => true]);
 
     /* ---------- updates ---------- */
-    $r->add('*', '/updates', function () use ($app) {
+    $r->add('*', '/upgrade', function () use ($app) {
         $up = $app->updater();
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = (string)($_POST['do'] ?? '');
@@ -176,7 +176,7 @@ return function (App $app): void {
                 elseif ($do === 'core') { flash(t('upd.done', ['v' => $up->applyCore()])); }
                 elseif ($do === 'plugin') { flash(t('upd.done', ['v' => $up->applyPlugin((string)($_POST['slug'] ?? ''))])); }
             } catch (Throwable $e) { flash($e->getMessage(), 'bad'); }
-            redirect('/updates');
+            redirect('/upgrade');
         }
         $m = $up->manifest();
         View::render('updates', ['m' => $m, 'core' => $up->coreUpdate($m), 'plugins' => $up->pluginUpdates($m), 'backups' => $up->backups(), 'checked' => (int)$app->setting('update_checked', '0'), 'zip' => class_exists(ZipArchive::class)], t('nav.updates'));

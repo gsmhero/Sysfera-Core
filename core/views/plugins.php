@@ -15,7 +15,7 @@ $remoteNew = array_diff_key($remote, $available);
       <?php if (isset($updates[$slug])): ?><span class="badge warn"><?= e(t('plugins.update_to', ['v' => $updates[$slug]['version']])) ?></span><?php endif; ?>
       <p class="muted sm"><?= e($m ? Plugins::text($m, 'description') : t('plugins.files_missing')) ?></p></div>
     <div class="actions">
-      <?php if (isset($updates[$slug])) echo '<form method="post" class="inline" action="' . e(url('/updates')) . '">' . csrf_field() . '<input type="hidden" name="do" value="plugin"><input type="hidden" name="slug" value="' . e($slug) . '"><button class="btn primary">' . e(t('upd.update')) . '</button></form>'; ?>
+      <?php if (isset($updates[$slug])) echo '<form method="post" class="inline" action="' . e(url('/upgrade')) . '">' . csrf_field() . '<input type="hidden" name="do" value="plugin"><input type="hidden" name="slug" value="' . e($slug) . '"><button class="btn primary">' . e(t('upd.update')) . '</button></form>'; ?>
       <?php if ($m && $row['enabled']) echo $form('disable', $slug, t('plugins.disable'), '', 'data-confirm="' . e(t('plugins.confirm_disable')) . '"'); ?>
       <?php if ($m && !$row['enabled']) echo $form('install', $slug, t('plugins.enable'), 'primary'); ?>
       <form method="post" class="inline" data-confirm="<?= e(t('plugins.confirm_uninstall')) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="uninstall"><input type="hidden" name="slug" value="<?= e($slug) ?>"><button class="btn danger"><?= e(t('plugins.uninstall')) ?></button></form>
