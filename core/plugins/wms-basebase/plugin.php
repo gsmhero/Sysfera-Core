@@ -111,6 +111,7 @@ return function (\Sysfera\Plugin $sf): void {
     /* ================= settings ================= */
     $route('GET', '/settings', function () use ($sf, $db, $page, $cfg, $set) {
         if ($cfg('cron_token') === '') $set('cron_token', bin2hex(random_bytes(16)));
+        if ($cfg('agent_key') === '') $set('agent_key', bin2hex(random_bytes(16)));   // AGENT_KEY of the contract (§2): identifies this install when the agent is linked in Basebase
         $page('settings', ['whs' => $db->rows('SELECT id, name FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, name')], $sf->t('nav_settings'), 'settings');
     }, 'wmsbb.admin');
     $route('POST', '/settings', function () use ($sf, $sync, $cfg, $set, $go) {

@@ -5,6 +5,8 @@ $hasSecret = $cfg('secret', '') !== ''; ?>
 <div class="page-h"><h1><?= e($sf->t('nav_settings')) ?></h1></div>
 
 <div class="cols2 wide-left"><div>
+<section class="card"><h3>0. AGENT_KEY</h3><p class="muted sm"><?= e($sf->t('s_key_hint')) ?></p>
+  <code class="bbcode"><?= e($cfg('agent_key', '')) ?></code></section>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="save">
   <h3>1. <?= e($sf->t('s_connection')) ?></h3>
   <p class="muted sm"><?= e($sf->t('s_connection_hint')) ?></p>

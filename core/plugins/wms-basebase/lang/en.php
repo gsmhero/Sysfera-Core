@@ -27,6 +27,7 @@ return [
     'api_address' => 'API address', 'secret_saved' => 'saved — type a new one to replace', 's_seller' => 'Seller and warehouse', 's_warehouse' => 'Warehouse for sales', 's_pct' => 'Seller receives, % of price',
     's_pct_hint' => 'The Basebase price is the selling price on the product card. “Seller receives” is the share of that price; the rest is split between Basebase and the agent.',
     's_test' => 'Test the connection', 's_test_hint' => 'Sends a signed request and loads the Basebase categories.', 's_test_btn' => 'Test connection',
+    's_key_hint' => 'Copy this key into the “AGENT_KEY” field of the Basebase form (Cabinet → Partner site). It only identifies this site while Basebase links the agent; it is not used to sign requests.',
     'ping_ok' => 'Connected. Agency fee: {fee}%, platform commission: {pc}%.', 'ping_fail' => 'Error: {e}',
     's_create' => 'Create a seller on Basebase', 's_create_hint' => 'The seller gets an email with a link to set a password. If the seller already exists, enter their Seller ID above.',
     's_name' => 'Name', 's_shop' => 'Shop name', 's_create_btn' => 'Create seller', 'seller_created' => 'Seller created, Seller ID: {id}.',

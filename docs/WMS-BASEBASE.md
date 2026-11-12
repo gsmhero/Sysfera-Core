@@ -3,7 +3,7 @@
 Separate component `wms-basebase` (requires `wms` ≥ 0.1.1 and core ≥ 0.1.2). It turns a Sysfera install into the **partner site** of Basebase Partner API v1 (`docs/BASEBASE-SYSFERA-API-v1.md` in the Basebase repo).
 
 ## Connect
-1. In Basebase: Cabinet → Partner site — enter this site's address; wait for admin approval.
+1. Open *Basebase → Connection**: the page shows your **AGENT_KEY** (generated automatically). In Basebase: Cabinet → Partner site — enter this site address (`https://your-site`) and the AGENT_KEY; wait for admin approval.
 2. Copy **Agent ID**, **API address** and **API secret** into *Basebase → Connection* and press *Test connection* (signed `GET /ping`, also loads the category list).
 3. Create a seller on Basebase from the same page (`POST /sellers`) or enter an existing **Seller ID**.
 4. Choose the warehouse whose *available* stock is sold, and the seller's share of the price (default 80% → `promo_price`).
