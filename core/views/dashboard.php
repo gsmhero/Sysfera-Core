@@ -6,6 +6,14 @@
   <div class="card stat"><small><?= e(t('dash.invoices')) ?></small><b><?= (int)$counts['invoices'] ?></b></div>
   <div class="card stat"><small><?= e(t('dash.components')) ?></small><b><?= count($plugins) ?></b></div>
 </div>
+<?php if ($isAdmin && !empty($news)): ?>
+<section class="card newsbox"><h3><?= e(t('news.title')) ?></h3>
+  <?php foreach ($news as $n): ?><article class="news-item <?= e($n['type']) ?>">
+    <div class="news-h"><span class="badge <?= ['warning' => 'bad', 'update' => 'info', 'news' => 'mute'][$n['type']] ?>"><?= e(t('news.' . $n['type'])) ?></span><b><?= e($n['title']) ?></b><small class="muted"><?= e($n['date']) ?></small></div>
+    <?php if ($n['body'] !== ''): ?><p><?= nl2br(e($n['body'])) ?></p><?php endif; ?>
+    <?php if ($n['url'] !== ''): ?><a class="sm" href="<?= e($n['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('news.more')) ?> →</a><?php endif; ?>
+  </article><?php endforeach; ?></section>
+<?php endif; ?>
 <?php foreach ($widgets as $w): ?><section class="card"><?= $w ?></section><?php endforeach; ?>
 <?php if (!$plugins): ?>
   <section class="card hint"><h3><?= e(t('dash.empty_title')) ?></h3><p><?= e(t($isAdmin ? 'dash.empty_admin' : 'dash.empty_user')) ?></p>

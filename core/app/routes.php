@@ -60,7 +60,7 @@ return function (App $app): void {
         View::render('dashboard', [
             'counts' => ['contacts' => $app->contacts()->count(), 'orders' => $app->orders()->count(), 'invoices' => $app->invoices()->count()],
             'plugins' => array_filter($app->plugins()->available(), fn($m) => $app->plugins()->isEnabled($m['slug'])),
-            'widgets' => $widgets, 'isAdmin' => $auth->isAdmin(),
+            'widgets' => $widgets, 'isAdmin' => $auth->isAdmin(), 'news' => $auth->isAdmin() ? \Sysfera\News::items(I18n::lang()) : [],
         ], t('nav.dashboard'));
     }, ['auth' => true]);
 
@@ -149,6 +149,7 @@ return function (App $app): void {
                 } else flash(t('settings.saved'));
                 redirect('/settings');
             }
+            $app->setSetting('news_enabled', !empty($_POST['news_enabled']) ? '1' : '0');
             $app->setSetting('demo_mode', !empty($_POST['demo_mode']) ? '1' : '0');
             if (in_array((int)($_POST['demo_hours'] ?? 0), Demo::HOURS, true)) $app->setSetting('demo_hours', (string)(int)$_POST['demo_hours']);
             if (!empty($_POST['demo_mode']) && $app->setting('demo_last_reset', '0') === '0') $app->setSetting('demo_last_reset', (string)time());

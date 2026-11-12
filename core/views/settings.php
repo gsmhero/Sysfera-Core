@@ -14,6 +14,8 @@ $app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps'
   <h3><?= e(t('settings.updates')) ?></h3>
   <label class="fld"><span><?= e(t('settings.update_url')) ?></span><input name="update_url" value="<?= e($app->setting('update_url', '')) ?>" placeholder="<?= e(\Sysfera\Updater::DEFAULT_URL) ?>"></label>
   <p class="muted sm"><?= e(t('settings.update_hint')) ?></p>
+  <label class="chk"><input type="checkbox" name="news_enabled" value="1" <?= $app->setting('news_enabled', '1') === '1' ? 'checked' : '' ?>> <?= e(t('settings.news_on')) ?></label>
+  <p class="muted sm"><?= e(t('settings.news_hint')) ?></p>
   <h3><?= e(t('settings.demo')) ?></h3>
   <p class="muted sm"><?= e(t('settings.demo_hint')) ?></p>
   <label class="chk"><input type="checkbox" name="demo_mode" value="1" <?= \Sysfera\Demo::on() ? 'checked' : '' ?>> <?= e(t('settings.demo_on')) ?></label>
