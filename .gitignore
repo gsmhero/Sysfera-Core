@@ -8,6 +8,8 @@ core/plugins/*
 !core/plugins/wms/
 !core/plugins/wms-basebase/
 !core/plugins/news-publisher/
+!core/plugins/messenger/
+!core/plugins/activity/
 .DS_Store
 Thumbs.db
 *.log

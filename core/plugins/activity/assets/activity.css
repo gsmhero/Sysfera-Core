@@ -1,0 +1,3 @@
+.act-f{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.act-f label{display:flex;flex-direction:column;font-size:12px;gap:2px}.act-f small{margin-left:auto}
+.act-post p{margin:6px 0 10px}.act-h{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.act-f2{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}

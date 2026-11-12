@@ -1,0 +1,23 @@
+<?php
+return [
+    'menu' => 'Messenger', 'title' => 'Sysfera Messenger', 'settings' => 'Connection', 'saved' => 'Saved.',
+    'n_demo' => 'Messenger is switched off in the demo', 'n_demo_hint' => 'Demo visitors cannot write to real people. Install Sysfera on your own site to use it.',
+    'n_not_connected' => 'Messenger is not connected yet', 'n_not_connected_hint' => 'An administrator has to connect this installation to the Sysfera hub once (Messenger → Connection).',
+    'your_id' => 'Your Sysfera ID', 'your_id_hint' => 'give it to anyone who wants to write to you; it works on every Sysfera site.',
+    'search_ph' => 'Sysfera ID (12@site.ru), e-mail or name (3+ letters)', 'search' => 'Find', 'search_none' => 'Nobody found. Exact ID always works; e-mail and name only find people who allowed it.', 'write' => 'Write',
+    'no_chats' => 'No conversations yet', 'no_chats_hint' => 'Find a person above by their Sysfera ID, e-mail or name.', 'you' => 'You',
+    'discoverable' => 'Let others find me by name or e-mail', 'discoverable_hint' => 'Off by default. People who know your exact Sysfera ID can write to you either way; you can block anyone.',
+    'chat_empty' => 'No messages yet — say hello.', 'type_ph' => 'Message…', 'file_hint' => 'up to 5 MB: images, PDF, Office, TXT, CSV, ZIP', 'send' => 'Send',
+    'block' => 'Block this person', 'unblock' => 'Unblock', 'blocked_ok' => 'Blocked. They can no longer write to you.', 'unblocked_ok' => 'Unblocked.',
+    'connected_ok' => 'Connected to the Sysfera hub.', 'disconnected_ok' => 'Disconnected.',
+    's_status' => 'Connection', 's_domain' => 'This site', 's_is_hub' => 'This site is the hub', 's_ok' => 'Connected', 's_not_connected' => 'Not connected',
+    's_need_https' => 'The hub only accepts sites that open over https://.', 's_connect_hint' => 'The hub will open https://<your site>/api/messenger/verify once to check that this site is yours, then give this site a private key.',
+    's_connect' => 'Connect to Sysfera hub', 's_disconnect' => 'Disconnect', 's_disconnect_q' => 'Disconnect Messenger? Your conversations stay on the hub.',
+    's_advanced' => 'Advanced', 's_hub_url' => 'Hub address', 's_hub_mode' => 'This site is the hub (only core.sysfera.ru)', 's_hub_mode_hint' => 'Turns this installation into the central server that stores all conversations, files and Activity posts of all connected sites.',
+    'e_not_connected' => 'Not connected to the hub.', 'e_network' => 'The hub is not reachable. Try again later.', 'e_unauthorized' => 'The hub rejected this site (wrong key or clock). Reconnect in Connection.',
+    'e_bad_domain' => 'The hub cannot accept this address (needs a public https:// site).', 'e_verify_failed' => 'The hub could not confirm that this site is yours. Check that https://<site>/api/messenger/verify opens.',
+    'e_rate' => 'Too many requests — wait a minute.', 'e_no_user' => 'This person was not found.', 'e_blocked' => 'This person does not accept your messages.', 'e_empty' => 'Write something or attach a file.',
+    'e_too_long' => 'The message is too long (2000 characters max).', 'e_file_big' => 'The file is too big (5 MB max).', 'e_file_type' => 'This file type is not allowed.', 'e_bad_file' => 'The attachment was not found.',
+    'e_bad_hub' => 'The hub address must start with https://.', 'e_not_hub' => 'That address is not a Sysfera hub.', 'e_storage' => 'The hub could not store the file.', 'e_server_error' => 'The hub had an error. Try again later.',
+    'e_other' => 'Hub error: {k}',
+];

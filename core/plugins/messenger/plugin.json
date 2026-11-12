@@ -1,0 +1,13 @@
+{
+  "slug": "messenger",
+  "version": "0.1.0",
+  "name": { "en": "Sysfera Messenger", "ru": "Sysfera Messenger" },
+  "description": {
+    "en": "Chat with attachments between users of all Sysfera installations. Every user gets a Sysfera ID (12@your-site.ru); messages and files go through the hub on core.sysfera.ru.",
+    "ru": "Чат с вложениями между пользователями всех установок Sysfera. У каждого пользователя есть Sysfera ID (12@ваш-сайт.ru); сообщения и файлы идут через хаб на core.sysfera.ru."
+  },
+  "requires": { "core": ">=0.1.9" },
+  "capabilities": {
+    "messenger.admin": { "en": "Messenger: connect the installation to the hub", "ru": "Мессенджер: подключение установки к хабу" }
+  }
+}

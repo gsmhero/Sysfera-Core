@@ -35,6 +35,8 @@ jobs:
         run: php tests/news.php
       - name: News publisher tests
         run: php tests/newspub.php
+      - name: Messenger and Activity tests
+        run: php tests/messenger.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips
