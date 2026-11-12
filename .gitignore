@@ -7,6 +7,7 @@ core/plugins/*
 !core/plugins/hello/
 !core/plugins/wms/
 !core/plugins/wms-basebase/
+!core/plugins/news-publisher/
 .DS_Store
 Thumbs.db
 *.log

@@ -1,0 +1,13 @@
+{
+  "slug": "news-publisher",
+  "version": "1.0.0",
+  "name": { "en": "Core News publisher", "ru": "Издатель новостей Core" },
+  "description": {
+    "en": "For the Sysfera team: write the news, update notes and warnings that appear in the Core News box on every installation's dashboard. Install it only on the site that serves the update catalog.",
+    "ru": "Для команды Sysfera: пишите новости, заметки об обновлениях и предупреждения, которые показываются в блоке «Новости Core» на главной каждой установки. Ставьте только на сайт, который раздаёт каталог обновлений."
+  },
+  "requires": { "core": ">=0.1.8" },
+  "capabilities": {
+    "news.admin": { "en": "News publisher: write and publish Core News", "ru": "Издатель новостей: писать и публиковать новости Core" }
+  }
+}
