@@ -1,0 +1,112 @@
+name: Deploy to sysfera.ru
+
+# Runs on every push to main. It deploys only when the deploy secrets exist (Settings → Secrets and variables → Actions),
+# so the repository works fine without them. See docs/DEPLOY.md for the list of secrets.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      method:
+        description: Deploy method
+        type: choice
+        options: [ssh, ftp]
+        default: ssh
+
+concurrency: deploy
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, zip, sodium
+
+      - name: Check which deploy method is configured
+        id: cfg
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          METHOD: ${{ github.event.inputs.method }}
+        run: |
+          m=none
+          if [ "$METHOD" = "ftp" ] && [ -n "$FTP_HOST" ]; then m=ftp
+          elif [ -n "$SSH_HOST" ]; then m=ssh
+          elif [ -n "$FTP_HOST" ]; then m=ftp; fi
+          echo "method=$m" >> "$GITHUB_OUTPUT"
+          [ "$m" = none ] && echo "::notice::No SSH_HOST / FTP_HOST secret set - deploy skipped."
+          exit 0
+
+      - name: Build packages and the site folder
+        if: steps.cfg.outputs.method != 'none'
+        env:
+          SYSFERA_UPDATE_BASE: ${{ secrets.SITE_URL }}/updates
+          SYSFERA_SIGN_SECRET: ${{ secrets.UPDATE_SIGN_SECRET }}
+        run: |
+          php tools/build.php
+          mkdir -p site/download site/updates
+          cp index.php .htaccess site/
+          cp -r core site/core
+          find site/core/storage -mindepth 1 ! -name '.htaccess' ! -name '.gitkeep' -delete
+          cp -r dist/updates/. site/updates/
+          cp dist/sysfera-install.php dist/sysfera-*.zip site/download/
+
+      - name: Deploy via SSH (rsync)
+        if: steps.cfg.outputs.method == 'ssh'
+        env:
+          SSHPASS: ${{ secrets.SSH_PASS }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+          DEST: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
+          SSH="ssh -o StrictHostKeyChecking=accept-new -p ${SSH_PORT:-22}"
+          cd site
+          # program files: replaced and cleaned; the data (core/storage) and installed components (core/plugins) are never touched
+          sshpass -e rsync -az --delete --exclude 'storage/' --exclude 'plugins/' -e "$SSH" core/ "$HOST:$DEST/core/"
+          # bundled components: added/updated, never deleted
+          sshpass -e rsync -az -e "$SSH" core/plugins/ "$HOST:$DEST/core/plugins/"
+          sshpass -e rsync -az -e "$SSH" index.php .htaccess "$HOST:$DEST/"
+          sshpass -e rsync -az --delete -e "$SSH" updates/ "$HOST:$DEST/updates/"
+          sshpass -e rsync -az --delete -e "$SSH" download/ "$HOST:$DEST/download/"
+          # the installer is uploaded only while the site is not installed yet
+          if sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "${SSH_PORT:-22}" "$HOST" "test -f '$DEST/core/storage/installed.lock'"; then
+            echo "Already installed - install.php not uploaded."
+          else
+            sshpass -e rsync -az -e "$SSH" ../install.php "$HOST:$DEST/"
+            echo "::notice::First deploy - now open the site /install.php"
+          fi
+
+      - name: Deploy via FTP
+        if: steps.cfg.outputs.method == 'ftp'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          local-dir: site/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            core/storage/**
+            core/plugins/**
+
+      - name: Health check
+        if: steps.cfg.outputs.method != 'none'
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          sleep 5
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$SITE_URL/")
+          echo "GET $SITE_URL/ -> $code"
+          case "$code" in 200|301|302) ;; *) echo "::warning::Unexpected status $code (the site may not be installed yet: open $SITE_URL/install.php)";; esac
+          curl -fsS "$SITE_URL/updates/manifest.json" > /dev/null || echo "::warning::manifest.json is not reachable"

@@ -1,0 +1,16 @@
+# Sysfera — pretty URLs. Real files (install.php, index.php, your own files) are served as they are, everything else goes to index.php.
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_URI} !^/core/
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# core/ holds code, config and backups: never reachable from the web (core/.htaccess repeats this for sub-folder installs)
+<IfModule mod_rewrite.c>
+RewriteRule ^core/ - [F,L]
+</IfModule>

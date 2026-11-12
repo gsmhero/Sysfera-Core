@@ -1,0 +1,13 @@
+{
+  "slug": "hello",
+  "version": "1.0.0",
+  "name": { "en": "Hello (example)", "ru": "Hello (пример)" },
+  "description": {
+    "en": "A tiny example component: notes attached to the shared clients. Copy this folder to start your own component.",
+    "ru": "Крошечный пример компонента: заметки, привязанные к общим клиентам. Скопируйте папку, чтобы начать свой компонент."
+  },
+  "requires": { "core": ">=0.1.0" },
+  "capabilities": {
+    "hello.use": { "en": "Hello: notes", "ru": "Hello: заметки" }
+  }
+}

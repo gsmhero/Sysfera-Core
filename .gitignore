@@ -1,0 +1,10 @@
+/dist/
+/site/
+core/storage/*
+!core/storage/.htaccess
+!core/storage/.gitkeep
+core/plugins/*
+!core/plugins/hello/
+.DS_Store
+Thumbs.db
+*.log

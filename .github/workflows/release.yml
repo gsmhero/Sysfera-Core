@@ -1,0 +1,33 @@
+name: Release
+
+# Push a tag like v0.2.0 (the tag must equal core/VERSION) to publish the packages on GitHub.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, zip, sodium
+      - name: Tag matches core/VERSION
+        run: test "v$(cat core/VERSION | tr -d '[:space:]')" = "${GITHUB_REF_NAME}"
+      - run: php tests/run.php
+      - run: php tools/build.php
+        env:
+          SYSFERA_UPDATE_BASE: ${{ secrets.SITE_URL }}/updates
+          SYSFERA_SIGN_SECRET: ${{ secrets.UPDATE_SIGN_SECRET }}
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/sysfera-install.php
+            dist/sysfera-*.zip
+            dist/updates/core-*.zip
