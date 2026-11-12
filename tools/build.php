@@ -102,11 +102,6 @@ $manifest = [
 ];
 file_put_contents("$dist/updates/manifest.json", json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
 
-/* ---- 6. Core News: news/news.json → updates/news.json (shown on every install's dashboard) ---- */
-$news = is_file("$root/news/news.json") ? json_decode((string)file_get_contents("$root/news/news.json"), true) : [];
-if (!is_array($news)) { fwrite(STDERR, "news/news.json is not valid JSON (expected a list of posts)\n"); exit(1); }
-file_put_contents("$dist/updates/news.json", json_encode(array_values($news), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n");
-
 printf("Sysfera %s built:\n", $ver);
 foreach (array_merge(glob("$dist/*") ?: [], glob("$dist/updates/*") ?: [], glob("$dist/updates/plugins/*") ?: []) as $f) if (is_file($f)) printf("  %-48s %s\n", substr($f, strlen($dist) + 1), human($f));
 function human(string $f): string { $b = filesize($f); return $b > 1048576 ? round($b / 1048576, 1) . ' MB' : round($b / 1024, 1) . ' KB'; }

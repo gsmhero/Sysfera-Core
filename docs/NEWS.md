@@ -1,34 +1,17 @@
 # Core News
 
-A feed on every installation's dashboard (administrators only) for news, update notes and warnings from the Sysfera team.
+A box on every installation's dashboard (administrators only) with news, update notes and warnings from the Sysfera team.
 
-## How to publish a post
-Quickest, with the CLI (run in the repository folder):
-```bash
-php tools/news.php add --type warning --title-ru "Обновите ядро до 31 декабря" --title-en "Update the core before 31 Dec" --body-ru "Подробности…" --body-en "Details…" --expires 2026-12-31
-php tools/news.php list
-php tools/news.php remove <id>
-```
-Options: `--type news|update|warning` (default news), `--title-en/--title-ru` (at least one), `--body-en/--body-ru`, `--url https://…`, `--expires YYYY-MM-DD`, `--pinned`, `--date YYYY-MM-DD` (default today), `--id` (default: date + title). Then commit and push `news/news.json`.
+## How posts are published
+The posts are written in the **Core News publisher** component (`news-publisher`), which you install **only on core.sysfera.ru** (Components → Install). It adds a *Core News* entry to the menu: create, edit, publish/hide and delete posts, with Russian and English text, a type (news / update / warning), an optional expiry date, a "pin" switch and an optional https link. Warnings are red and always on top. Changes are live immediately in the public feed:
 
-Or edit `news/news.json` by hand, commit and push. The build copies it to `updates/news.json` and the deploy publishes it at `https://core.sysfera.ru/updates/news.json`. Installations fetch it at most once an hour (cached in `storage/news.json`; the last copy is shown while the server is unreachable).
+    GET https://core.sysfera.ru/api/news      → JSON list of live posts
 
-```json
-{
-  "id": "2026-12-01-core-0-2",
-  "date": "2026-12-01",
-  "type": "warning",
-  "pinned": false,
-  "expires": "2026-12-31",
-  "title": { "en": "Update core before 31 Dec", "ru": "Обновите ядро до 31 декабря" },
-  "body":  { "en": "Details…", "ru": "Подробности…" },
-  "url": "https://sysfera.ru/news/core-0-2"
-}
-```
-- `type`: `news`, `update` or `warning` (warnings are red and always on top; `pinned: true` pins any post).
-- `expires` (optional) hides the post after that day; `url` must be https; texts are plain (line breaks kept, HTML is shown as text).
-- `title` / `body` may be a plain string or per-language `{en, ru}`; English is the fallback. At most 6 posts are shown — remove old ones or let them expire.
-- The file must stay valid JSON — the build fails otherwise.
+Every installation fetches that address at most once an hour (cached in `storage/news.json`; the last copy is shown while the server is unreachable, and a failing server is not retried for 10 minutes). core.sysfera.ru itself reads its own posts straight from its database.
+
+Post format in the feed: `{"id","date","type":"news|update|warning","pinned","expires","title":{"en","ru"},"body":{"en","ru"},"url"}`. Texts are plain (line breaks kept, HTML shows as text); links must be https; at most 6 posts are shown, so hide or let old ones expire.
 
 ## Privacy and switching off
-The request exposes only the installation's IP address and `User-Agent: Sysfera/<version>`. Administrators can turn the feed off in Settings → Updates. Installations with their own update server read `news.json` next to their `manifest.json`.
+A fetch exposes only the installation's IP address and `User-Agent: Sysfera/<version>`. Administrators can turn the feed off in Settings → Updates. The setting `news_url` (advanced) points an installation to another feed.
+
+The feed is public — never write anything confidential in a post. Demo visitors never get the `news.admin` capability.

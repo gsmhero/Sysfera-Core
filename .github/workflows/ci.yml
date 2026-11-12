@@ -33,6 +33,8 @@ jobs:
         run: php tests/mail.php
       - name: News tests
         run: php tests/news.php
+      - name: News publisher tests
+        run: php tests/newspub.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

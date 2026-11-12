@@ -3,8 +3,10 @@ declare(strict_types=1);
 namespace Sysfera;
 
 /**
- * "Core News": posts published by the Sysfera team (news, updates, warnings), fetched from <update server>/news.json.
- * One small JSON file, cached for an hour; when the server is unreachable the last copy is shown. Switch off in Settings.
+ * "Core News": posts published by the Sysfera team (news, updates, warnings), fetched from https://core.sysfera.ru/api/news
+ * (written in the "Core News publisher" component on that site). Cached for an hour; when the server is unreachable the last copy
+ * is shown. Switch off in Settings; the setting news_url overrides the address. The publisher site itself reads its own posts
+ * through the filter "news.local" instead of calling itself.
  * Post format: {"id","date":"YYYY-MM-DD","type":"news|update|warning","pinned":bool,"expires":"YYYY-MM-DD","title":{"en","ru"},"body":{"en","ru"},"url":"https://…"}
  */
 final class News
@@ -13,17 +15,20 @@ final class News
 
     public static function enabled(): bool { return App::get()->setting('news_enabled', '1') === '1'; }
 
+    public const FEED = 'https://core.sysfera.ru/api/news';
+
     public static function url(): string
     {
-        $m = App::get()->updater()->url();
-        return preg_replace('~/[^/]*$~', '/news.json', $m) ?: '';
+        $o = App::get()->setting('news_url', '');
+        return preg_match('~^https://\S+$~', $o) ? $o : self::FEED;
     }
 
     /** Posts ready to show (current language, newest first, warnings and pinned posts on top). */
     public static function items(string $lang, ?int $now = null): array
     {
         if (!self::enabled()) return [];
-        return self::normalize(self::load(), $lang, $now ?? time());
+        $local = Hooks::filter('news.local', null);   // the publisher site answers from its own database
+        return self::normalize(is_array($local) ? $local : self::load(), $lang, $now ?? time());
     }
 
     /** Pure: clean up raw posts. */
