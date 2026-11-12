@@ -275,6 +275,36 @@ return function (\Sysfera\Plugin $sf): void {
         }
     }
 
+    /* demo mode: wipe the warehouse and load a small believable example */
+    $sf->on('demo.reset', function () use ($sf, $db, $docs) {
+        foreach (['wms_moves', 'wms_doc_lines', 'wms_docs', 'wms_products', 'wms_groups', 'wms_cells', 'wms_zones', 'wms_warehouses'] as $t) $db->q("DELETE FROM {p}$t");
+        $db->q("DELETE FROM {p}settings WHERE k LIKE 'plugin.wms.%'");
+        $ru = \Sysfera\I18n::lang() === 'ru';
+        $db->q('INSERT INTO {p}wms_warehouses (name, code, is_default, address) VALUES (?,?,1,?)', [$sf->t('main_warehouse'), 'MAIN', $ru ? 'Москва, ул. Складская, 1' : 'Warehouse St. 1']);
+        $wh = $db->insertId();
+        $db->q('INSERT INTO {p}wms_groups (name) VALUES (?)', [$ru ? 'Кухня' : 'Kitchen']); $grp = $db->insertId();
+        $items = [   // name, sku, buy, sell, min, qty received
+            [$ru ? 'Кружка керамическая 350 мл' : 'Ceramic mug 350 ml', 'MUG-350', 180, 450, 10, 40],
+            [$ru ? 'Тарелка десертная' : 'Dessert plate', 'PLT-D20', 120, 320, 10, 60],
+            [$ru ? 'Чайник стальной 1,5 л' : 'Steel kettle 1.5 l', 'KTL-15', 900, 2100, 5, 4],
+            [$ru ? 'Набор ножей, 5 предметов' : 'Knife set, 5 pcs', 'KNF-5', 1500, 3900, 3, 12],
+            [$ru ? 'Доска разделочная' : 'Cutting board', 'BRD-01', 250, 690, 8, 0],
+        ];
+        $ids = []; $lines = [];
+        foreach ($items as $n => [$name, $sku, $buy, $sell, $min, $qty]) {
+            $db->q('INSERT INTO {p}wms_products (group_id, name, sku, code, unit, buy_price, sell_price, min_stock, source) VALUES (?,?,?,?,?,?,?,?,?)', [$grp, $name, $sku, str_pad((string)($n + 1), 5, '0', STR_PAD_LEFT), $ru ? 'шт' : 'pcs', $buy, $sell, $min, 'demo']);
+            $ids[] = $db->insertId();
+            if ($qty > 0) $lines[] = ['product_id' => $ids[$n], 'qty' => $qty, 'price' => $buy];
+        }
+        $db->q("INSERT INTO {p}settings (k, v) VALUES ('plugin.wms.counter.product', '5') ON DUPLICATE KEY UPDATE v = '5'");
+        $supplier = $sf->contacts()->create(['type' => 'company', 'name' => $ru ? 'ООО «Керамика»' : 'Ceramics Ltd', 'source' => 'demo', 'custom' => ['roles' => ['supplier']]]);
+        $buyer = $sf->contacts()->create(['type' => 'person', 'name' => $ru ? 'Иван Петров' : 'John Smith', 'phone' => '+7 900 000-00-00', 'source' => 'demo', 'custom' => ['roles' => ['customer']]]);
+        $r = $docs->save(['type' => 'receipt', 'warehouse_id' => $wh, 'contact_id' => $supplier, 'moment' => date('Y-m-d H:i:s', time() - 86400), 'comment' => $ru ? 'Первоначальный приход' : 'Initial receipt'], $lines);
+        $docs->post($r);
+        $so = $docs->save(['type' => 'sale', 'warehouse_id' => $wh, 'contact_id' => $buyer, 'moment' => date('Y-m-d H:i:s')], [['product_id' => $ids[2], 'qty' => 2, 'price' => 2100], ['product_id' => $ids[0], 'qty' => 6, 'price' => 450]]);
+        $docs->post($so);
+    });
+
     /* services other components (e.g. wms-basebase) may use; they get them through Hooks::filter('wms.services', []) */
     $sf->on('wms.services', fn(array $s) => $s + ['docs' => $docs, 'stock' => $stock, 'db' => $db]);
 

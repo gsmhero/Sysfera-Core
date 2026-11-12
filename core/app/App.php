@@ -111,6 +111,7 @@ final class App
         date_default_timezone_set($this->setting('timezone', 'UTC') ?: 'UTC');
         (require SF_ROOT . '/app/routes.php')($this);
         $this->plugins()->boot();
+        Demo::tick($this);
         Hooks::do('app.booted', $this);
 
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';

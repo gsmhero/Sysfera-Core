@@ -48,6 +48,11 @@ return [
     'settings.updates' => 'Updates', 'settings.update_url' => 'Update server (manifest URL)',
     'settings.update_hint' => 'Leave empty to use the official server. Only HTTPS addresses are accepted for downloads.',
     'settings.saved' => 'Settings saved.',
+    'settings.demo' => 'Demo mode', 'settings.demo_on' => 'Turn this site into a public demo',
+    'settings.demo_hint' => 'Registration becomes open, new visitors get access to every component, and all visitor data is wiped on a schedule. Administrators and settings stay. Do not enable on a real working site.',
+    'settings.demo_hours' => 'Reset every (hours)', 'settings.demo_reset' => 'Reset the demo now', 'settings.demo_reset_hint' => 'Deletes all visitor accounts and component data and loads sample data. Type RESET to confirm.',
+    'settings.demo_reset_btn' => 'Reset demo', 'settings.demo_confirm_bad' => 'Type RESET to confirm.', 'settings.demo_done' => 'Demo data was reset.',
+    'demo.title' => 'Demo.', 'demo.text' => 'Everything here is sample data and is wiped every {h} h (next reset about {at}). Please do not enter real personal data.',
 
     'plugins.hint' => 'Components add features to Sysfera: warehouse, CRM, accounting, vacancies… They all share the same clients, orders and invoices.',
     'plugins.installed' => 'Installed', 'plugins.none_installed' => 'Nothing installed yet.',

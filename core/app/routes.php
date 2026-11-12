@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use Sysfera\{App, Hooks, I18n, Plugins, View};
+use Sysfera\{App, Demo, Hooks, I18n, Plugins, View};
 
 /** Core pages. Plugins add their own under /p/<slug>/... */
 return function (App $app): void {
@@ -40,12 +40,12 @@ return function (App $app): void {
 
     $r->add('*', '/register', function () use ($app, $auth) {
         if ($auth->user()) redirect('/');
-        $open = $app->setting('registration', '0') === '1';
+        $open = $app->setting('registration', '0') === '1' || Demo::on();
         $err = null;
         if ($open && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $res = $auth->register((string)($_POST['email'] ?? ''), (string)($_POST['name'] ?? ''), (string)($_POST['password'] ?? ''), 'user', I18n::lang());
             if (is_int($res)) {
-                $caps = json_decode($app->setting('default_caps', '[]'), true) ?: [];
+                $caps = Demo::on() ? Demo::caps($app) : (json_decode($app->setting('default_caps', '[]'), true) ?: []);
                 $app->db()->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode(array_values($caps)), $res]);
                 $auth->start($res); flash(t('auth.welcome')); redirect('/');
             }
@@ -131,6 +131,13 @@ return function (App $app): void {
     /* ---------- settings ---------- */
     $r->add('*', '/settings', function () use ($app) {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            if (($_POST['do'] ?? '') === 'demo_reset') {
+                if (!Demo::on() || ($_POST['confirm'] ?? '') !== 'RESET') { flash(t('settings.demo_confirm_bad'), 'bad'); redirect('/settings'); }
+                Demo::reset($app); flash(t('settings.demo_done')); redirect('/settings');
+            }
+            $app->setSetting('demo_mode', !empty($_POST['demo_mode']) ? '1' : '0');
+            if (in_array((int)($_POST['demo_hours'] ?? 0), Demo::HOURS, true)) $app->setSetting('demo_hours', (string)(int)$_POST['demo_hours']);
+            if (!empty($_POST['demo_mode']) && $app->setting('demo_last_reset', '0') === '0') $app->setSetting('demo_last_reset', (string)time());
             $name = trim((string)($_POST['site_name'] ?? ''));
             $app->setSetting('site_name', $name !== '' ? mb_substr($name, 0, 80) : 'Sysfera');
             if (isset(I18n::languages()[$_POST['default_lang'] ?? ''])) $app->setSetting('default_lang', $_POST['default_lang']);

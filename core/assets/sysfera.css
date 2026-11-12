@@ -49,3 +49,5 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 @media (prefers-color-scheme:dark){.lg-a{fill:#c4c9d2}.lg-b{fill:#fff}}
 .side .logo{height:30px;margin:0 8px}.side .lg-a{fill:#c4c9d2}.side .lg-b{fill:#fff}
 .auth-box .wordmark{display:block}.auth-box .logo{height:46px;margin:0 auto 4px}
+
+.demo-bar{background:var(--warnbg);color:var(--ink);border-radius:var(--r);padding:9px 14px;margin:0 0 14px;font-size:13.5px}

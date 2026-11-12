@@ -14,5 +14,15 @@ $app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps'
   <h3><?= e(t('settings.updates')) ?></h3>
   <label class="fld"><span><?= e(t('settings.update_url')) ?></span><input name="update_url" value="<?= e($app->setting('update_url', '')) ?>" placeholder="<?= e(\Sysfera\Updater::DEFAULT_URL) ?>"></label>
   <p class="muted sm"><?= e(t('settings.update_hint')) ?></p>
-  <button class="btn primary"><?= e(t('common.save')) ?></button>
+  <h3><?= e(t('settings.demo')) ?></h3>
+  <p class="muted sm"><?= e(t('settings.demo_hint')) ?></p>
+  <label class="chk"><input type="checkbox" name="demo_mode" value="1" <?= \Sysfera\Demo::on() ? 'checked' : '' ?>> <?= e(t('settings.demo_on')) ?></label>
+  <label class="fld inline"><span><?= e(t('settings.demo_hours')) ?></span><select name="demo_hours"><?php foreach (\Sysfera\Demo::HOURS as $h): ?><option <?= \Sysfera\Demo::hours() === $h ? 'selected' : '' ?>><?= $h ?></option><?php endforeach; ?></select></label>
+  <div style="margin-top:14px"><button class="btn primary"><?= e(t('common.save')) ?></button></div>
 </form>
+<?php if (\Sysfera\Demo::on()): ?>
+<form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="demo_reset">
+  <h3><?= e(t('settings.demo_reset')) ?></h3><p class="muted sm"><?= e(t('settings.demo_reset_hint')) ?></p>
+  <div class="row"><input name="confirm" placeholder="RESET" style="max-width:160px" autocomplete="off"><button class="btn danger"><?= e(t('settings.demo_reset_btn')) ?></button></div>
+</form>
+<?php endif; ?>

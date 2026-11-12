@@ -151,6 +151,11 @@ return function (\Sysfera\Plugin $sf): void {
         $json(['ok' => true, 'new_items' => $new, 'products_ok' => $push['ok'], 'products_failed' => $push['failed']]);
     });
 
+    /* ================= demo mode ================= */
+    // visitors of a public demo must not push demo data to a real Basebase account; the owner's connection settings survive a reset
+    $sf->on('demo.reset', function () use ($db) { foreach (['wmsbb_products', 'wmsbb_items', 'wmsbb_events'] as $t) $db->q("DELETE FROM {p}$t"); });
+    \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['wmsbb.use', 'wmsbb.admin'])));
+
     /* ================= react to the warehouse ================= */
     $sf->on('wms.doc_changed', function (int $id, string $action) use ($sync, $client) {
         if (!$client->configured()) return;

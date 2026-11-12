@@ -39,6 +39,7 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
     </div>
   </aside>
   <main class="main">
+    <?php if (\Sysfera\Demo::on()): ?><div class="demo-bar"><b><?= e(t('demo.title')) ?></b> <?= e(t('demo.text', ['h' => \Sysfera\Demo::hours(), 'at' => date('H:i', \Sysfera\Demo::nextReset())])) ?></div><?php endif; ?>
     <?php foreach ($flashes as [$ft, $fm]): ?><div class="flash <?= e($ft) ?>"><?= e($fm) ?></div><?php endforeach; ?>
     <?= $content ?>
   </main>
