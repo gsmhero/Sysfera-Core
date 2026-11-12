@@ -57,6 +57,15 @@ foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(SF_ROOT . 
 foreach (glob(SF_ROOT . '/views/*.php') as $f) { preg_match_all("/\bt\('([a-z_0-9]+\.[a-z_0-9]+)'/", (string)file_get_contents($f), $m); foreach ($m[1] as $k) if (!isset($en[$k])) $missing[$k] = 1; }
 ok(!$missing, 'i18n: every t() key used in core exists in en.php' . ($missing ? ' (missing: ' . implode(', ', array_keys($missing)) . ')' : ''));
 
+/* landing page: every component has a title and a description in every language */
+$en = require SF_ROOT . '/lang/en.php'; $ru = require SF_ROOT . '/lang/ru.php';
+$miss = [];
+foreach (\Sysfera\Landing::components() as $c) foreach (['', '_d'] as $sfx) foreach (['en' => $en, 'ru' => $ru] as $l => $d) if (empty($d['land.c.' . $c['slug'] . $sfx])) $miss[] = "$l:" . $c['slug'] . $sfx;
+ok(!$miss, 'landing: all component texts exist in en and ru' . ($miss ? ' (missing ' . implode(', ', $miss) . ')' : ''));
+$lk = fn(array $d) => array_keys(array_filter($d, fn($k) => str_starts_with($k, 'land.'), ARRAY_FILTER_USE_KEY));
+ok($lk($en) === $lk($ru) || array_diff($lk($en), $lk($ru)) === [], 'landing: en and ru have the same keys');
+ok(\Sysfera\Landing::enabled(null) && \Sysfera\Landing::enabled('1') && !\Sysfera\Landing::enabled('0'), 'landing: on by default, off only when set to 0');
+
 /* plugin manifests */
 foreach (glob(SF_ROOT . '/plugins/*/plugin.json') as $f) ok(Plugins::readManifest($f) !== null, 'manifest valid: ' . basename(dirname($f)));
 

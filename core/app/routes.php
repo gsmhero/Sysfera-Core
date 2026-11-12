@@ -56,6 +56,11 @@ return function (App $app): void {
 
     /* ---------- dashboard & profile ---------- */
     $r->add('GET', '/', function () use ($app, $auth) {
+        if (!$auth->user()) {                                  // guests: public landing page (or the sign-in form if switched off)
+            if (!\Sysfera\Landing::enabled($app->setting('landing', '1'))) redirect('/login');
+            echo View::file(SF_ROOT . '/views/landing.php', ['open' => $app->setting('registration', '0') === '1' || Demo::on(), 'siteName' => $app->setting('site_name', 'Sysfera')]);
+            return;
+        }
         $widgets = Hooks::filter('dashboard.widgets', []);
         View::render('dashboard', [
             'counts' => ['contacts' => $app->contacts()->count(), 'orders' => $app->orders()->count(), 'invoices' => $app->invoices()->count()],
@@ -67,7 +72,7 @@ return function (App $app): void {
                 return $pg + ['all' => $all, 'from' => $d('nf'), 'to' => $d('nt')];
             })() : [],
         ], t('nav.dashboard'));
-    }, ['auth' => true]);
+    });
 
     $r->add('*', '/profile', function () use ($auth, $db) {
         $u = $auth->user();
@@ -164,6 +169,7 @@ return function (App $app): void {
             $tz = (string)($_POST['timezone'] ?? 'UTC');
             $app->setSetting('timezone', in_array($tz, timezone_identifiers_list(), true) ? $tz : 'UTC');
             $app->setSetting('registration', !empty($_POST['registration']) ? '1' : '0');
+            $app->setSetting('landing', !empty($_POST['landing']) ? '1' : '0');
             $app->setSetting('default_caps', json_encode(array_values(array_intersect((array)($_POST['default_caps'] ?? []), array_keys($app->plugins()->capabilities())))));
             $url = trim((string)($_POST['update_url'] ?? ''));
             $app->setSetting('update_url', preg_match('~^https?://~', $url) ? $url : '');

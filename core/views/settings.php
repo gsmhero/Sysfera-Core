@@ -7,6 +7,8 @@ $app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps'
     <label class="fld"><span><?= e(t('settings.default_lang')) ?></span><select name="default_lang"><?php foreach ($langs as $c => $n): ?><option value="<?= e($c) ?>" <?= $app->setting('default_lang', 'en') === $c ? 'selected' : '' ?>><?= e($n) ?></option><?php endforeach; ?></select></label>
     <label class="fld"><span><?= e(t('settings.timezone')) ?></span><select name="timezone"><?php foreach (timezone_identifiers_list() as $tz): ?><option <?= $app->setting('timezone', 'UTC') === $tz ? 'selected' : '' ?>><?= e($tz) ?></option><?php endforeach; ?></select></label>
   </div>
+  <label class="chk"><input type="checkbox" name="landing" value="1" <?= $app->setting('landing', '1') !== '0' ? 'checked' : '' ?>> <?= e(t('settings.landing_on')) ?></label>
+  <p class="muted sm"><?= e(t('settings.landing_hint')) ?></p>
   <h3><?= e(t('settings.registration')) ?></h3>
   <p class="muted sm"><?= e(t('settings.registration_hint')) ?></p>
   <label class="chk"><input type="checkbox" name="registration" value="1" <?= $app->setting('registration', '0') === '1' ? 'checked' : '' ?>> <?= e(t('settings.registration_open')) ?></label>

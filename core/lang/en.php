@@ -2,6 +2,24 @@
 /* English — the reference language. To add a language: copy this file to lang/xx.php (xx = language code), translate the
    values, keep the keys and {placeholders}. It then appears in every language switcher automatically. */
 return [
+    /* public landing page */
+    'settings.landing_on' => 'Show a public home page to visitors who are not signed in', 'settings.landing_hint' => 'Off: visitors go straight to the sign-in form.',
+    'land.tagline' => 'a modular business platform', 'land.nav_components' => 'Components', 'land.nav_how' => 'How it works', 'land.soon' => 'soon',
+    'land.h1' => 'Everything your business needs — one platform, built from parts', 'land.lead' => 'Sysfera is a modular platform on PHP and MySQL. Install the core and add only the components you need: warehouse, integrations, messenger, activity feed and more.',
+    'land.cta_register' => 'Create account', 'land.cta_login' => 'Sign in',
+    'land.pt1' => 'Runs on ordinary web hosting', 'land.pt2' => 'Components switch on and off in one click', 'land.pt3' => 'Updates straight from the panel',
+    'land.comp_h' => 'Sysfera components', 'land.comp_p' => 'Each component works on its own and plays well with the others.',
+    'land.c.wms' => 'Warehouse (WMS)', 'land.c.wms_d' => 'Products, warehouses with zones and cells, stock, receipts, write-offs, transfers, inventory counts, orders and shipments, reports.',
+    'land.c.basebase' => 'Basebase connector', 'land.c.basebase_d' => 'Publish warehouse products on the Basebase marketplace, sync stock and receive orders automatically.',
+    'land.c.messenger' => 'Messenger', 'land.c.messenger_d' => 'Chat with attachments between users of all Sysfera installations. Every user has a Sysfera ID.',
+    'land.c.activity' => 'Activity', 'land.c.activity_d' => 'Short posts from users of all sites, a scrolling ticker on the dashboard and an embed code for any page.',
+    'land.c.news' => 'News', 'land.c.news_d' => 'Publish news for your users and receive Sysfera core news with every update.',
+    'land.c.accounting' => 'Accounting', 'land.c.accounting_d' => 'Income and expenses, invoices and reports for small business.',
+    'land.c.crm' => 'CRM', 'land.c.crm_d' => 'Customers, deals and conversation history in one place.',
+    'land.c.vacancy' => 'Vacancy Manager', 'land.c.vacancy_d' => 'Publish vacancies, collect applications and track hiring stages.',
+    'land.how_h' => 'Getting started', 'land.s1' => 'Install the core', 'land.s1d' => 'Upload Sysfera to your hosting and follow the installer.',
+    'land.s2' => 'Pick components', 'land.s2d' => 'In Components install only what your business needs.',
+    'land.s3' => 'Work and stay up to date', 'land.s3d' => 'New versions of the core and components install from the panel in one click.',
     '_name' => 'English',
 
     'common.save' => 'Save', 'common.delete' => 'Delete', 'common.cancel' => 'Cancel',
