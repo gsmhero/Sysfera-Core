@@ -60,7 +60,12 @@ return function (App $app): void {
         View::render('dashboard', [
             'counts' => ['contacts' => $app->contacts()->count(), 'orders' => $app->orders()->count(), 'invoices' => $app->invoices()->count()],
             'plugins' => array_filter($app->plugins()->available(), fn($m) => $app->plugins()->isEnabled($m['slug'])),
-            'widgets' => $widgets, 'isAdmin' => $auth->isAdmin(), 'news' => $auth->isAdmin() ? \Sysfera\News::items(I18n::lang()) : [],
+            'widgets' => $widgets, 'isAdmin' => $auth->isAdmin(), 'news' => $auth->isAdmin() ? (function () {
+                $all = \Sysfera\News::items(I18n::lang());
+                $d = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_GET[$k] ?? '')) ? (string)$_GET[$k] : '';
+                $pg = \Sysfera\News::paginate($all, (int)($_GET['npp'] ?? 5), (int)($_GET['np'] ?? 1), $d('nf') ?: null, $d('nt') ?: null);
+                return $pg + ['all' => $all, 'from' => $d('nf'), 'to' => $d('nt')];
+            })() : [],
         ], t('nav.dashboard'));
     }, ['auth' => true]);
 

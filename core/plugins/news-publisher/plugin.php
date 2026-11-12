@@ -9,14 +9,34 @@ return function (\Sysfera\Plugin $sf): void {
     $db = $sf->db();
     $uid = fn() => $sf->auth()->id() ?: null;
     $go = fn(string $p = '') => redirect('/p/news-publisher/' . ltrim($p, '/'));
-    $live = fn(): array => $db->rows('SELECT * FROM {p}news_posts WHERE published = 1 AND (expires IS NULL OR expires >= CURDATE()) ORDER BY pinned DESC, post_date DESC, id DESC LIMIT 30');
+    $live = fn(): array => $db->rows('SELECT * FROM {p}news_posts WHERE published = 1 AND (expires IS NULL OR expires >= CURDATE()) ORDER BY pinned DESC, post_date DESC, id DESC LIMIT 200');
+
+    /* After every core update on this site: write the "Update" post by itself (once per version, from the release notes in updates/manifest.json). */
+    try {
+        $app = \Sysfera\App::get();
+        if ($app->setting('news_pub_version', '') !== SF_VERSION) {
+            $mf = json_decode((string)@file_get_contents(dirname(SF_ROOT) . '/updates/manifest.json'), true);
+            $notes = is_array($mf) && ($mf['core']['version'] ?? '') === SF_VERSION && is_array($mf['core']['notes'] ?? null) ? $mf['core']['notes'] : [];
+            $v = Feed::updatePost(SF_VERSION, $notes, date('Y-m-d'));
+            $cols = array_keys($v);
+            $db->q('INSERT IGNORE INTO {p}news_posts (' . implode(',', $cols) . ') VALUES (' . implode(',', array_fill(0, count($cols), '?')) . ')', array_values($v));
+            $app->setSetting('news_pub_version', SF_VERSION);
+        }
+    } catch (\Throwable $e) { /* table not migrated yet: try again on the next request */ }
 
     $sf->menu('menu', '/', ['cap' => 'news.admin', 'order' => 15, 'icon' => 'refresh']);
 
     /* ---------- admin pages ---------- */
     $sf->route('GET', '/', function () use ($sf, $db, $live) {
-        $rows = $db->rows('SELECT * FROM {p}news_posts ORDER BY post_date DESC, id DESC LIMIT 200');
-        $sf->render('index', ['rows' => $rows, 'liveCount' => count($live()), 'feed' => 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . url('/api/news')], $sf->t('title'));
+        $d = fn(string $k) => Feed::isDate((string)($_GET[$k] ?? '')) ? (string)$_GET[$k] : '';
+        $from = $d('from'); $to = $d('to');
+        $per = in_array((int)($_GET['per'] ?? 5), [5, 20, 50], true) ? (int)($_GET['per'] ?? 5) : 5;
+        $where = ' WHERE 1=1' . ($from !== '' ? ' AND post_date >= ?' : '') . ($to !== '' ? ' AND post_date <= ?' : '');
+        $args = array_values(array_filter([$from, $to], fn($x) => $x !== ''));
+        $total = (int)$db->val('SELECT COUNT(*) FROM {p}news_posts' . $where, $args);
+        $pages = max(1, (int)ceil($total / $per)); $page = min(max(1, (int)($_GET['page'] ?? 1)), $pages);
+        $rows = $db->rows('SELECT * FROM {p}news_posts' . $where . ' ORDER BY post_date DESC, id DESC LIMIT ' . $per . ' OFFSET ' . (($page - 1) * $per), $args);
+        $sf->render('index', ['rows' => $rows, 'total' => $total, 'pages' => $pages, 'page' => $page, 'per' => $per, 'from' => $from, 'to' => $to,'liveCount' => count($live()), 'feed' => 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . url('/api/news')], $sf->t('title'));
     }, ['cap' => 'news.admin']);
 
     $sf->route('GET', '/edit', function () use ($sf, $db) {

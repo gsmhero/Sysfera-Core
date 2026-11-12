@@ -2,6 +2,7 @@
 return [
     'menu' => 'Core News', 'title' => 'Core News', 'new_post' => 'New post', 'edit_post' => 'Edit post',
     'hint' => 'Administrators of every Sysfera installation see these posts on their dashboard (the “Core News” box). Live now: {n}. Changes reach installations within an hour.',
+    'per' => 'Per page', 'from' => 'From', 'to' => 'To', 'apply' => 'Show', 'reset' => 'Reset dates',
     'none' => 'No posts yet', 'none_hint' => 'Write the first news item, update note or warning.',
     'col_post' => 'Post', 'col_type' => 'Type', 'col_date' => 'Date', 'col_status' => 'Status',
     'type_news' => 'News', 'type_update' => 'Update', 'type_warning' => 'Warning',

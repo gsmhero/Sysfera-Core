@@ -27,5 +27,9 @@ ok($v['type'] === 'news', 'unknown type becomes news');
 ok(str_starts_with($v['slug'], '2026-01-01-') && strlen($v['slug']) > 11, 'Cyrillic-only title still gets a slug');
 ok(Feed::isDate('2026-02-28') && !Feed::isDate('2026-13-01') && !Feed::isDate('26-1-1'), 'date check');
 
+$u = Feed::updatePost('0.1.9', ['en' => 'Notes', 'ru' => ''], '2026-11-12');
+ok($u['slug'] === 'core-0.1.9' && $u['type'] === 'update' && $u['published'] === 1 && $u['body_en'] === 'Notes' && str_contains($u['body_ru'], '0.1.9') && str_contains($u['title_en'], '0.1.9'), 'automatic update post: fixed slug, notes or a default text');
+ok(Feed::updatePost('1.0.0', [], '2026-01-01')['body_en'] !== '', 'update post without release notes still has text');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

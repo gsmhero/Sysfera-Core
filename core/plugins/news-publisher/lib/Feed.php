@@ -39,6 +39,22 @@ final class Feed
         ], $e];
     }
 
+    /**
+     * Pure: the "Update" post written automatically after a core update. $notes = ['en'=>…,'ru'=>…] release notes (may be empty).
+     * The slug is fixed per version, so it can never be created twice.
+     */
+    public static function updatePost(string $version, array $notes, string $date): array
+    {
+        $en = trim((string)($notes['en'] ?? '')); $ru = trim((string)($notes['ru'] ?? ''));
+        return [
+            'slug' => 'core-' . $version, 'type' => 'update', 'pinned' => 0, 'published' => 1, 'post_date' => $date, 'expires' => null,
+            'title_en' => 'Sysfera Core ' . $version . ' released', 'title_ru' => 'Вышла Sysfera Core ' . $version,
+            'body_en' => mb_substr($en !== '' ? $en : 'Core was updated to version ' . $version . '. Open Updates to install it.', 0, 1500),
+            'body_ru' => mb_substr($ru !== '' ? $ru : 'Вышла новая версия ядра ' . $version . '. Установите её на странице «Обновления».', 0, 1500),
+            'url' => null,
+        ];
+    }
+
     public static function isDate(string $s): bool { return (bool)preg_match('/^\d{4}-\d{2}-\d{2}$/', $s) && checkdate((int)substr($s, 5, 2), (int)substr($s, 8, 2), (int)substr($s, 0, 4)); }
 
     public static function slug(string $date, string $title): string

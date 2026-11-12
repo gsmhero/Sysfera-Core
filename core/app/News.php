@@ -11,7 +11,8 @@ namespace Sysfera;
  */
 final class News
 {
-    private const TTL = 3600, RETRY = 600, MAX = 6;
+    private const TTL = 3600, RETRY = 600, MAX = 200;
+    public const PER_PAGE = [5, 20, 50];
 
     public static function enabled(): bool { return App::get()->setting('news_enabled', '1') === '1'; }
 
@@ -29,6 +30,20 @@ final class News
         if (!self::enabled()) return [];
         $local = Hooks::filter('news.local', null);   // the publisher site answers from its own database
         return self::normalize(is_array($local) ? $local : self::load(), $lang, $now ?? time());
+    }
+
+    /**
+     * Pure: filter by post date (inclusive, Y-m-d) and cut one page.
+     * @return array{items:array,total:int,pages:int,page:int,per:int}
+     */
+    public static function paginate(array $items, int $per = 5, int $page = 1, ?string $from = null, ?string $to = null): array
+    {
+        $per = in_array($per, self::PER_PAGE, true) ? $per : self::PER_PAGE[0];
+        $ok = fn(?string $d) => $d !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) === 1;
+        if ($ok($from)) $items = array_values(array_filter($items, fn($p) => $p['date'] >= $from));
+        if ($ok($to)) $items = array_values(array_filter($items, fn($p) => $p['date'] <= $to));
+        $total = count($items); $pages = max(1, (int)ceil($total / $per)); $page = min(max(1, $page), $pages);
+        return ['items' => array_slice($items, ($page - 1) * $per, $per), 'total' => $total, 'pages' => $pages, 'page' => $page, 'per' => $per];
     }
 
     /** Pure: clean up raw posts. */
@@ -65,7 +80,7 @@ final class News
         $url = self::url();
         if (!preg_match('~^https://~', $url)) return $cached;
         $ctx = stream_context_create(['http' => ['timeout' => 3, 'follow_location' => 1, 'max_redirects' => 2, 'user_agent' => 'Sysfera/' . SF_VERSION, 'ignore_errors' => true], 'ssl' => ['verify_peer' => true]]);
-        $body = @file_get_contents($url, false, $ctx, 0, 200000);
+        $body = @file_get_contents($url, false, $ctx, 0, 1000000);
         $data = $body !== false ? json_decode($body, true) : null;
         $ok = is_array($data) && isset($http_response_header[0]) && str_contains($http_response_header[0], ' 200');
         if (!$ok) return $cached;
