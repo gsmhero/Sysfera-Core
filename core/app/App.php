@@ -95,7 +95,9 @@ final class App
         set_exception_handler(function (\Throwable $e) {
             self::log((string)$e);
             http_response_code(500);
-            echo '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;padding:40px"><h1>Error</h1><p>' . e(!empty($this->cfg['debug']) ? $e->getMessage() : 'Something went wrong. See storage/error.log') . '</p>';
+            $admin = false; try { $admin = $this->auth()->isAdmin(); } catch (\Throwable) {}
+            $detail = (!empty($this->cfg['debug']) || $admin) ? get_class($e) . ': ' . $e->getMessage() . "\n" . str_replace(SF_ROOT, 'core', $e->getFile()) . ':' . $e->getLine() : 'Something went wrong. See storage/error.log';   // administrators see the cause, visitors do not
+            echo '<!doctype html><meta charset="utf-8"><body style="font-family:system-ui;padding:40px"><h1>Error</h1><pre style="white-space:pre-wrap;font:14px/1.5 ui-monospace,Consolas,monospace">' . e($detail) . '</pre>';
         });
         if (is_file(SF_ROOT . '/storage/maintenance.flag') && time() - (int)@file_get_contents(SF_ROOT . '/storage/maintenance.flag') < 600) {
             http_response_code(503); header('Retry-After: 60');

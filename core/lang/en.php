@@ -48,6 +48,7 @@ return [
     'settings.updates' => 'Updates', 'settings.update_url' => 'Update server (manifest URL)',
     'settings.update_hint' => 'Leave empty to use the official server. Only HTTPS addresses are accepted for downloads.',
     'settings.saved' => 'Settings saved.',
+    'log.title' => 'Error log', 'log.hint' => 'The latest entries of storage/error.log. Send these lines to support when something does not work.', 'log.empty' => 'No errors recorded.', 'log.clear' => 'Clear log', 'log.cleared' => 'Log cleared.',
     'mail.title' => 'Email (SMTP)', 'mail.hint' => 'Used for notifications to administrators and by components. Ask your mail provider for these details. Settings are saved together; the password stays unchanged when left empty.',
     'mail.host' => 'SMTP server', 'mail.port' => 'Port', 'mail.secure' => 'Encryption', 'mail.secure_auto' => 'Automatic (by port)', 'mail.secure_none' => 'None',
     'mail.user' => 'Login', 'mail.pass' => 'Password', 'mail.pass_saved' => 'saved — type to replace', 'mail.from' => 'Sender address', 'mail.from_name' => 'Sender name',

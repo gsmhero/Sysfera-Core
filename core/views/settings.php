@@ -45,3 +45,11 @@ $app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps'
   <label class="fld"><span><?= e(t('mail.notify')) ?></span><input name="notify_email" value="<?= e($app->setting('notify_email')) ?>" placeholder="<?= e(t('mail.notify_ph')) ?>"></label>
   <div class="row"><button class="btn primary" name="do" value="mail_save"><?= e(t('common.save')) ?></button><button class="btn" name="do" value="mail_test"><?= e(t('mail.test_btn')) ?></button></div>
 </form>
+
+<?php $logFile = SF_ROOT . '/storage/error.log'; $log = '';
+if (is_file($logFile)) { $sz = (int)filesize($logFile); $fh = @fopen($logFile, 'rb'); if ($fh) { if ($sz > 12000) fseek($fh, -12000, SEEK_END); $log = (string)stream_get_contents($fh); fclose($fh); } } ?>
+<form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="log_clear">
+  <h3><?= e(t('log.title')) ?></h3><p class="muted sm"><?= e(t('log.hint')) ?></p>
+  <?php if ($log === ''): ?><p class="muted"><?= e(t('log.empty')) ?></p>
+  <?php else: ?><pre class="logbox"><?= e(implode("\n", array_slice(explode("\n", trim($log)), -60))) ?></pre><button class="btn danger"><?= e(t('log.clear')) ?></button><?php endif; ?>
+</form>

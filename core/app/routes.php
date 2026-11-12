@@ -135,6 +135,7 @@ return function (App $app): void {
                 if (!Demo::on() || ($_POST['confirm'] ?? '') !== 'RESET') { flash(t('settings.demo_confirm_bad'), 'bad'); redirect('/settings'); }
                 Demo::reset($app); flash(t('settings.demo_done')); redirect('/settings');
             }
+            if (($_POST['do'] ?? '') === 'log_clear') { @file_put_contents(SF_ROOT . '/storage/error.log', ''); flash(t('log.cleared')); redirect('/settings'); }
             if (in_array($_POST['do'] ?? '', ['mail_save', 'mail_test'], true)) {
                 $set = fn(string $k, int $max = 190) => $app->setSetting($k, mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max));
                 $set('smtp_host'); $set('smtp_user'); $set('smtp_from'); $set('smtp_from_name', 80); $set('notify_email', 300);
