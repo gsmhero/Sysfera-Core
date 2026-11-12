@@ -1,0 +1,8 @@
+/* Sysfera WMS → Basebase (extends wms.css) */
+.steps-l{margin:0 0 14px;padding-left:22px;display:grid;gap:6px}.steps-l li.done{color:var(--ok)}.steps-l li.done::marker{content:"✓ "}.steps-l.small{font-size:13.5px;color:var(--mut)}
+.bb-setup{max-width:640px}
+.bbcode{display:block;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:12.5px/1.45 ui-monospace,Menlo,Consolas,monospace;word-break:break-all;user-select:all}
+.bbcat input[type=checkbox]{width:18px;height:18px}.bbcat td input:not([type=checkbox]){min-width:150px}
+.bbimg{margin-top:4px}.bbimg summary{cursor:pointer;color:var(--mut);font-size:12.5px}.bbimg textarea{margin-top:4px;font-size:13px}
+.warnbox{background:var(--warnbg);border-color:transparent;color:var(--ink)}
+.nowrap{white-space:nowrap}

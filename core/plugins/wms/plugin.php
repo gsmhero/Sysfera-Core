@@ -275,6 +275,9 @@ return function (\Sysfera\Plugin $sf): void {
         }
     }
 
+    /* services other components (e.g. wms-basebase) may use; they get them through Hooks::filter('wms.services', []) */
+    $sf->on('wms.services', fn(array $s) => $s + ['docs' => $docs, 'stock' => $stock, 'db' => $db]);
+
     $sf->on('dashboard.widgets', function (array $w) use ($sf, $stock) {
         if (!$sf->can('wms.use')) return $w;
         $t = $stock->totals();

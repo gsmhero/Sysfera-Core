@@ -162,6 +162,7 @@ final class Docs
             $this->db->q("UPDATE {p}wms_docs SET status = 'posted', posted_at = NOW() WHERE id = ?", [$id]);
             $pdo->commit();
         } catch (\Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
+        try { \Sysfera\Hooks::do('wms.doc_changed', $id, 'post'); } catch (\Throwable $e) { /* integrations must never break posting */ }
         return [];
     }
 
@@ -179,6 +180,7 @@ final class Docs
         }
         $this->db->q('DELETE FROM {p}wms_moves WHERE doc_id = ?', [$id]);
         $this->db->q('UPDATE {p}wms_docs SET status = ?, posted_at = NULL WHERE id = ?', [$cancel ? 'cancelled' : 'draft', $id]);
+        try { \Sysfera\Hooks::do('wms.doc_changed', $id, $cancel ? 'cancel' : 'unpost'); } catch (\Throwable $e) { /* integrations must never break posting */ }
         return [];
     }
 

@@ -16,6 +16,12 @@ final class Plugin
         $this->app->router()->add($method, '/p/' . $this->slug . '/' . ltrim($path, '/'), $fn, $opt + ['plugin' => $this->slug, 'cap' => null, 'auth' => true]);
     }
 
+    /** Machine endpoint at /api/<path> (no login, no CSRF) for webhooks and integrations. The handler MUST verify the caller itself (e.g. an HMAC signature). */
+    public function api(string $method, string $path, callable $fn): void
+    {
+        $this->app->router()->add($method, '/api/' . ltrim($path, '/'), $fn, ['plugin' => $this->slug, 'cap' => null, 'auth' => false, 'csrf' => false]);
+    }
+
     /** Sidebar entry. $label is a translation key of this plugin (e.g. "menu") or plain text. */
     public function menu(string $label, string $path, array $opt = []): void
     {
