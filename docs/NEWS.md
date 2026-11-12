@@ -3,7 +3,15 @@
 A feed on every installation's dashboard (administrators only) for news, update notes and warnings from the Sysfera team.
 
 ## How to publish a post
-Edit `news/news.json` in the repository, commit and push. The build copies it to `updates/news.json` and the deploy publishes it at `https://core.sysfera.ru/updates/news.json`. Installations fetch it at most once an hour (cached in `storage/news.json`; the last copy is shown while the server is unreachable).
+Quickest, with the CLI (run in the repository folder):
+```bash
+php tools/news.php add --type warning --title-ru "Обновите ядро до 31 декабря" --title-en "Update the core before 31 Dec" --body-ru "Подробности…" --body-en "Details…" --expires 2026-12-31
+php tools/news.php list
+php tools/news.php remove <id>
+```
+Options: `--type news|update|warning` (default news), `--title-en/--title-ru` (at least one), `--body-en/--body-ru`, `--url https://…`, `--expires YYYY-MM-DD`, `--pinned`, `--date YYYY-MM-DD` (default today), `--id` (default: date + title). Then commit and push `news/news.json`.
+
+Or edit `news/news.json` by hand, commit and push. The build copies it to `updates/news.json` and the deploy publishes it at `https://core.sysfera.ru/updates/news.json`. Installations fetch it at most once an hour (cached in `storage/news.json`; the last copy is shown while the server is unreachable).
 
 ```json
 {
