@@ -2,7 +2,7 @@
 sf_session(); $form = $_SESSION['act_form'] ?? ['title' => '', 'body' => '']; unset($_SESSION['act_form']);
 $q = fn(array $o) => $sf->url('/?' . http_build_query(array_filter(array_merge(['page' => $d['page'], 'per' => $d['per'], 'from' => $from, 'to' => $to], $o), fn($v) => $v !== '' && $v !== null))); ?>
 <link rel="stylesheet" href="<?= e($sf->asset('activity.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
-<div class="page-h"><h1><?= e($sf->t('title')) ?></h1><?php if ($mod): ?><a class="btn" href="<?= e($sf->url('/moderate')) ?>"><?= e($sf->t('moderate')) ?></a><?php endif; ?></div>
+<div class="page-h"><h1><?= e($sf->t('title')) ?></h1><span class="row"><?php if ($sf->can('activity.embed')): ?><a class="btn" href="<?= e($sf->url('/embed')) ?>"><?= e($sf->t('embed')) ?></a><?php endif; ?><?php if ($mod): ?><a class="btn" href="<?= e($sf->url('/moderate')) ?>"><?= e($sf->t('moderate')) ?></a><?php endif; ?></span></div>
 
 <form class="card" method="post" action="<?= e($sf->url('/post')) ?>" id="actform"><?= csrf_field() ?>
   <label class="fld"><span><?= e($sf->t('f_title')) ?> <small class="muted" id="ct">0 / 20</small></span><input name="title" id="at" value="<?= e($form['title']) ?>" maxlength="400" required></label>

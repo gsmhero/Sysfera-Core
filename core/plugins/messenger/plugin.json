@@ -1,6 +1,6 @@
 {
   "slug": "messenger",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "name": { "en": "Sysfera Messenger", "ru": "Sysfera Messenger" },
   "description": {
     "en": "Chat with attachments between users of all Sysfera installations. Every user gets a Sysfera ID (12@your-site.ru); messages and files go through the hub on core.sysfera.ru.",

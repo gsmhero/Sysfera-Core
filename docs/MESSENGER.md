@@ -31,3 +31,13 @@ Using these components sends the user's **display name** (and, if allowed, a has
 
 ## Limits of this first version
 No e-mail notification of new messages, no unread badge in the menu, no automatic clean-up of old files, one Sysfera site per domain (two installs on one host name would share IDs). The operations are open to extension through `HubServer::register()` (see `core/plugins/activity/plugin.php`).
+
+## Activity widget and embed code (Activity 0.2)
+* **Dashboard ticker** — with Activity installed and connected, every signed-in user sees the latest posts scrolling on the dashboard (pauses on hover; no animation if the visitor prefers reduced motion). Administrators can switch it off in *Activity → Widget and embed code*. The list is cached for 5 minutes (`storage/activity-feed.json`), so the dashboard never waits for the hub.
+* **Embed on any page** — an administrator (capability `activity.embed`) ticks *Allow embedding*, picks the number of posts, height and theme, and pastes the generated code into any page of the site:
+
+      <div data-sysfera-activity data-count="5" data-height="160" data-theme="light"></div>
+      <script async src="https://your-site/assets/p/activity/embed.js"></script>
+
+  The script reads a public, read-only JSON feed at `/api/activity/feed` (title, text, author name, date — nothing else; sent with `Access-Control-Allow-Origin: *`). Texts are inserted as plain text, never as HTML. Untick *Allow embedding* and the feed stops at once (404). Embedding is off by default and unavailable in demo mode.
+* The site reads the hub's feed as "user 0" (the installation itself); this works only for operations registered as site-readable.

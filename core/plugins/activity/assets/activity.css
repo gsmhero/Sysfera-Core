@@ -1,3 +1,6 @@
 .act-f{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.act-f label{display:flex;flex-direction:column;font-size:12px;gap:2px}.act-f small{margin-left:auto}
 .act-post p{margin:6px 0 10px}.act-h{display:flex;gap:10px;align-items:baseline;justify-content:space-between;flex-wrap:wrap}
+.act-tk{height:150px;overflow:hidden;margin-top:8px;border-top:1px solid var(--line)}.act-tk:hover .act-tk-in{animation-play-state:paused}
+.act-tk-in{animation:act-up calc(var(--n) * 7s) linear infinite}.act-tk-i{padding:8px 0;border-bottom:1px solid var(--line)}
+@keyframes act-up{from{transform:translateY(0)}to{transform:translateY(-50%)}}@media (prefers-reduced-motion:reduce){.act-tk-in{animation:none}.act-tk{overflow:auto}}
 .act-f2{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}

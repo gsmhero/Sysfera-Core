@@ -28,7 +28,9 @@ final class HubServer
 {
     /** @var array<string,callable(Ctx,Db,HubServer):array> */
     private static array $ops = [];
-    public static function register(string $op, callable $fn): void { self::$ops[$op] = $fn; }
+    public static function register(string $op, callable $fn, bool $site = false): void { self::$ops[$op] = $fn; if ($site) self::$site[$op] = true; }
+    /** @var array<string,bool> */
+    private static array $site = [];
 
     public function __construct(private Db $db, private string $storage) {}
 
@@ -38,8 +40,13 @@ final class HubServer
     public function dispatch(string $op, Ctx $c): array
     {
         $own = ['me', 'search', 'send', 'upload', 'inbox', 'thread', 'file', 'block', 'unread'];
-        if (in_array($op, $own, true)) return $this->{'op' . ucfirst($op)}($c);
-        if (isset(self::$ops[$op])) { $this->touch($c, null); return (self::$ops[$op])($c, $this->db, $this); }
+        if (in_array($op, $own, true)) { if ($c->uid === '0') throw new HubError('bad_user', 400); return $this->{'op' . ucfirst($op)}($c); }
+        if (isset(self::$ops[$op])) {
+            // user "0" = the installation itself (read-only public data, e.g. the widget feed); only operations marked with registerSite() allow it
+            if ($c->uid === '0') { if (!isset(self::$site[$op])) throw new HubError('bad_user', 400); }
+            else $this->touch($c, null);
+            return (self::$ops[$op])($c, $this->db, $this);
+        }
         throw new HubError('unknown_op', 404);
     }
 

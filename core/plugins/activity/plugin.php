@@ -17,7 +17,7 @@ return function (\Sysfera\Plugin $sf): void {
     $err = fn(?string $k) => ($k && ($m = $sf->t('e_' . $k)) !== 'activity.e_' . $k) ? $m : $sf->t('e_other', ['k' => (string)$k]);
 
     $sf->menu('menu', '/', ['order' => 13, 'icon' => 'bell']);
-    \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['activity.admin'])));
+    \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['activity.admin', 'activity.embed'])));
 
     /* ---------- hub side: operations other installations can call ---------- */
     HubServer::register('act.post', function (Ctx $c, \Sysfera\Db $db) {
@@ -40,7 +40,7 @@ return function (\Sysfera\Plugin $sf): void {
             FROM {p}act_posts p LEFT JOIN {p}msg_users u ON u.sid = p.sid WHERE $where ORDER BY p.id DESC LIMIT $per OFFSET " . (($page - 1) * $per), [$c->sid(), ...$args]);
         return ['items' => array_map(fn($r) => ['id' => (int)$r['id'], 'sid' => $r['sid'], 'name' => $r['name'], 'title' => $r['title'], 'body' => $r['body'], 'at' => $r['created'],
             'mine' => $r['sid'] === $c->sid(), 'reported' => (int)$r['reported'] > 0], $rows), 'total' => $total, 'pages' => $pages, 'page' => $page, 'per' => $per];
-    });
+    }, true);   // the installation itself (user 0) may read the feed for its widget
 
     HubServer::register('act.delete', function (Ctx $c, \Sysfera\Db $db) {
         $db->q('DELETE FROM {p}act_posts WHERE id = ? AND sid = ?', [(int)($c->in['id'] ?? 0), $c->sid()]);
@@ -95,6 +95,53 @@ return function (\Sysfera\Plugin $sf): void {
         flash($r['ok'] ? $sf->t($do === 'delete' ? 'deleted' : 'reported') : $err($r['error']), $r['ok'] ? 'ok' : 'bad');
         $go();
     });
+
+    /* ---------- latest posts for the dashboard widget and the embed code (cached 5 minutes, works without a signed-in user) ---------- */
+    $latest = function (int $n = 10) use ($client): array {
+        $file = SF_ROOT . '/storage/activity-feed.json';
+        $age = is_file($file) ? time() - (int)filemtime($file) : PHP_INT_MAX;
+        $cached = is_file($file) ? (json_decode((string)@file_get_contents($file), true) ?: []) : [];
+        if ($age >= 300 && !(is_file($file . '.try') && time() - (int)filemtime($file . '.try') < 120)) {
+            @file_put_contents($file . '.try', (string)time());
+            $c = $client();
+            if ($c && $c->ready()) {
+                $r = $c->call('GET', 'act.feed', ['per' => 20], null, null, 4, '0');
+                if ($r['ok']) {
+                    $cached = array_map(fn($p) => ['title' => (string)$p['title'], 'body' => (string)$p['body'], 'name' => (string)$p['name'], 'at' => substr((string)$p['at'], 0, 10)], $r['data']['items'] ?? []);
+                    @file_put_contents($file, json_encode($cached, JSON_UNESCAPED_UNICODE));
+                }
+            }
+        }
+        return array_slice($cached, 0, max(1, min(20, $n)));
+    };
+
+    // dashboard widget with a scrolling ticker
+    $sf->on('dashboard.widgets', function (array $w) use ($sf, $latest) {
+        if (\Sysfera\Demo::on() || $sf->setting('widget', '1') !== '1') return $w;
+        $c = \Sysfera\Hooks::filter('messenger.client', null);
+        if (!$c || !$c->ready()) return $w;
+        $w[] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'items' => $latest(8)]);
+        return $w;
+    });
+
+    // public feed for the embed code (only when an administrator switched embedding on); JSON, readable from any site
+    $sf->api('GET', 'activity/feed', function () use ($sf, $latest) {
+        header('Access-Control-Allow-Origin: *'); header('Content-Type: application/json; charset=utf-8');
+        if ($sf->setting('embed_on', '0') !== '1' || \Sysfera\Demo::on()) { http_response_code(404); echo '[]'; return; }
+        header('Cache-Control: public, max-age=300');
+        echo json_encode($latest((int)($_GET['n'] ?? 5)), JSON_UNESCAPED_UNICODE);
+    });
+
+    // administrators: switch the widget / embedding on and copy the embed code
+    $sf->route('*', '/embed', function () use ($sf, $go) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            $sf->setSetting('embed_on', !empty($_POST['embed_on']) ? '1' : '0');
+            $sf->setSetting('widget', !empty($_POST['widget']) ? '1' : '0');
+            flash($sf->t('saved')); $go('embed');
+        }
+        $origin = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'your-site') . \Sysfera\App::basePath();
+        $sf->render('embed', ['on' => $sf->setting('embed_on', '0') === '1', 'widget' => $sf->setting('widget', '1') === '1', 'origin' => $origin, 'script' => $origin . '/assets/p/activity/embed.js?v=' . $sf->manifest['version']], $sf->t('embed'));
+    }, ['cap' => 'activity.embed']);
 
     /* ---------- moderation (hub site only) ---------- */
     $sf->route('*', '/moderate', function () use ($sf, $db, $go) {

@@ -1,13 +1,14 @@
 {
   "slug": "activity",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "name": { "en": "Sysfera Activity", "ru": "Sysfera Activity" },
   "description": {
     "en": "A public feed for users of all Sysfera installations: short posts (title up to 20 words, text up to 50 words) with a button to write to the author in Messenger. Needs Sysfera Messenger.",
     "ru": "Общая лента пользователей всех установок Sysfera: короткие публикации (заголовок до 20 слов, текст до 50 слов) с кнопкой «написать автору» в Messenger. Требует Sysfera Messenger."
   },
-  "requires": { "core": ">=0.1.9", "plugins": { "messenger": ">=0.1.0" } },
+  "requires": { "core": ">=0.1.9", "plugins": { "messenger": ">=0.1.2" } },
   "capabilities": {
+    "activity.embed": { "en": "Activity: widget settings and embed code", "ru": "Activity: настройки виджета и код для вставки" },
     "activity.admin": { "en": "Activity: moderate posts (hub site)", "ru": "Activity: модерация публикаций (сайт-хаб)" }
   }
 }

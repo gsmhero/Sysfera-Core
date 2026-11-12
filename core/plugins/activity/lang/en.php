@@ -1,5 +1,11 @@
 <?php
 return [
+    'save' => 'Save', 'open_feed' => 'Open feed', 'w_none' => 'No posts yet — be the first.', 'embed' => 'Widget and embed code',
+    'e_widget' => 'Show the Activity ticker on the dashboard', 'e_widget_hint' => 'Every signed-in user of this site sees the latest posts scrolling on the dashboard. Updated every 5 minutes.',
+    'e_on' => 'Allow embedding on web pages', 'e_on_hint' => 'Switches on a public, read-only feed of the latest posts (title, text, author name, date) for the code below. Switch off to stop it immediately.',
+    'e_code' => 'Embed code', 'e_off' => 'Embedding is off: tick “Allow embedding” and save first, otherwise the widget on your page stays empty.',
+    'e_count' => 'Posts', 'e_height' => 'Height', 'e_theme' => 'Theme', 'e_light' => 'Light', 'e_dark' => 'Dark',
+    'e_paste' => 'Paste this code into any page of your site (an HTML block or the page template). The ticker pauses when the mouse is over it.', 'e_preview' => 'Preview',
     'menu' => 'Activity', 'title' => 'Sysfera Activity', 'saved' => 'Saved.', 'moderate' => 'Moderation',
     'n_demo' => 'Activity is switched off in the demo', 'n_demo_hint' => 'Demo visitors cannot publish for real people.',
     'n_not_connected' => 'Not connected to the Sysfera hub', 'n_not_connected_hint' => 'An administrator has to connect this installation once in Messenger → Connection.',

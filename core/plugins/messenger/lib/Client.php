@@ -27,11 +27,11 @@ final class Client
     }
 
     /** @param array|null $body JSON body  @param string|null $raw raw bytes (uploads) */
-    public function call(string $method, string $op, array $query = [], ?array $body = null, ?string $raw = null, int $timeout = 8): array
+    public function call(string $method, string $op, array $query = [], ?array $body = null, ?string $raw = null, int $timeout = 8, ?string $asUid = null): array
     {
-        $uid = (string)($this->uid)();
+        $uid = $asUid ?? (string)($this->uid)();   // $asUid '0' = the site itself (no signed-in user)
         if (!$this->ready()) return $this->fail('not_connected', 0);
-        if (!preg_match('/^\d{1,10}$/', $uid) || $uid === '0') return $this->fail('bad_user', 0);
+        if (!preg_match('/^\d{1,10}$/', $uid) || ($uid === '0' && $asUid !== '0')) return $this->fail('bad_user', 0);
 
         if (($hub = ($this->local)()) !== null) {
             try {
