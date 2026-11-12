@@ -19,9 +19,7 @@ $hasSecret = $cfg('secret', '') !== ''; ?>
   <div class="cols">
     <label class="fld"><span>Seller ID</span><input name="seller_id" value="<?= e($cfg('seller_id', '')) ?>" inputmode="numeric"></label>
     <label class="fld"><span><?= e($sf->t('s_warehouse')) ?></span><select name="warehouse_id"><?php foreach ($whs as $w): ?><option value="<?= (int)$w['id'] ?>" <?= (int)$cfg('warehouse_id', '0') === (int)$w['id'] ? 'selected' : '' ?>><?= e($w['name']) ?></option><?php endforeach; ?></select></label>
-    <label class="fld"><span><?= e($sf->t('s_pct')) ?></span><input name="seller_pct" value="<?= e($cfg('seller_pct', '80')) ?>" inputmode="numeric"></label>
   </div>
-  <p class="muted sm"><?= e($sf->t('s_pct_hint')) ?></p>
   <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button></div>
 </form>
 

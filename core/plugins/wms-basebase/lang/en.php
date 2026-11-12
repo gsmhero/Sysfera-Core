@@ -24,8 +24,7 @@ return [
     'status_draft' => 'Draft', 'status_posted' => 'Posted', 'status_cancelled' => 'Cancelled',
 
     's_connection' => 'Access to Basebase', 's_connection_hint' => 'Take these from Basebase: Cabinet → Partner site → API access (the agent must be approved by a Basebase administrator).',
-    'api_address' => 'API address', 'secret_saved' => 'saved — type a new one to replace', 's_seller' => 'Seller and warehouse', 's_warehouse' => 'Warehouse for sales', 's_pct' => 'Seller receives, % of price',
-    's_pct_hint' => 'The Basebase price is the selling price on the product card. “Seller receives” is the share of that price; the rest is split between Basebase and the agent.',
+    'api_address' => 'API address', 'secret_saved' => 'saved — type a new one to replace', 's_seller' => 'Seller and warehouse', 's_warehouse' => 'Warehouse for sales',
     's_test' => 'Test the connection', 's_test_hint' => 'Sends a signed request and loads the Basebase categories.', 's_test_btn' => 'Test connection',
     's_key_hint' => 'Copy this key into the “AGENT_KEY” field of the Basebase form (Cabinet → Partner site). It only identifies this site while Basebase links the agent; it is not used to sign requests.',
     'ping_ok' => 'Connected. Agency fee: {fee}%, platform commission: {pc}%.', 'ping_fail' => 'Error: {e}',

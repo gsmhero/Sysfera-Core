@@ -32,13 +32,6 @@ final class Bb
     /** Whole units that can be promised to buyers. */
     public static function stockUnits(float $available): int { return max(0, (int)floor($available + 0.0000001)); }
 
-    /** What the seller receives per unit: price × percent. Percent ≥ 100 means "no promo". */
-    public static function promo(float $price, int $pct): ?float
-    {
-        if ($pct <= 0 || $pct >= 100 || $price <= 0) return null;
-        return round($price * $pct / 100, 2);
-    }
-
     /** @return string[] image URLs (https only, max 8) from a newline/comma separated text */
     public static function images(?string $text): array
     {
@@ -58,7 +51,7 @@ final class Bb
     }
 
     /** Body of PUT /sellers/{id}/products/{external_id} */
-    public static function product(array $p, array $map, float $available, int $pct): array
+    public static function product(array $p, array $map, float $available): array
     {
         $price = round((float)$p['sell_price'], 2);
         $fields = [];
@@ -67,7 +60,6 @@ final class Bb
         if ((float)($p['weight'] ?? 0) > 0) $fields['Вес, кг'] = rtrim(rtrim(number_format((float)$p['weight'], 3, '.', ''), '0'), '.');
         $body = ['title' => (string)$p['name'], 'description' => (string)($p['description'] ?? ''), 'category' => (string)$map['category'], 'price' => $price,
             'stock' => self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields, 'images' => self::images($map['images'] ?? '')];
-        if (($promo = self::promo($price, $pct)) !== null) $body['promo_price'] = $promo;
         return $body;
     }
 

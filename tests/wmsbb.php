@@ -26,7 +26,6 @@ ok(Bb::externalId(['id' => 5, 'sku' => 'A'], 'CUSTOM') === 'CUSTOM', 'explicit i
 
 /* stock + promo */
 ok(Bb::stockUnits(12.9) === 12 && Bb::stockUnits(-3) === 0 && Bb::stockUnits(0.0) === 0, 'stock is whole units, never negative');
-ok(Bb::promo(1000.0, 80) === 800.0 && Bb::promo(1000.0, 100) === null && Bb::promo(0.0, 80) === null, 'seller share of the price');
 
 /* images */
 ok(Bb::images("https://a/1.jpg, http://bad/2.jpg\nhttps://a/1.jpg\nhttps://b/3.png") === ['https://a/1.jpg', 'https://b/3.png'], 'only unique https images');
@@ -35,10 +34,9 @@ ok(count(Bb::images(implode(' ', array_map(fn($i) => "https://x/$i.jpg", range(1
 /* product payload */
 $p = ['id' => 1, 'name' => 'Кружка', 'description' => 'Керамика', 'sell_price' => '2450.00', 'sku' => 'WM-1', 'barcode' => '460', 'weight' => '0.350'];
 $map = ['external_id' => 'WM-1', 'category' => 'Кухня', 'images' => 'https://a/1.jpg'];
-$b = Bb::product($p, $map, 12.4, 80);
-ok($b['title'] === 'Кружка' && $b['price'] === 2450.0 && $b['promo_price'] === 1960.0 && $b['stock'] === 12 && $b['category'] === 'Кухня', 'product payload');
+$b = Bb::product($p, $map, 12.4);
+ok($b['title'] === 'Кружка' && $b['price'] === 2450.0 && !isset($b['promo_price']) && $b['stock'] === 12 && $b['category'] === 'Кухня', 'product payload');
 ok($b['fields']['Штрихкод'] === '460' && $b['fields']['Вес, кг'] === '0.35' && $b['images'] === ['https://a/1.jpg'], 'specs and images');
-ok(!isset(Bb::product($p, $map, 1, 100)['promo_price']), '100% means no promo price');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 0], ['category' => 'a']) === ['err_price'], 'price is required');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 5], ['category' => ' ']) === ['err_category'], 'category is required');
 

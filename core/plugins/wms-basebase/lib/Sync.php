@@ -25,7 +25,6 @@ final class Sync
         return (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1');
     }
     public function stockOf(int $pid, int $warehouse): float { return (float)$this->wms['stock']->available($pid, $warehouse); }
-    private function pct(): int { return max(1, min(100, (int)$this->c('seller_pct', '80'))); }
     private function base(string $ext = ''): string { return '/sellers/' . $this->sellerId() . '/products' . ($ext === '' ? '' : '/' . rawurlencode($ext)); }
 
     /* ---------------- products & stock ---------------- */
@@ -40,7 +39,7 @@ final class Sync
         if ($pr = Bb::problems($p, $map)) return $this->fail($pid, $pr[0]);
         if (!$this->ready()) return $this->fail($pid, 'not_connected');
         $avail = $this->warehouse() ? $this->wms['stock']->available($pid, $this->warehouse()) : 0.0;
-        $body = Bb::product($p, $map, $avail, $this->pct());
+        $body = Bb::product($p, $map, $avail);
         $r = $this->api->request('PUT', $this->base($map['external_id']), $body, 10);
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$body['stock'], $pid]);

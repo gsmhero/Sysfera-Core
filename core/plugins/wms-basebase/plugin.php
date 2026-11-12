@@ -122,7 +122,6 @@ return function (\Sysfera\Plugin $sf): void {
             if (trim((string)($_POST['secret'] ?? '')) !== '') $set('secret', trim((string)$_POST['secret']));
             $set('seller_id', (string)max(0, (int)($_POST['seller_id'] ?? 0)));
             $set('warehouse_id', (string)max(0, (int)($_POST['warehouse_id'] ?? 0)));
-            $set('seller_pct', (string)max(1, min(100, (int)($_POST['seller_pct'] ?? 80))));
             flash($sf->t('saved'));
         } elseif ($do === 'test') {
             $r = $s->ping();
