@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaWms\{Posting, Stock, Docs, W};
+use SysferaWms\{Posting, Stock, Docs, W, Scope};
 
 /** Sysfera WMS — warehouse management component. */
 return function (\Sysfera\Plugin $sf): void {
