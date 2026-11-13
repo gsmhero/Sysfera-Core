@@ -76,6 +76,16 @@ final class App
         if ($raw === '*') return array_keys($this->plugins()->capabilities());
         return array_values((array)(json_decode($raw, true) ?: []));
     }
+    /** Adds every installed component's capability to every non-admin user. Returns how many users changed. */
+    public function grantAllCaps(): int
+    {
+        $all = array_keys($this->plugins()->capabilities()); $n = 0;
+        foreach ($this->db()->rows("SELECT id, caps FROM {p}users WHERE role <> 'admin'") as $u) {
+            $have = json_decode((string)$u['caps'], true) ?: []; $new = array_values(array_unique(array_merge($have, $all)));
+            if (count($new) !== count($have)) { $this->db()->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode($new), $u['id']]); $n++; }
+        }
+        return $n;
+    }
     public function setSetting(string $k, string $v): void
     {
         $this->db()->q('INSERT INTO {p}settings (k, v) VALUES (?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, $v]);

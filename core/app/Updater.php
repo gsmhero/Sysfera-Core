@@ -52,6 +52,30 @@ final class Updater
         return $out;
     }
 
+    /**
+     * "Automatically install new components": components that the update server offers (or that sit on disk) and that this
+     * install has not seen before are downloaded and installed. A component the administrator removes later is not brought
+     * back, because it is remembered in `auto_seen`. Runs at most every 6 hours; errors are logged, never shown.
+     */
+    public function autoInstall(): void
+    {
+        if ($this->app->setting('auto_install', '0') !== '1' || time() - (int)$this->app->setting('auto_install_last', '0') < 21600) return;
+        $this->app->setSetting('auto_install_last', (string)time());
+        $pl = $this->app->plugins();
+        $seen = (array)(json_decode($this->app->setting('auto_seen', '[]'), true) ?: []);
+        $remote = (array)(($this->manifest()['plugins'] ?? []));
+        $done = 0;
+        foreach (array_unique(array_merge(array_keys($remote), array_keys($pl->available()))) as $slug) {
+            if (in_array($slug, $seen, true) || isset($pl->installed()[$slug])) continue;
+            try {
+                if (!isset($pl->available()[$slug]) && isset($remote[$slug])) { $zip = $this->download($remote[$slug]); try { $pl->extractZip($zip); } finally { @unlink($zip); } }
+                $pl->install($slug); $done++;
+            } catch (\Throwable $e) { App::log("auto-install of $slug failed: " . $e->getMessage()); }
+        }
+        $this->app->setSetting('auto_seen', json_encode(array_values(array_unique(array_merge($seen, array_keys($remote), array_keys($pl->available()), array_keys($pl->installed()))))));
+        if ($done && $this->app->setting('default_caps', '*') === '*') $this->app->grantAllCaps();   // "all components for all users" is still the default
+    }
+
     public function applyCore(): string
     {
         $m = $this->manifest(true);

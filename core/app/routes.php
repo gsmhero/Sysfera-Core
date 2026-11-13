@@ -61,6 +61,7 @@ return function (App $app): void {
             echo View::file(SF_ROOT . '/views/landing.php', ['open' => $app->setting('registration', '0') === '1' || Demo::on(), 'siteName' => $app->setting('site_name', 'Sysfera')]);
             return;
         }
+        if ($auth->isAdmin()) $app->updater()->autoInstall();   // no-op unless the administrator switched it on; checks at most every 6 hours
         $widgets = Hooks::filter('dashboard.widgets', []);
         View::render('dashboard', [
             'counts' => ['contacts' => $app->contacts()->count(), 'orders' => $app->orders()->count(), 'invoices' => $app->invoices()->count()],
@@ -146,11 +147,7 @@ return function (App $app): void {
                 Demo::reset($app); flash(t('settings.demo_done')); redirect('/settings');
             }
             if (($_POST['do'] ?? '') === 'grant_all') {
-                $all = array_keys($app->plugins()->capabilities()); $n = 0;
-                foreach ($app->db()->rows("SELECT id, caps FROM {p}users WHERE role <> 'admin'") as $u) {
-                    $have = json_decode((string)$u['caps'], true) ?: []; $new = array_values(array_unique(array_merge($have, $all)));
-                    if (count($new) !== count($have)) { $app->db()->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode($new), $u['id']]); $n++; }
-                }
+                $n = $app->grantAllCaps();
                 flash(t('settings.grant_done', ['n' => $n])); redirect('/settings');
             }
             if (($_POST['do'] ?? '') === 'log_clear') { @file_put_contents(SF_ROOT . '/storage/error.log', ''); flash(t('log.cleared')); redirect('/settings'); }
@@ -178,6 +175,7 @@ return function (App $app): void {
             $app->setSetting('timezone', in_array($tz, timezone_identifiers_list(), true) ? $tz : 'UTC');
             $app->setSetting('registration', !empty($_POST['registration']) ? '1' : '0');
             $app->setSetting('landing', !empty($_POST['landing']) ? '1' : '0');
+            $app->setSetting('auto_install', !empty($_POST['auto_install']) ? '1' : '0');
             $app->setSetting('default_caps', json_encode(array_values(array_intersect((array)($_POST['default_caps'] ?? []), array_keys($app->plugins()->capabilities())))));
             $url = trim((string)($_POST['update_url'] ?? ''));
             $app->setSetting('update_url', preg_match('~^https?://~', $url) ? $url : '');

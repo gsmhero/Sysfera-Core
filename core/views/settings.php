@@ -14,6 +14,8 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
   <label class="chk"><input type="checkbox" name="registration" value="1" <?= $app->setting('registration', '0') === '1' ? 'checked' : '' ?>> <?= e(t('settings.registration_open')) ?></label>
   <?php if ($caps): ?><div class="caps"><span class="muted sm"><?= e(t('settings.default_caps')) ?></span><?php foreach ($caps as $c => $label): ?><label class="chk"><input type="checkbox" name="default_caps[]" value="<?= e($c) ?>" <?= in_array($c, $defaults, true) ? 'checked' : '' ?>> <?= e($label) ?></label><?php endforeach; ?></div><?php endif; ?>
   <h3><?= e(t('settings.updates')) ?></h3>
+  <label class="chk"><input type="checkbox" name="auto_install" value="1" <?= $app->setting('auto_install', '0') === '1' ? 'checked' : '' ?>> <?= e(t('settings.auto_install')) ?></label>
+  <p class="muted sm"><?= e(t('settings.auto_install_hint')) ?></p>
   <label class="fld"><span><?= e(t('settings.update_url')) ?></span><input name="update_url" value="<?= e($app->setting('update_url', '')) ?>" placeholder="<?= e(\Sysfera\Updater::DEFAULT_URL) ?>"></label>
   <p class="muted sm"><?= e(t('settings.update_hint')) ?></p>
   <label class="chk"><input type="checkbox" name="news_enabled" value="1" <?= $app->setting('news_enabled', '1') === '1' ? 'checked' : '' ?>> <?= e(t('settings.news_on')) ?></label>
