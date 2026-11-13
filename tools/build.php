@@ -75,6 +75,11 @@ make_zip("$dist/sysfera-$ver.zip", $full);
 
 /* ---- 2. single-file installer ---- */
 $tpl = (string)file_get_contents(__DIR__ . '/container.tpl.php');
+$logo = (string)file_get_contents("$root/core/assets/sysfera-logo.svg");   // same logo as the app, inlined so the single file needs nothing else
+$logo = (string)preg_replace(['~<\?xml.*?\?>~s', '~<defs>.*?</defs>~s', '~ (id|data-name)="[^"]*"~'], '', $logo);
+$logo = str_replace(['class="cls-1"', 'class="cls-2"', 'class="cls-3"'], ['class="lg-a"', 'class="lg-b"', 'class="lg-b"'], $logo);
+$logo = str_replace('<svg ', '<svg role="img" aria-label="Sysfera" ', $logo);
+$tpl = str_replace('@@LOGO@@', $logo !== '' ? $logo : 'sys<b>fera</b>', $tpl);
 file_put_contents("$dist/sysfera-install.php", str_replace('@@VERSION@@', $ver, $tpl) . "\n" . chunk_split(base64_encode((string)file_get_contents("$dist/sysfera-$ver.zip")), 76, "\n"));
 
 /* ---- 3. core update (replaces program files; storage/ and plugins/ are never in it) ---- */
