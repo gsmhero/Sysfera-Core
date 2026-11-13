@@ -1,10 +1,11 @@
-<?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $rows @var \SysferaBb\Sync $sync */
+<?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $rows @var \SysferaBb\Sync $sync @var bool $manage */
 use SysferaWms\W;
 include __DIR__ . '/_nav.php';
 $statusBadge = fn(string $s) => '<span class="badge ' . (['pending' => 'warn', 'prepare' => 'info', 'shipped' => 'ok', 'on_delivery' => 'ok', 'delivered' => 'ok', 'returned' => 'bad', 'archived' => 'mute'][$s] ?? 'mute') . '">' . e($sf->t('st_' . $s)) . '</span>'; ?>
 <div class="page-h"><h1><?= e($sf->t('nav_orders')) ?></h1>
-  <?php if ($sync->ready()): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="pull"><button class="btn">↻ <?= e($sf->t('pull_now')) ?></button></form><?php endif; ?></div>
+  <?php if ($sync->ready() && $manage): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="pull"><button class="btn">↻ <?= e($sf->t('pull_now')) ?></button></form><?php endif; ?></div>
 <div class="hint"><?= e($sf->t('orders_hint')) ?></div>
+<?php if (!$manage): ?><div class="hint warn"><?= e($sf->t('read_only')) ?></div><?php endif; ?>
 
 <?php if (!$rows): ?><div class="card empty"><h3><?= e($sf->t('no_orders')) ?></h3><p><?= e($sf->t('no_orders_hint')) ?></p></div>
 <?php else: ?>
@@ -17,7 +18,7 @@ $statusBadge = fn(string $s) => '<span class="badge ' . (['pending' => 'warn', '
       <td class="num"><?= e(W::money($r['qty'] * $r['price'])) ?><br><small class="muted"><?= e($sf->t('you_get')) ?> <?= e(W::money($r['seller_receives'])) ?></small></td>
       <td><?php if ($r['doc_id']): ?><a href="<?= e(url('/p/wms/docs/' . (int)$r['doc_id'])) ?>"><b><?= e($r['number']) ?></b></a><br><?= W::badge($sf, (string)$r['doc_status']) ?><?php else: ?><span class="muted">—</span><?php endif; ?></td>
       <td><?= $statusBadge((string)$r['status']) ?><?php if ($r['error']): ?><br><small class="bad-t"><?= e($why($r['error'])) ?></small><?php endif; ?></td>
-      <td class="nowrap"><?php if ($r['error'] && !str_starts_with((string)$r['error'], 'bb:')): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="retry"><input type="hidden" name="item" value="<?= (int)$r['item_id'] ?>"><button class="btn"><?= e($sf->t('retry')) ?></button></form><?php endif; ?>
-        <?php if ($r['doc_id'] && in_array($r['status'], ['pending', 'prepare'], true)): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="shipped"><input type="hidden" name="item" value="<?= (int)$r['item_id'] ?>"><button class="btn" data-confirm="<?= e($sf->t('confirm_shipped')) ?>"><?= e($sf->t('mark_shipped')) ?></button></form><?php endif; ?></td></tr>
+      <td class="nowrap"><?php if (!$manage): ?><span class="muted sm">—</span><?php endif; if ($manage && $r['error'] && !str_starts_with((string)$r['error'], 'bb:')): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="retry"><input type="hidden" name="item" value="<?= (int)$r['item_id'] ?>"><button class="btn"><?= e($sf->t('retry')) ?></button></form><?php endif; ?>
+        <?php if ($manage && $r['doc_id'] && in_array($r['status'], ['pending', 'prepare'], true)): ?><form method="post" class="inline"><?= csrf_field() ?><input type="hidden" name="do" value="shipped"><input type="hidden" name="item" value="<?= (int)$r['item_id'] ?>"><button class="btn" data-confirm="<?= e($sf->t('confirm_shipped')) ?>"><?= e($sf->t('mark_shipped')) ?></button></form><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
 <?php endif; ?>

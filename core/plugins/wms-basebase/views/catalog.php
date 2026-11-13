@@ -30,7 +30,7 @@ include __DIR__ . '/_nav.php'; ?>
           <?php elseif (!empty($r['published'])): ?><span class="badge warn"><?= e($sf->t('state_wait')) ?></span>
           <?php else: ?><span class="muted">—</span><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
-<div class="actionbar"><span class="muted sm"><?= e($sf->t('save_hint')) ?></span><button class="btn primary"><?= e($sf->t('save_publish')) ?></button></div>
+<?php if ($manage): ?><div class="actionbar"><span class="muted sm"><?= e($sf->t('save_hint')) ?></span><button class="btn primary"><?= e($sf->t('save_publish')) ?></button></div><?php else: ?><div class="hint warn"><?= e($sf->t('read_only')) ?></div><?php endif; ?>
 </form>
 <?php if ($pg['pages'] > 1): ?><div class="pager"><?php for ($i = 1; $i <= $pg['pages']; $i++): ?><a class="<?= $i === $pg['cur'] ? 'on' : '' ?>" href="<?= e($sf->url('/catalog') . '?' . http_build_query(['q' => $q, 'only' => $only, 'page' => $i])) ?>"><?= $i ?></a><?php endfor; ?></div><?php endif; ?>
 <?php endif; ?>

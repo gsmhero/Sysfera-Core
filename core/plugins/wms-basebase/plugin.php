@@ -40,6 +40,13 @@ return function (\Sysfera\Plugin $sf): void {
         }, ['cap' => $cap]);
     };
     $go = fn(string $p = '') => redirect('/p/wms-basebase/' . ltrim($p, '/'));
+    /* Orders and products belong to the user who set up the connection. Anybody else (even an administrator) may look, but cannot manage them. */
+    $mayManage = function () use ($sf, $cfg, $set): bool {
+        $o = (int)$cfg('owner_id', '0');
+        if ($o === 0) { if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') $set('owner_id', (string)$sf->auth()->id()); return true; }   // nobody owns it yet: the first to manage it does
+        return $o === $sf->auth()->id();
+    };
+    $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
 
     $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
 
@@ -58,7 +65,7 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /* ================= catalog ================= */
-    $route('GET', '/catalog', function () use ($sf, $db, $page, $sync, $cfg) {
+    $route('GET', '/catalog', function () use ($sf, $db, $page, $sync, $cfg, $mayManage) {
         $q = trim((string)($_GET['q'] ?? '')); $only = (string)($_GET['only'] ?? '');
         $w = ' WHERE p.archived = 0'; $a = [];
         if ($q !== '') { $w .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.code LIKE ?)'; $l = '%' . $q . '%'; array_push($a, $l, $l, $l); }
@@ -70,9 +77,10 @@ return function (\Sysfera\Plugin $sf): void {
         $s = $sync();
         foreach ($rows as &$r) $r['available'] = $s->available((int)$r['id']);
         unset($r);
-        $page('catalog', ['rows' => $rows, 'q' => $q, 'only' => $only, 'total' => $total, 'pg' => ['pages' => $pages, 'cur' => $cur], 'cats' => json_decode($cfg('categories', '[]'), true) ?: []], $sf->t('nav_catalog'), 'catalog');
+        $page('catalog', ['manage' => $mayManage(), 'rows' => $rows, 'q' => $q, 'only' => $only, 'total' => $total, 'pg' => ['pages' => $pages, 'cur' => $cur], 'cats' => json_decode($cfg('categories', '[]'), true) ?: []], $sf->t('nav_catalog'), 'catalog');
     });
-    $route('POST', '/catalog', function () use ($sf, $db, $sync, $go) {
+    $route('POST', '/catalog', function () use ($sf, $db, $sync, $go, $mayManage, $deny) {
+        if (!$mayManage()) $deny();
         $s = $sync(); $errors = 0; $done = 0;
         if (($_POST['do'] ?? '') === 'sync_all') {
             $r = $s->pushAll(); flash($sf->t('synced', ['ok' => $r['ok'], 'bad' => $r['failed']]), $r['failed'] ? 'bad' : 'ok'); $go('catalog');
@@ -96,11 +104,12 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /* ================= orders ================= */
-    $route('GET', '/orders', function () use ($sf, $db, $page) {
+    $route('GET', '/orders', function () use ($sf, $db, $page, $mayManage) {
         $rows = $db->rows('SELECT i.*, d.number, d.status AS doc_status FROM {p}wmsbb_items i LEFT JOIN {p}wms_docs d ON d.id = i.doc_id ORDER BY i.item_id DESC LIMIT 100');
-        $page('orders', ['rows' => $rows], $sf->t('nav_orders'), 'orders');
+        $page('orders', ['rows' => $rows, 'manage' => $mayManage()], $sf->t('nav_orders'), 'orders');
     });
-    $route('POST', '/orders', function () use ($sf, $sync, $go) {
+    $route('POST', '/orders', function () use ($sf, $sync, $go, $mayManage, $deny) {
+        if (!$mayManage()) $deny();
         $s = $sync(); $do = (string)($_POST['do'] ?? ''); $id = (int)($_POST['item'] ?? 0);
         if ($do === 'pull') { $n = $s->pull(); flash($sf->t('pulled', ['n' => $n])); }
         elseif ($do === 'retry') { $e = $s->retry($id); flash($e ? $sf->t('retry_failed') : $sf->t('retry_ok'), $e ? 'bad' : 'ok'); }
@@ -121,6 +130,7 @@ return function (\Sysfera\Plugin $sf): void {
             $url = trim((string)($_POST['api_url'] ?? '')); $set('api_url', $url !== '' ? $url : 'https://www.basebase.ru/api/v1');
             if (trim((string)($_POST['secret'] ?? '')) !== '') $set('secret', trim((string)$_POST['secret']));
             $set('seller_id', (string)max(0, (int)($_POST['seller_id'] ?? 0)));
+            if ((int)$cfg('owner_id', '0') === 0) $set('owner_id', (string)$sf->auth()->id());   // the first one to connect owns the connection
             $ws = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));
             $set('warehouse_ids', json_encode($ws)); $set('warehouse_id', (string)($ws[0] ?? 0));
             flash($sf->t('saved'));
