@@ -1,6 +1,6 @@
 {
   "slug": "wms-basebase",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "name": { "en": "Sysfera WMS → Basebase", "ru": "Sysfera WMS → Basebase" },
   "description": {
     "en": "Sell warehouse products on Basebase: publishes products and live stock, receives Basebase orders as customer orders with reserve, reports shipments back. Uses Basebase Partner API v1.",

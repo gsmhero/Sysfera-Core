@@ -12,7 +12,7 @@ return [
 
     'catalog_hint' => 'Tick the products you sell on Basebase and choose a category. The price comes from the product card, the quantity is the available stock of the warehouse chosen in the connection.',
     'not_connected_note' => 'The connection is not finished — products are saved but not sent.', 'only_published' => 'On Basebase only', 'no_products' => 'No products', 'no_products_hint' => 'Add products in the Warehouse section first.',
-    'sell' => 'Sell', 'category' => 'Category', 'category_ph' => 'e.g. Kitchen', 'on_sale' => 'Available', 'state' => 'State', 'photos' => 'Photos (https links)', 'no_price' => 'no price',
+    'sell' => 'Sell', 'category' => 'Category', 'category_ph' => 'e.g. Kitchen', 'on_sale' => 'Available', 'state' => 'State', 'photos' => 'Photos (https links)', 'photos_from_card' => 'from the product card', 'no_price' => 'no price',
     'state_live' => 'Live', 'state_wait' => 'Waiting to send', 'state_error' => 'Error', 'save_publish' => 'Save and send', 'save_hint' => 'Only changed rows are sent.',
     'sync_all' => 'Resend everything', 'synced' => 'Sent: {ok}, with errors: {bad}.',
 

@@ -21,7 +21,7 @@ include __DIR__ . '/_nav.php'; ?>
     <tr>
       <td><input type="checkbox" name="row[<?= $id ?>][pub]" value="1" <?= !empty($r['published']) ? 'checked' : '' ?>></td>
       <td><b><?= e($r['name']) ?></b><br><small class="muted"><?= e($r['external_id'] ?: ($r['sku'] ?: $r['code'])) ?></small>
-        <details class="bbimg"><summary><?= e($sf->t('photos')) ?></summary><textarea name="row[<?= $id ?>][images]" rows="2" placeholder="https://…/photo.jpg"><?= e($r['images'] ?? '') ?></textarea></details></td>
+        <?php $imgs = trim((string)($r['images'] ?? '')) !== '' ? $r['images'] : ($r['wms_images'] ?? ''); ?><details class="bbimg" <?= $imgs !== '' ? 'open' : '' ?>><summary><?= e($sf->t('photos')) ?><?= trim((string)($r['images'] ?? '')) === '' && $imgs !== '' ? ' · ' . e($sf->t('photos_from_card')) : '' ?></summary><textarea name="row[<?= $id ?>][images]" rows="2" placeholder="https://…/photo.jpg"><?= e($imgs) ?></textarea></details></td>
       <td><input name="row[<?= $id ?>][cat]" list="bbcats" value="<?= e($r['category'] ?? '') ?>" maxlength="120" placeholder="<?= e($sf->t('category_ph')) ?>"></td>
       <td class="num"><?= $r['sell_price'] > 0 ? e(W::money($r['sell_price'])) : '<span class="bad-t">' . e($sf->t('no_price')) . '</span>' ?></td>
       <td class="num"><?= e(W::qty($r['available'])) ?> <small class="muted"><?= e($r['unit']) ?></small></td>
