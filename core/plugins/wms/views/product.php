@@ -3,7 +3,8 @@ use SysferaWms\W;
 include __DIR__ . '/_nav.php';
 $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
 <div class="page-h"><h1><?= e($p ? $p['name'] : $sf->t('new_product')) ?> <?php if ($p && $p['archived']): ?><span class="badge mute"><?= e($sf->t('archived')) ?></span><?php endif; ?></h1>
-  <a class="btn" href="<?= e($sf->url('/products')) ?>">← <?= e($sf->t('nav_products')) ?></a></div>
+  <span class="row"><?php if ($p): ?><a class="btn" target="_blank" rel="noopener" href="<?= e($sf->url('/products/' . (int)$p['id'] . '/preview')) ?>" title="<?= e($sf->t('btn_preview_hint')) ?>">👁 <?= e($sf->t('btn_preview')) ?></a><?php endif; ?>
+  <a class="btn" href="<?= e($sf->url('/products')) ?>">← <?= e($sf->t('nav_products')) ?></a></span></div>
 
 <div class="cols2 wide-left">
 <?php $pt = \SysferaWms\Kinds::normal($v('ptype', 'simple')); $types = \SysferaWms\Kinds::TYPES; ?>

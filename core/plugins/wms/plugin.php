@@ -63,6 +63,37 @@ return function (\Sysfera\Plugin $sf): void {
             'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? $stock->history($id, 20) : [],
             'units' => ['шт', 'кг', 'г', 'л', 'м', 'упак', 'компл', 'пара']], $p ? $p['name'] : $sf->t('new_product'), 'products');
     };
+    /* "Preview product page": what the card looks like on Basebase (nothing is sent) */
+    $route('GET', '/products/{id}/preview', function (array $a) use ($sf, $db, $stock): void {
+        $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [(int)$a['id']]);
+        if (!$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        $type = (string)$p['ptype'];
+        $avail = fn(int $id): float => (float)$db->val('SELECT COALESCE(SUM(on_hand - reserve),0) FROM {p}wms_moves WHERE product_id = ?', [$id]);
+        $parts = $db->rows('SELECT l.qty, l.label, l.price AS own_price, c.id, c.name, c.sell_price FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? AND c.archived = 0 ORDER BY l.sort, l.id', [$p['id']]);
+        foreach ($parts as &$x) $x['avail'] = $avail((int)$x['id']);
+        unset($x);
+        $price = (float)$p['sell_price']; $opts = []; $qty = 0.0;
+        if ($type === 'variable') {
+            if ($price <= 0) foreach ($parts as $x) { $v = (float)($x['own_price'] ?: $x['sell_price']); if ($v > 0 && ($price == 0.0 || $v < $price)) $price = $v; }
+            foreach ($parts as $x) {
+                $own = (float)$x['own_price'] > 0 ? (float)$x['own_price'] : ((float)$x['sell_price'] > 0 && abs((float)$x['sell_price'] - $price) > 0.004 ? (float)$x['sell_price'] : 0.0);
+                $n = trim((string)$x['label']) ?: (string)$x['name'];
+                $opts[] = ['name' => $n, 'price' => $own, 'stock' => (int)floor(max(0.0, (float)$x['avail']))]; $qty += max(0.0, (float)$x['avail']);
+            }
+        } elseif ($type === 'bundle') {
+            $qty = $parts ? min(array_map(fn($x) => max(0.0, (float)$x['avail']) / max(0.000001, (float)$x['qty']), $parts)) : 0.0;
+        } else $qty = $avail((int)$p['id']);
+        $specs = [];
+        $add = function (string $sec, string $n, string $v) use (&$specs) { if ($v !== '') $specs[$sec !== '' ? $sec : 'Specifications'][] = ['name' => $n, 'value' => $v]; };
+        foreach ((array)(json_decode((string)$p['specs'], true) ?: []) as $s) $add((string)($s['section'] ?? ''), (string)($s['name'] ?? ''), (string)($s['value'] ?? ''));
+        $add('', 'Артикул', (string)$p['sku']); $add('', 'Штрихкод', (string)$p['barcode']); if ((float)$p['weight'] > 0) $add('', 'Вес, кг', rtrim(rtrim(number_format((float)$p['weight'], 3, '.', ''), '0'), '.'));
+        try { $cat = (string)$db->val('SELECT category FROM {p}wmsbb_products WHERE product_id = ?', [(int)$p['id']]); } catch (\Throwable $e) { $cat = ''; }
+        $imgs = array_values(array_filter(explode("\n", (string)$p['images'])));
+        $back = wms_path('/products/' . (int)$p['id']);
+        $stockQty = $qty;
+        header('Content-Type: text/html; charset=utf-8'); header('X-Frame-Options: SAMEORIGIN');
+        include __DIR__ . '/views/preview.php';
+    });
     $route('GET', '/products/new', fn() => $productForm(null));
     $route('GET', '/products/{id}', fn(array $a) => $productForm((int)$a['id']));
     $saveProduct = function (?int $id) use ($sf, $db, $num, $docs): void {
