@@ -18,7 +18,8 @@ $hasSecret = $cfg('secret', '') !== ''; ?>
   <h3>2. <?= e($sf->t('s_seller')) ?></h3>
   <div class="cols">
     <label class="fld"><span>Seller ID</span><input name="seller_id" value="<?= e($cfg('seller_id', '')) ?>" inputmode="numeric"></label>
-    <label class="fld"><span><?= e($sf->t('s_warehouse')) ?></span><select name="warehouse_id"><?php foreach ($whs as $w): ?><option value="<?= (int)$w['id'] ?>" <?= (int)$cfg('warehouse_id', '0') === (int)$w['id'] ? 'selected' : '' ?>><?= e($w['name']) ?></option><?php endforeach; ?></select></label>
+    <div class="fld"><span><?= e($sf->t('s_warehouse')) ?></span><?php $sel = array_map('intval', (array)(json_decode($cfg('warehouse_ids', '[]'), true) ?: [])) ?: ((int)$cfg('warehouse_id', '0') ? [(int)$cfg('warehouse_id', '0')] : []); ?>
+      <div class="bbwh"><?php foreach ($whs as $i => $w): ?><label class="chk"><input type="checkbox" name="warehouse_ids[]" value="<?= (int)$w['id'] ?>" <?= in_array((int)$w['id'], $sel, true) || (!$sel && $i === 0) ? 'checked' : '' ?>> <?= e($w['name']) ?></label><?php endforeach; ?></div><small class="muted"><?= e($sf->t('s_warehouse_hint')) ?></small></div>
   </div>
   <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button></div>
 </form>

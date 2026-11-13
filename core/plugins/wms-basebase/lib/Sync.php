@@ -24,6 +24,33 @@ final class Sync
         if ($w && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1', [$w])) return $w;
         return (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1');
     }
+    /** Warehouses whose stock is sold on Basebase (setting warehouse_ids, JSON list; falls back to the old single warehouse_id, then to the default warehouse). */
+    public function warehouses(): array
+    {
+        $ids = array_map('intval', (array)(json_decode($this->c('warehouse_ids', '[]'), true) ?: []));
+        if (!$ids && (int)$this->c('warehouse_id', '0')) $ids = [(int)$this->c('warehouse_id', '0')];
+        $out = [];
+        foreach (array_unique($ids) as $w) if ($w > 0 && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1', [$w])) $out[] = $w;
+        if (!$out && ($d = (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1'))) $out[] = $d;
+        return $out;
+    }
+    /** Available quantity of a product over all selected warehouses. */
+    public function available(int $pid): float
+    {
+        $sum = 0.0; foreach ($this->warehouses() as $w) $sum += (float)$this->wms['stock']->available($pid, $w);
+        return $sum;
+    }
+    /** Warehouse an incoming order is taken from: the first selected one that has enough, else the one with the most. */
+    public function warehouseFor(int $pid, float $qty): int
+    {
+        $best = 0; $bestQty = -1.0;
+        foreach ($this->warehouses() as $w) {
+            $a = (float)$this->wms['stock']->available($pid, $w);
+            if ($a + 0.0000001 >= $qty) return $w;
+            if ($a > $bestQty) { $best = $w; $bestQty = $a; }
+        }
+        return $best;
+    }
     public function stockOf(int $pid, int $warehouse): float { return (float)$this->wms['stock']->available($pid, $warehouse); }
     private function base(string $ext = ''): string { return '/sellers/' . $this->sellerId() . '/products' . ($ext === '' ? '' : '/' . rawurlencode($ext)); }
 
@@ -38,7 +65,7 @@ final class Sync
         if ($p['archived'] || !$map['published']) return $this->hide($map);
         if ($pr = Bb::problems($p, $map)) return $this->fail($pid, $pr[0]);
         if (!$this->ready()) return $this->fail($pid, 'not_connected');
-        $avail = $this->warehouse() ? $this->wms['stock']->available($pid, $this->warehouse()) : 0.0;
+        $avail = $this->available($pid);
         $body = Bb::product($p, $map, $avail);
         $r = $this->api->request('PUT', $this->base($map['external_id']), $body, 10);
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
@@ -63,7 +90,7 @@ final class Sync
         if (!$map['synced_at']) return $this->pushProduct($pid);
         if (Bb::variants((array)$this->db->row('SELECT variants FROM {p}wms_products WHERE id = ?', [$pid]))) return $map['dirty'] ? $this->pushProduct($pid) : null;   // options carry their own stock: only a full push is correct
         if (!$this->ready()) { $this->db->q('UPDATE {p}wmsbb_products SET dirty = 1 WHERE product_id = ?', [$pid]); return 'not_connected'; }
-        $units = Bb::stockUnits($this->warehouse() ? $this->wms['stock']->available($pid, $this->warehouse()) : 0.0);
+        $units = Bb::stockUnits($this->available($pid));
         if ($map['last_stock'] !== null && (int)$map['last_stock'] === $units && !$map['dirty']) return null;
         $r = $this->api->request('PATCH', $this->base($map['external_id']) . '/stock', ['stock' => $units], 5);
         if ($r['code'] === 404) return $this->pushProduct($pid);
@@ -150,7 +177,7 @@ final class Sync
         if (!$this->warehouse()) { $err('err_no_warehouse'); return; }
         $doc = $row['doc_id'] ? $docs->find((int)$row['doc_id']) : null;
         if (!$doc) {
-            $docId = $docs->save(['type' => 'sale', 'warehouse_id' => $this->warehouse(), 'contact_id' => $this->contactFor($it['customer']), 'moment' => date('Y-m-d H:i:s'),
+            $docId = $docs->save(['type' => 'sale', 'warehouse_id' => $this->warehouseFor((int)$map['product_id'], (float)$it['qty']), 'contact_id' => $this->contactFor($it['customer']), 'moment' => date('Y-m-d H:i:s'),
                 'comment' => Bb::comment($it), 'source' => 'basebase', 'ref' => 'item:' . $id], [['product_id' => (int)$map['product_id'], 'qty' => $it['qty'], 'price' => $it['price']]]);
             $this->db->q('UPDATE {p}wmsbb_items SET doc_id = ?, product_id = ? WHERE item_id = ?', [$docId, $map['product_id'], $id]);
             $doc = $docs->find($docId);

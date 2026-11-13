@@ -6,3 +6,4 @@
 .bbimg{margin-top:4px}.bbimg summary{cursor:pointer;color:var(--mut);font-size:12.5px}.bbimg textarea{margin-top:4px;font-size:13px}
 .warnbox{background:var(--warnbg);border-color:transparent;color:var(--ink)}
 .nowrap{white-space:nowrap}
+.bbwh{display:grid;gap:6px;padding:6px 0}

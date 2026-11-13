@@ -67,8 +67,8 @@ return function (\Sysfera\Plugin $sf): void {
         $pages = max(1, (int)ceil($total / $per)); $cur = min(max(1, (int)($_GET['page'] ?? 1)), $pages);
         $rows = $db->rows("SELECT p.id, p.name, p.sku, p.code, p.unit, p.sell_price, m.external_id, m.published, m.category, m.images, m.synced_at, m.last_error, m.last_stock, m.dirty
             FROM {p}wms_products p LEFT JOIN {p}wmsbb_products m ON m.product_id = p.id$w ORDER BY m.published DESC, p.name LIMIT $per OFFSET " . (($cur - 1) * $per), $a);
-        $s = $sync(); $wh = $s->warehouse();
-        foreach ($rows as &$r) $r['available'] = $wh ? $s->stockOf((int)$r['id'], $wh) : 0.0;
+        $s = $sync();
+        foreach ($rows as &$r) $r['available'] = $s->available((int)$r['id']);
         unset($r);
         $page('catalog', ['rows' => $rows, 'q' => $q, 'only' => $only, 'total' => $total, 'pg' => ['pages' => $pages, 'cur' => $cur], 'cats' => json_decode($cfg('categories', '[]'), true) ?: []], $sf->t('nav_catalog'), 'catalog');
     });
@@ -121,7 +121,8 @@ return function (\Sysfera\Plugin $sf): void {
             $url = trim((string)($_POST['api_url'] ?? '')); $set('api_url', $url !== '' ? $url : 'https://www.basebase.ru/api/v1');
             if (trim((string)($_POST['secret'] ?? '')) !== '') $set('secret', trim((string)$_POST['secret']));
             $set('seller_id', (string)max(0, (int)($_POST['seller_id'] ?? 0)));
-            $set('warehouse_id', (string)max(0, (int)($_POST['warehouse_id'] ?? 0)));
+            $ws = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));
+            $set('warehouse_ids', json_encode($ws)); $set('warehouse_id', (string)($ws[0] ?? 0));
             flash($sf->t('saved'));
         } elseif ($do === 'test') {
             $r = $s->ping();
@@ -167,6 +168,36 @@ return function (\Sysfera\Plugin $sf): void {
     // visitors of a public demo must not push demo data to a real Basebase account; the owner's connection settings survive a reset
     $sf->on('demo.reset', function () use ($db) { foreach (['wmsbb_products', 'wmsbb_items', 'wmsbb_events'] as $t) $db->q("DELETE FROM {p}$t"); });
     \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['wmsbb.use', 'wmsbb.admin'])));
+
+    /* ================= fields on the WMS product card ================= */
+    $sf->on('wms.product.fields', function (string $html, ?array $p) use ($sf, $db, $cfg): string {
+        if (!$sf->can('wmsbb.use')) return $html;
+        $m = $p ? $db->row('SELECT published, category FROM {p}wmsbb_products WHERE product_id = ?', [(int)$p['id']]) : null;
+        $cats = json_decode($cfg('categories', '[]'), true) ?: [];
+        ob_start(); ?>
+  <h3><?= e($sf->t('pf_h')) ?></h3>
+  <input type="hidden" name="bb_form" value="1">
+  <div class="cols">
+    <label class="fld"><span><?= e($sf->t('pf_cat')) ?></span><input name="bb_cat" list="bbcats-pf" value="<?= e($m['category'] ?? '') ?>" maxlength="120" placeholder="<?= e($sf->t('category_ph')) ?>" autocomplete="off"><datalist id="bbcats-pf"><?php foreach ($cats as $c): ?><option value="<?= e($c) ?>"><?php endforeach; ?></datalist><small class="muted"><?= e($sf->t($cats ? 'pf_cat_hint' : 'pf_cat_hint0')) ?></small></label>
+    <label class="fld"><span><?= e($sf->t('pf_pub')) ?></span><label class="chk"><input type="checkbox" name="bb_pub" value="1" <?= !empty($m['published']) ? 'checked' : '' ?>> <?= e($sf->t('pf_pub_l')) ?></label><small class="muted"><?= e($sf->t('pf_pub_hint')) ?></small></label>
+  </div>
+<?php
+        return $html . ob_get_clean();
+    });
+    $sf->on('wms.product.saved', function (int $pid, array $post) use ($sf, $db, $sync): void {
+        if (empty($post['bb_form']) || !$sf->can('wmsbb.use')) return;
+        $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$pid]); if (!$p) return;
+        $pub = !empty($post['bb_pub']) ? 1 : 0; $cat = mb_substr(trim((string)($post['bb_cat'] ?? '')), 0, 120);
+        $cur = $db->row('SELECT * FROM {p}wmsbb_products WHERE product_id = ?', [$pid]);
+        if (!$cur && !$pub) return;
+        if (!$cur) {
+            $ext = Bb::externalId($p);
+            if ($db->val('SELECT 1 FROM {p}wmsbb_products WHERE external_id = ?', [$ext])) $ext .= '-' . $pid;
+            $db->q('INSERT INTO {p}wmsbb_products (product_id, external_id, published, category, dirty) VALUES (?,?,?,?,1)', [$pid, $ext, $pub, $cat ?: null]);
+        } else $db->q('UPDATE {p}wmsbb_products SET published = ?, category = ?, dirty = 1 WHERE product_id = ?', [$pub, $cat ?: null, $pid]);
+        $s = $sync();
+        if ($s && $s->ready()) { $err = $s->pushProduct($pid); if ($err !== null) flash($sf->t('pf_push_fail', ['e' => preg_match('/^[a-z_]+$/', $err) ? $sf->t($err) : $err]), 'bad'); }
+    });
 
     /* ================= react to the warehouse ================= */
     $sf->on('wms.doc_changed', function (int $id, string $action) use ($sync, $client) {

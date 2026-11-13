@@ -24,7 +24,7 @@ return [
     'status_draft' => 'Draft', 'status_posted' => 'Posted', 'status_cancelled' => 'Cancelled',
 
     's_connection' => 'Access to Basebase', 's_connection_hint' => 'Take these from Basebase: Cabinet → Partner site → API access (the agent must be approved by a Basebase administrator).',
-    'api_address' => 'API address', 'secret_saved' => 'saved — type a new one to replace', 's_seller' => 'Seller and warehouse', 's_warehouse' => 'Warehouse for sales',
+    's_warehouse_hint' => 'Tick one or several warehouses: Basebase sees the total available quantity, and an order is taken from the first warehouse that has enough.', 'pf_h' => 'Basebase', 'pf_cat' => 'Category on Basebase', 'pf_cat_hint' => 'Choose from the Basebase list or start typing. Required to sell the product there.', 'pf_cat_hint0' => 'Type the category name exactly as on Basebase. The list appears after “Test connection”.', 'pf_pub' => 'Marketplace', 'pf_pub_l' => 'Sell on Basebase', 'pf_pub_hint' => 'The product is sent to Basebase when you save. Untick to hide it there.', 'pf_push_fail' => 'Saved, but not sent to Basebase: {e}', 'api_address' => 'API address', 'secret_saved' => 'saved — type a new one to replace', 's_seller' => 'Seller and warehouse', 's_warehouse' => 'Warehouse for sales',
     's_test' => 'Test the connection', 's_test_hint' => 'Sends a signed request and loads the Basebase categories.', 's_test_btn' => 'Test connection',
     's_key_hint' => 'Copy this key into the “AGENT_KEY” field of the Basebase form (Cabinet → Partner site). It only identifies this site while Basebase links the agent; it is not used to sign requests.',
     'ping_ok' => 'Connected. Agency fee: {fee}%, platform commission: {pc}%.', 'ping_fail' => 'Error: {e}',

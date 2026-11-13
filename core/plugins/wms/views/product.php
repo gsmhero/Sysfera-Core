@@ -14,6 +14,7 @@ $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
     <label class="fld"><span><?= e($sf->t('col_code')) ?></span><input name="code" value="<?= e($v('code')) ?>" maxlength="40" placeholder="<?= e($sf->t('auto')) ?>"></label>
     <label class="fld"><span><?= e($sf->t('col_group')) ?></span><select name="group_id"><option value="">—</option><?php foreach ($groups as $g): ?><option value="<?= (int)$g['id'] ?>" <?= (int)$v('group_id', 0) === (int)$g['id'] ? 'selected' : '' ?>><?= e($g['name']) ?></option><?php endforeach; ?></select></label>
   </div>
+  <?= \Sysfera\Hooks::filter('wms.product.fields', '', $p) ?>
   <h3><?= e($sf->t('prices')) ?></h3>
   <div class="cols">
     <label class="fld"><span><?= e($sf->t('col_buy_price')) ?>, ₽</span><input name="buy_price" value="<?= e($v('buy_price', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_buy_price')) ?></small></label>
