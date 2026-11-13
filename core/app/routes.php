@@ -126,6 +126,7 @@ return function (App $app): void {
             $id = (int)($_POST['id'] ?? 0); $do = (string)($_POST['do'] ?? '');
             if ($do === 'create') {
                 $res = $auth->register((string)($_POST['email'] ?? ''), (string)($_POST['name'] ?? ''), (string)($_POST['password'] ?? ''), in_array($_POST['role'] ?? '', ['admin', 'user'], true) ? $_POST['role'] : 'user');
+                if (is_int($res)) $db->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode(array_values($app->defaultCaps())), $res]);   // same access as a self-registered user (the administrator can change it below)
                 is_int($res) ? flash(t('users.created')) : flash(t($res), 'bad');
             } elseif ($id && $id !== $auth->id()) {
                 if ($do === 'save') {
