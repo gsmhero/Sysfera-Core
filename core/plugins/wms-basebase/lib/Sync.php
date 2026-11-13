@@ -67,7 +67,7 @@ final class Sync
         if (!$this->ready()) return $this->fail($pid, 'not_connected');
         $avail = $this->available($pid);
         $body = Bb::product($p, $map, $avail);
-        $r = $this->api->request('PUT', $this->base($map['external_id']), $body, 10);
+        $r = $this->api->request('PUT', $this->base($map['external_id']), $body, empty($body['images']) ? 10 : 60);   // Basebase downloads the photos while answering
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$body['stock'], $pid]);
         return null;
