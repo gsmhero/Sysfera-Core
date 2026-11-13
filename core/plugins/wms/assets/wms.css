@@ -75,3 +75,6 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 /* product page, right column: tables must fit the card */
 .cols2.wide-left>div>.card{overflow-x:auto}.cols2.wide-left .tbl th,.cols2.wide-left .tbl td{padding:8px 6px}.cols2.wide-left .tbl th{font-size:12px;white-space:normal}
 .card .tbl+h3,.card h3+.tbl+h3{margin-top:20px}
+
+.rep-head{font-size:12px;color:var(--mut);margin-bottom:4px}.rep-head span:last-child{width:34px}
+[data-rep]{margin-bottom:22px}.cols2.wide-left form.card>.row{margin-top:20px}
