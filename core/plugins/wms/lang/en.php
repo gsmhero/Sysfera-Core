@@ -14,7 +14,7 @@ return [
     'kg' => 'kg', 'm3' => 'm³', 'units_short' => 'pcs',
 
     'col_name' => 'Name', 'col_code' => 'Code', 'col_sku' => 'SKU', 'col_barcode' => 'Barcode', 'col_unit' => 'Unit', 'col_group' => 'Group',
-    'col_description' => 'Description', 'col_buy_price' => 'Purchase price', 'col_sell_price' => 'Selling price', 'col_price' => 'Price', 'col_sum' => 'Amount', 'col_total' => 'Amount',
+    'col_description' => 'Description', 'col_buy_price' => 'Purchase price', 'col_sell_price' => 'Selling price', 'col_promo_price' => 'Promo price', 'hint_buy_price' => 'What you pay your supplier for one unit. Used for stock value and margin reports; never shown to customers.', 'hint_sell_price' => 'The price a customer pays you: in documents, and on Basebase this is the price shown in the shop.', 'hint_promo_price' => 'Basebase only: what you, as the seller, receive for one unit sold there. Must be lower than the selling price; the difference is shared by Basebase and the agent. Leave 0 to receive the full selling price (minus the commission).', 'col_price' => 'Price', 'col_sum' => 'Amount', 'col_total' => 'Amount',
     'col_vat' => 'VAT, %', 'col_weight' => 'Weight, kg', 'col_volume' => 'Volume, m³', 'col_min_stock' => 'Minimum stock', 'col_product' => 'Product',
     'col_on_hand' => 'On hand', 'col_reserve' => 'Reserved', 'col_expected' => 'Expected', 'col_available' => 'Available', 'col_value' => 'Value',
     'col_opening' => 'Opening', 'col_income' => 'In', 'col_outcome' => 'Out', 'col_closing' => 'Closing',

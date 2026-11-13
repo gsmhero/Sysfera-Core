@@ -50,6 +50,13 @@ final class Bb
         return $e;
     }
 
+    /** The seller's own price on Basebase (0 = none): must be positive and below the selling price. */
+    public static function promo(array $p, float $price): float
+    {
+        $x = round((float)($p['promo_price'] ?? 0), 2);
+        return ($x > 0 && $x < $price) ? $x : 0.0;
+    }
+
     /** Body of PUT /sellers/{id}/products/{external_id} */
     public static function product(array $p, array $map, float $available): array
     {
@@ -60,6 +67,7 @@ final class Bb
         if ((float)($p['weight'] ?? 0) > 0) $fields['Вес, кг'] = rtrim(rtrim(number_format((float)$p['weight'], 3, '.', ''), '0'), '.');
         $body = ['title' => (string)$p['name'], 'description' => (string)($p['description'] ?? ''), 'category' => (string)$map['category'], 'price' => $price,
             'stock' => self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields, 'images' => self::images($map['images'] ?? '')];
+        if (($promo = self::promo($p, $price)) > 0) $body['promo_price'] = $promo;
         return $body;
     }
 

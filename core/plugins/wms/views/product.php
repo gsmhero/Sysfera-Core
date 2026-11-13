@@ -16,8 +16,9 @@ $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
   </div>
   <h3><?= e($sf->t('prices')) ?></h3>
   <div class="cols">
-    <label class="fld"><span><?= e($sf->t('col_buy_price')) ?>, ₽</span><input name="buy_price" value="<?= e($v('buy_price', '0')) ?>" inputmode="decimal"></label>
-    <label class="fld"><span><?= e($sf->t('col_sell_price')) ?>, ₽</span><input name="sell_price" value="<?= e($v('sell_price', '0')) ?>" inputmode="decimal"></label>
+    <label class="fld"><span><?= e($sf->t('col_buy_price')) ?>, ₽</span><input name="buy_price" value="<?= e($v('buy_price', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_buy_price')) ?></small></label>
+    <label class="fld"><span><?= e($sf->t('col_sell_price')) ?>, ₽</span><input name="sell_price" value="<?= e($v('sell_price', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_sell_price')) ?></small></label>
+    <label class="fld"><span><?= e($sf->t('col_promo_price')) ?>, ₽</span><input name="promo_price" value="<?= e($v('promo_price', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_promo_price')) ?></small></label>
     <label class="fld"><span><?= e($sf->t('col_vat')) ?>, %</span><select name="vat"><option value="">—</option><?php foreach (['0', '10', '22'] as $r): ?><option value="<?= $r ?>" <?= $p && $p['vat'] !== null && (string)(int)$p['vat'] === $r ? 'selected' : '' ?>><?= $r ?>%</option><?php endforeach; ?></select></label>
   </div>
   <h3><?= e($sf->t('physical')) ?></h3>

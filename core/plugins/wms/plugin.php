@@ -72,10 +72,10 @@ return function (\Sysfera\Plugin $sf): void {
         $vat = trim((string)($_POST['vat'] ?? ''));
         $v = [mb_substr($name, 0, 255), ((int)($_POST['group_id'] ?? 0)) ?: null, mb_substr(trim((string)($_POST['sku'] ?? '')), 0, 80) ?: null, mb_substr($code, 0, 40),
             mb_substr(trim((string)($_POST['barcode'] ?? '')), 0, 80) ?: null, mb_substr(trim((string)($_POST['unit'] ?? 'шт')), 0, 20) ?: 'шт',
-            $num($_POST['weight'] ?? 0), $num($_POST['volume'] ?? 0), $vat === '' ? null : $num($vat), $num($_POST['buy_price'] ?? 0), $num($_POST['sell_price'] ?? 0), $num($_POST['min_stock'] ?? 0),
+            $num($_POST['weight'] ?? 0), $num($_POST['volume'] ?? 0), $vat === '' ? null : $num($vat), $num($_POST['buy_price'] ?? 0), $num($_POST['sell_price'] ?? 0), $num($_POST['promo_price'] ?? 0), $num($_POST['min_stock'] ?? 0),
             mb_substr(trim((string)($_POST['description'] ?? '')), 0, 4000) ?: null];
-        if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
-        else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
+        if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, promo_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
+        else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
         $sf->log('product.saved', ['id' => $id, 'name' => $name]);
         flash($sf->t('saved')); redirect(wms_path("/products/$id"));
     };

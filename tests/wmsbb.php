@@ -36,6 +36,8 @@ $p = ['id' => 1, 'name' => 'Кружка', 'description' => 'Керамика', 
 $map = ['external_id' => 'WM-1', 'category' => 'Кухня', 'images' => 'https://a/1.jpg'];
 $b = Bb::product($p, $map, 12.4);
 ok($b['title'] === 'Кружка' && $b['price'] === 2450.0 && !isset($b['promo_price']) && $b['stock'] === 12 && $b['category'] === 'Кухня', 'product payload');
+$bp = Bb::product($p + ['promo_price' => '1800.00'], $map, 12.4);
+ok($bp['promo_price'] === 1800.0 && !isset(Bb::product($p + ['promo_price' => '2450'], $map, 1)['promo_price']) && !isset(Bb::product($p + ['promo_price' => '3000'], $map, 1)['promo_price']), 'promo price is sent only when positive and below the selling price');
 ok($b['fields']['Штрихкод'] === '460' && $b['fields']['Вес, кг'] === '0.35' && $b['images'] === ['https://a/1.jpg'], 'specs and images');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 0], ['category' => 'a']) === ['err_price'], 'price is required');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 5], ['category' => ' ']) === ['err_category'], 'category is required');
