@@ -1,6 +1,6 @@
 {
   "slug": "teams",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "name": { "en": "Sysfera Teams", "ru": "Sysfera Teams" },
   "description": {
     "en": "Team collaboration: teams with roles, chat channels with files, @mentions and reactions, a shared task board, a team calendar and files.",

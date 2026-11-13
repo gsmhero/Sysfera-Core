@@ -173,7 +173,7 @@ return function (\Sysfera\Plugin $sf): void {
             if (!is_dir($store) && !@mkdir($store, 0755, true)) { $json(['ok' => false, 'error' => $sf->t('e_storage')], 500); return; }
             $stored = bin2hex(random_bytes(16));
             if (!move_uploaded_file($up['tmp_name'], "$store/$stored.bin")) { $json(['ok' => false, 'error' => $sf->t('e_storage')], 500); return; }
-            $db->q('INSERT INTO {p}teams_files (team_id, channel_id, user_id, name, ext, size, stored) VALUES (?,?,?,?,?,?,?)', [$t['id'], $c['id'], $uid(), $f[0], $f[1], (int)$up['size'], $stored]);
+            $db->q('INSERT INTO {p}teams_files (team_id, channel_id, user_id, name, ext, size, blob_key) VALUES (?,?,?,?,?,?,?)', [$t['id'], $c['id'], $uid(), $f[0], $f[1], (int)$up['size'], $stored]);
             $fileId = $db->insertId();
         }
         $reply = ctype_digit((string)($_POST['reply_to'] ?? '')) ? (int)$_POST['reply_to'] : null;
@@ -252,7 +252,7 @@ return function (\Sysfera\Plugin $sf): void {
         if (!is_dir($store) && !@mkdir($store, 0755, true)) { flash($sf->t('e_storage'), 'bad'); redirect($self('t/' . $t['id'] . '/files')); }
         $stored = bin2hex(random_bytes(16));
         if (!move_uploaded_file($up['tmp_name'], "$store/$stored.bin")) { flash($sf->t('e_storage'), 'bad'); redirect($self('t/' . $t['id'] . '/files')); }
-        $db->q('INSERT INTO {p}teams_files (team_id, channel_id, user_id, name, ext, size, stored) VALUES (?,NULL,?,?,?,?,?)', [$t['id'], $uid(), $f[0], $f[1], (int)$up['size'], $stored]);
+        $db->q('INSERT INTO {p}teams_files (team_id, channel_id, user_id, name, ext, size, blob_key) VALUES (?,NULL,?,?,?,?,?)', [$t['id'], $uid(), $f[0], $f[1], (int)$up['size'], $stored]);
         flash($sf->t('uploaded')); redirect($self('t/' . $t['id'] . '/files'));
     });
 
@@ -260,7 +260,7 @@ return function (\Sysfera\Plugin $sf): void {
         $t = $open($p, 'read'); $f = $db->row('SELECT * FROM {p}teams_files WHERE id = ? AND team_id = ?', [(int)$p['fid'], $t['id']]);
         if ($f && ((int)$f['user_id'] === $uid() || Tm::can($t['role'], 'moderate'))) {
             $db->q('UPDATE {p}teams_messages SET file_id = NULL WHERE file_id = ?', [$f['id']]); $db->q('DELETE FROM {p}teams_files WHERE id = ?', [$f['id']]);
-            if (preg_match('/^[a-f0-9]{32}$/', (string)$f['stored'])) @unlink("$store/{$f['stored']}.bin");
+            if (preg_match('/^[a-f0-9]{32}$/', (string)$f['blob_key'])) @unlink("$store/{$f['blob_key']}.bin");
         }
         redirect($self('t/' . $t['id'] . '/files'));
     });
@@ -271,7 +271,7 @@ return function (\Sysfera\Plugin $sf): void {
         $ok = $f && $t && Tm::can($t['role'], 'read') && $t['role'] !== null;
         if ($ok && $f['channel_id']) { $c = $db->row('SELECT * FROM {p}teams_channels WHERE id = ?', [$f['channel_id']]);
             if ($c && $c['is_private'] && !Tm::can($t['role'], 'channel') && !$db->val('SELECT 1 FROM {p}teams_channel_members WHERE channel_id = ? AND user_id = ?', [$c['id'], $uid()])) $ok = false; }
-        $path = $ok && preg_match('/^[a-f0-9]{32}$/', (string)$f['stored']) ? "$store/{$f['stored']}.bin" : '';
+        $path = $ok && preg_match('/^[a-f0-9]{32}$/', (string)$f['blob_key']) ? "$store/{$f['blob_key']}.bin" : '';
         if ($path === '' || !is_file($path)) { http_response_code(404); echo 'Not found'; return; }
         $inline = in_array($f['ext'], Tm::INLINE, true) && !empty($_GET['inline']);
         header('Content-Type: ' . (Tm::FILES[$f['ext']] ?? 'application/octet-stream')); header('X-Content-Type-Options: nosniff'); header("Content-Security-Policy: sandbox; default-src 'none'; img-src 'self'");
