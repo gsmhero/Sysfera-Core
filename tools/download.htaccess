@@ -1,0 +1,15 @@
+# Files here are DOWNLOADS: never run them on this server, always hand them to the browser.
+SetHandler default-handler
+RemoveHandler .php .phtml
+RemoveType .php .phtml
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+  php_flag engine off
+</IfModule>
+ForceType application/octet-stream
+<IfModule mod_headers.c>
+  Header set Content-Disposition "attachment"
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>
