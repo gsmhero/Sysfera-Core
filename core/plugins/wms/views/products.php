@@ -20,10 +20,10 @@ $qs = fn(array $o = []) => '?' . http_build_query(array_filter(array_merge(['q' 
   <thead><tr><th><?= e($sf->t('col_name')) ?></th><th><?= e($sf->t('col_sku')) ?></th><th><?= e($sf->t('col_group')) ?></th><th class="num"><?= e($sf->t('col_on_hand')) ?></th><th class="num"><?= e($sf->t('col_available')) ?></th><th class="num"><?= e($sf->t('col_sell_price')) ?></th></tr></thead>
   <tbody><?php foreach ($rows as $r): ?>
     <tr onclick="location='<?= e($sf->url('/products/' . $r['id'])) ?>'">
-      <td><b><?= e($r['name']) ?></b><?php if ($r['barcode']): ?><br><small class="muted">▮ <?= e($r['barcode']) ?></small><?php endif; ?></td>
+      <td><b><?= e($r['name']) ?></b><?php if ($r['ptype'] !== 'simple'): ?> <span class="badge mute"><?= e($sf->t('pt_' . $r['ptype'])) ?></span><?php endif; if ($r['barcode']): ?><br><small class="muted">▮ <?= e($r['barcode']) ?></small><?php endif; ?></td>
       <td><?= e($r['sku'] ?: $r['code']) ?></td><td class="muted"><?= e($r['group_name'] ?? '—') ?></td>
-      <td class="num"><?= e(W::qty($r['on_hand'])) ?> <small class="muted"><?= e($r['unit']) ?></small></td>
-      <td class="num"><span class="lvl <?= W::level((float)$r['available'], (float)$r['min_stock']) ?>"><?= e(W::qty($r['available'])) ?></span></td>
+      <?php if ($r['ptype'] !== 'simple'): ?><td class="num muted">—</td><td class="num muted">—</td><?php else: ?><td class="num"><?= e(W::qty($r['on_hand'])) ?> <small class="muted"><?= e($r['unit']) ?></small></td>
+      <td class="num"><span class="lvl <?= W::level((float)$r['available'], (float)$r['min_stock']) ?>"><?= e(W::qty($r['available'])) ?></span></td><?php endif; ?>
       <td class="num"><?= e(W::money($r['sell_price'])) ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
 <?php if ($pg['pages'] > 1): ?><div class="pager"><?php for ($i = 1; $i <= $pg['pages']; $i++): ?><a class="<?= $i === $pg['cur'] ? 'on' : '' ?>" href="<?= e($sf->url('/products') . $qs(['page' => $i])) ?>"><?= $i ?></a><?php endfor; ?></div><?php endif; ?>

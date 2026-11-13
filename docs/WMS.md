@@ -25,3 +25,16 @@ Components → Available → Sysfera WMS → Install (delivered through the upda
 
 ## Next
 `wms-basebase` — separate connector component that talks to Basebase through Partner API v1 (push stock, pull orders as customer orders with reserve, return shipment status).
+
+## Product types
+Choose the type at the top of the product card; the card shows only the fields that make sense for it.
+| Type | What it is | Stock |
+|---|---|---|
+| **Simple** | One item. | Its own, through documents. |
+| **Variable** | A card with variations; each variation is a product from the warehouse (own SKU, stock, price). Optionally a variation name and an own price. | Sum of the variations. The card cannot be put into a document: pick a variation. |
+| **Grouped** | A showcase of separate products. | None. Not put into documents; not sold as one item on Basebase. |
+| **Virtual** | A service or anything without physical stock. | Never limited; documents skip it. |
+| **Downloadable** | Virtual plus a download link (for you; not sent to Basebase). | Never limited. |
+| **Bundle** | Products sold together, with the quantity of each. The price of the set is yours. | Worked out from the parts: how many sets can be made. Selling the set takes its parts from stock. A bundle cannot be received or counted. |
+
+Only simple products can be variations or parts of a bundle; a grouped product may also contain virtual, downloadable products and bundles. Products created before 0.2.0 stay simple; the old per-product "options" list was replaced by variations from the warehouse.

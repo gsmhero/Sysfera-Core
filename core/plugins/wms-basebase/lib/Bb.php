@@ -41,13 +41,40 @@ final class Bb
     }
 
     /** Problems that make a product unpublishable (translation keys). */
-    public static function problems(array $p, array $map): array
+    public static function problems(array $p, array $map, array $parts = []): array
     {
-        $e = [];
+        $e = []; $t = (string)($p['ptype'] ?? 'simple');
         if (trim((string)($p['name'] ?? '')) === '') $e[] = 'err_name';
-        if ((float)($p['sell_price'] ?? 0) <= 0) $e[] = 'err_price';
+        if ($t === 'grouped') return ['err_grouped'];
+        if ((float)($p['sell_price'] ?? 0) <= 0 && !($t === 'variable' && self::minPrice($parts) > 0)) $e[] = 'err_price';
+        if (in_array($t, ['variable', 'bundle'], true) && !$parts) $e[] = 'err_parts';
         if (trim((string)($map['category'] ?? '')) === '') $e[] = 'err_category';
         return $e;
+    }
+
+    /** Lowest selling price among the variations (0 = none). @param list<array> $parts */
+    public static function minPrice(array $parts): float
+    {
+        $m = 0.0; foreach ($parts as $x) { $pr = (float)($x['own_price'] ?: $x['sell_price']); if ($pr > 0 && ($m == 0.0 || $pr < $m)) $m = $pr; }
+        return round($m, 2);
+    }
+
+    /**
+     * Variations of a variable product as Basebase wants them: [{name, stock, price?}]; every variation is a product from the warehouse.
+     * @param list<array{name:string,label:?string,own_price:float|string,sell_price:float|string,avail:float}> $parts
+     */
+    public static function partVariants(array $parts, float $price): array
+    {
+        $out = []; $seen = [];
+        foreach ($parts as $x) {
+            $n = mb_substr(trim((string)($x['label'] ?? '')) ?: trim((string)$x['name']), 0, 120); if ($n === '' || isset($seen[mb_strtolower($n)])) continue;
+            $seen[mb_strtolower($n)] = 1;
+            $own = (float)$x['own_price'] > 0 ? (float)$x['own_price'] : ((float)$x['sell_price'] > 0 && abs((float)$x['sell_price'] - $price) > 0.004 ? (float)$x['sell_price'] : 0.0);
+            $row = ['name' => $n, 'stock' => self::stockUnits((float)$x['avail'])];
+            if ($own > 0) $row['price'] = round($own, 2);
+            $out[] = $row;
+        }
+        return $out;
     }
 
     /** Options of a variable product as Basebase wants them: [{name, stock, price?}]. Empty for a simple product. */
@@ -71,9 +98,11 @@ final class Bb
     }
 
     /** Body of PUT /sellers/{id}/products/{external_id} */
-    public static function product(array $p, array $map, float $available): array
+    public static function product(array $p, array $map, float $available, array $parts = []): array
     {
+        $type = (string)($p['ptype'] ?? 'simple');
         $price = round((float)$p['sell_price'], 2);
+        if ($type === 'variable' && $price <= 0) $price = self::minPrice($parts);
         $fields = [];
         if (!empty($p['sku'])) $fields['Артикул'] = (string)$p['sku'];
         if (!empty($p['barcode'])) $fields['Штрихкод'] = (string)$p['barcode'];
@@ -82,7 +111,9 @@ final class Bb
             if (trim((string)($s['name'] ?? '')) === '' || trim((string)($s['value'] ?? '')) === '') continue;
             if (trim((string)($s['section'] ?? '')) === '') $fields[(string)$s['name']] = (string)$s['value']; else $fields[] = ['section' => (string)$s['section'], 'name' => (string)$s['name'], 'value' => (string)$s['value']];
         }
-        $variants = self::variants($p);
+        $variants = $type === 'variable' ? self::partVariants($parts, $price) : [];
+        if ($type === 'bundle') { $fields['Состав'] = implode(', ', array_map(fn($x) => $x['name'] . ' × ' . rtrim(rtrim(number_format((float)$x['qty'], 3, '.', ''), '0'), '.'), $parts)); $available = $parts ? min(array_map(fn($x) => max(0.0, (float)$x['avail']) / max(0.000001, (float)$x['qty']), $parts)) : 0.0; }
+        if ($type === 'virtual' || $type === 'downloadable') { $fields['Тип товара'] = $type === 'downloadable' ? 'Цифровой товар' : 'Услуга'; $available = 999.0; }
         $body = ['title' => (string)$p['name'], 'description' => (string)($p['description'] ?? ''), 'category' => (string)$map['category'], 'price' => $price,
             'stock' => $variants ? array_sum(array_column($variants, 'stock')) : self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields,
             'images' => self::images(trim((string)($map['images'] ?? '')) !== '' ? $map['images'] : ($p['images'] ?? ''))];

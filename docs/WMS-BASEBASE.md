@@ -11,7 +11,7 @@ Separate component `wms-basebase` (requires `wms` ≥ 0.1.1 and core ≥ 0.1.2).
 ## Data flow
 | Direction | What | How |
 |---|---|---|
-| WMS → Basebase | Products ticked in *Catalog*: name, short description, description, category, selling price, promo price, stock, SKU, up to 8 https photos, options (with own stock and price), specifications (section / name / value; barcode and weight are added automatically) | `PUT /sellers/{id}/products/{external_id}` |
+| WMS → Basebase | Products ticked in *Catalog*: name, short description, description, category, selling price, promo price, stock, SKU, up to 8 https photos, variations (warehouse products with their own stock and price), specifications (section / name / value; barcode and weight are added automatically) | `PUT /sellers/{id}/products/{external_id}` |
 | WMS → Basebase | Stock after **every posted/unposted document** (only when the number changed) | `PATCH …/stock` (404 → full product push) |
 | WMS → Basebase | Un-ticked or archived product | `DELETE …/products/{external_id}` (hidden) |
 | Basebase → WMS | New order item | webhook `order.created` (+ polling `GET /orders?since_id=`) → customer order **SO…** is created and **posted** (reserve); buyer saved as a shared contact with role *customer* |
@@ -41,10 +41,10 @@ The WMS product card has the same fields as the Basebase product form:
 | SKU | SKU |
 | Price | Selling price |
 | Promo price (you receive) | Promo price |
-| Stock | Warehouse available quantity, or the sum of the options' stock |
-| Options (variable product) | Options: name, own price (optional), stock |
+| Stock | Warehouse available quantity; variable: sum of the variations; bundle: sets that can be made from the parts; virtual and downloadable: always available |
+| Variable product | Variations picked from the warehouse: variation name (optional), own price (optional); stock comes from each product |
 | Specifications | Specifications: section, name, value |
 | Main image + gallery (8) | Photos: https links, first = main (the *Catalog* photo box, if filled, overrides) |
 | Status Active / Draft | *Published* tick in the Catalog (unticking hides the product) |
 
-With options, stock is entered per option and the warehouse quantity is not sent; a change is delivered by a full push of the product.
+When a buyer orders a variation, the WMS order is made for that warehouse product; a bundle is taken apart into its parts, so their stock goes down. A change of stock of a part is delivered as a full push of the variable product or bundle it belongs to. A grouped product is not sold as one item (publish its products one by one).

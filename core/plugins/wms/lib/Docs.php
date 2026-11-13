@@ -138,11 +138,15 @@ final class Docs
         $doc = $this->find($id); if (!$doc || $doc['status'] !== 'draft') return ['err_state'];
         $lines = $this->lines($id); $type = $doc['type'];
         $wh = $this->warehouse((int)$doc['warehouse_id']); $to = $this->warehouse((int)$doc['to_warehouse_id']);
-        $problems = Posting::problems($type, $doc, $lines, (bool)($wh['use_cells'] ?? false), (bool)($to['use_cells'] ?? false));
+        $orig = $lines;
+        $open = $doc['parent_id'] ? $this->open((int)$doc['parent_id'], $id) : [];
+        [$lines, $open, $bad] = $this->physical($type, $lines, $open);   // sets are taken apart into components, services and downloads never touch stock
+        if ($bad) return $bad;
+        $problems = Posting::problems($type, $doc, $lines ?: array_map(fn($l) => $l + ['cell_id' => 1, 'to_cell_id' => 1], $orig), (bool)($wh['use_cells'] ?? false), (bool)($to['use_cells'] ?? false));
         if ($problems) return $problems;
         if ($parent = $doc['parent_id'] ? $this->find((int)$doc['parent_id']) : null) { if ($parent['status'] !== 'posted' || $parent['type'] !== Posting::parentType($type)) return ['err_parent']; }
 
-        $ctx = ['open' => $doc['parent_id'] ? $this->open((int)$doc['parent_id'], $id) : [], 'sys' => []];
+        $ctx = ['open' => $open, 'sys' => []];
         if ($type === 'inventory') foreach ($lines as $l) $ctx['sys'][(int)$l['id']] = $this->stock->onHand((int)$l['product_id'], (int)$doc['warehouse_id'], $l['cell_id'] ? (int)$l['cell_id'] : null, (bool)$l['cell_id']);
 
         if (($this->setting)('forbid_negative', '1') === '1') {
@@ -190,6 +194,18 @@ final class Docs
         $this->db->q('DELETE FROM {p}wms_doc_lines WHERE doc_id = ?', [$id]);
         $this->db->q('DELETE FROM {p}wms_docs WHERE id = ?', [$id]);
         return true;
+    }
+
+    /** Lines that really move stock (see Kinds::expand). @return array{0:list<array>,1:array<int,float>,2:list<string>} */
+    private function physical(string $type, array $lines, array $open): array
+    {
+        $ids = array_values(array_unique(array_merge(array_map(fn($l) => (int)$l['product_id'], $lines), array_keys($open))));
+        if (!$ids) return [$lines, $open, []];
+        $in = implode(',', array_map('intval', $ids)); $kind = []; $comps = [];
+        foreach ($this->db->rows("SELECT id, ptype FROM {p}wms_products WHERE id IN ($in)") as $r) $kind[(int)$r['id']] = (string)$r['ptype'];
+        if (!array_filter($kind, fn($k) => $k !== 'simple')) return [$lines, $open, []];   // the usual case: nothing to expand
+        foreach ($this->db->rows("SELECT parent_id, child_id, qty FROM {p}wms_product_links WHERE parent_id IN ($in)") as $r) $comps[(int)$r['parent_id']][] = ['child' => (int)$r['child_id'], 'qty' => (float)$r['qty']];
+        return Kinds::expand($type, $lines, $kind, $comps, $open);
     }
 
     private function warehouse(int $id): ?array { return $id ? $this->db->row('SELECT * FROM {p}wms_warehouses WHERE id = ?', [$id]) : null; }

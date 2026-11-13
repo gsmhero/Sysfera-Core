@@ -7,3 +7,13 @@
     });
   });
 })();
+/* product type: show only the fields that make sense for it */
+(function () {
+  var sel = document.getElementById('ptype'); if (!sel) return;
+  var form = sel.form;
+  function apply() {
+    var t = sel.value; form.setAttribute('data-ptype', t);
+    form.querySelectorAll('[data-t]').forEach(function (el) { el.hidden = (' ' + el.getAttribute('data-t') + ' ').indexOf(' ' + t + ' ') < 0; });
+  }
+  sel.addEventListener('change', apply); apply();
+})();

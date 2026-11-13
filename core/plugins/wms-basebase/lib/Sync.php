@@ -34,10 +34,33 @@ final class Sync
         if (!$out && ($d = (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1'))) $out[] = $d;
         return $out;
     }
-    /** Available quantity of a product over all selected warehouses. */
+    private function type(int $pid): string { return (string)($this->db->val('SELECT ptype FROM {p}wms_products WHERE id = ?', [$pid]) ?: 'simple'); }
+    /** Components of a variable / grouped / bundle product, with what is available of each. */
+    public function parts(int $pid): array
+    {
+        $rows = $this->db->rows('SELECT l.qty, l.label, l.price AS own_price, c.id, c.name, c.sell_price, c.archived FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? ORDER BY l.sort, l.id', [$pid]);
+        $out = []; foreach ($rows as $r) { if ($r['archived']) continue; $r['avail'] = $this->available((int)$r['id']); $out[] = $r; }
+        return $out;
+    }
+    /** What can be promised to buyers in one warehouse (a bundle: how many sets can be made from the parts there). */
+    public function availIn(int $pid, int $w): float
+    {
+        switch ($this->type($pid)) {
+            case 'bundle':
+                $m = INF;
+                foreach ($this->db->rows('SELECT child_id, qty FROM {p}wms_product_links WHERE parent_id = ?', [$pid]) as $r) $m = min($m, (float)$this->wms['stock']->available((int)$r['child_id'], $w) / max(0.000001, (float)$r['qty']));
+                return $m === INF ? 0.0 : max(0.0, $m);
+            case 'simple': return (float)$this->wms['stock']->available($pid, $w);
+            default: return 0.0;
+        }
+    }
+    /** Available quantity of a product over all selected warehouses (variable: all its variations; virtual: always plenty). */
     public function available(int $pid): float
     {
-        $sum = 0.0; foreach ($this->warehouses() as $w) $sum += (float)$this->wms['stock']->available($pid, $w);
+        $t = $this->type($pid);
+        if ($t === 'virtual' || $t === 'downloadable') return 999.0;
+        if ($t === 'variable' || $t === 'grouped') { $s = 0.0; foreach ($this->parts($pid) as $x) $s += (float)$x['avail']; return $s; }
+        $sum = 0.0; foreach ($this->warehouses() as $w) $sum += $this->availIn($pid, $w);
         return $sum;
     }
     /** Warehouse an incoming order is taken from: the first selected one that has enough, else the one with the most. */
@@ -45,13 +68,13 @@ final class Sync
     {
         $best = 0; $bestQty = -1.0;
         foreach ($this->warehouses() as $w) {
-            $a = (float)$this->wms['stock']->available($pid, $w);
+            $a = $this->availIn($pid, $w);
             if ($a + 0.0000001 >= $qty) return $w;
             if ($a > $bestQty) { $best = $w; $bestQty = $a; }
         }
         return $best;
     }
-    public function stockOf(int $pid, int $warehouse): float { return (float)$this->wms['stock']->available($pid, $warehouse); }
+    public function stockOf(int $pid, int $warehouse): float { return $this->availIn($pid, $warehouse); }
     private function base(string $ext = ''): string { return '/sellers/' . $this->sellerId() . '/products' . ($ext === '' ? '' : '/' . rawurlencode($ext)); }
 
     /* ---------------- products & stock ---------------- */
@@ -63,10 +86,11 @@ final class Sync
         $p = $this->db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$pid]);
         if (!$map || !$p) return 'missing';
         if ($p['archived'] || !$map['published']) return $this->hide($map);
-        if ($pr = Bb::problems($p, $map)) return $this->fail($pid, $pr[0]);
+        $parts = in_array($p['ptype'], ['variable', 'bundle'], true) ? $this->parts($pid) : [];
+        if ($pr = Bb::problems($p, $map, $parts)) return $this->fail($pid, $pr[0]);
         if (!$this->ready()) return $this->fail($pid, 'not_connected');
         $avail = $this->available($pid);
-        $body = Bb::product($p, $map, $avail);
+        $body = Bb::product($p, $map, $avail, $parts);
         $r = $this->api->request('PUT', $this->base($map['external_id']), $body, empty($body['images']) ? 10 : 60);   // Basebase downloads the photos while answering
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$body['stock'], $pid]);
@@ -88,7 +112,7 @@ final class Sync
         $map = $this->db->row('SELECT * FROM {p}wmsbb_products WHERE product_id = ? AND published = 1', [$pid]);
         if (!$map) return null;
         if (!$map['synced_at']) return $this->pushProduct($pid);
-        if (Bb::variants((array)$this->db->row('SELECT variants FROM {p}wms_products WHERE id = ?', [$pid]))) return $map['dirty'] ? $this->pushProduct($pid) : null;   // options carry their own stock: only a full push is correct
+        if ($this->type($pid) === 'variable') return $this->pushProduct($pid);   // variations carry their own stock: only a full push is correct
         if (!$this->ready()) { $this->db->q('UPDATE {p}wmsbb_products SET dirty = 1 WHERE product_id = ?', [$pid]); return 'not_connected'; }
         $units = Bb::stockUnits($this->available($pid));
         if ($map['last_stock'] !== null && (int)$map['last_stock'] === $units && !$map['dirty']) return null;
@@ -146,8 +170,8 @@ final class Sync
             if ($cur['status'] !== $it['status']) $this->setStatus($cur, $it['status']);
             if ($cur['doc_id']) return;   // already turned into an order; retry() handles failed ones
         } else {
-            $this->db->q('INSERT INTO {p}wmsbb_items (item_id, order_id, external_id, title, qty, price, seller_receives, customer, status) VALUES (?,?,?,?,?,?,?,?,?)',
-                [$it['item_id'], $it['order_id'], $it['external_id'] ?: null, mb_substr($it['title'], 0, 250), $it['qty'], $it['price'], $it['seller_receives'], json_encode($it['customer'], JSON_UNESCAPED_UNICODE), mb_substr($it['status'], 0, 20)]);
+            $this->db->q('INSERT INTO {p}wmsbb_items (item_id, order_id, external_id, title, variant, qty, price, seller_receives, customer, status) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                [$it['item_id'], $it['order_id'], $it['external_id'] ?: null, mb_substr($it['title'], 0, 250), mb_substr($it['variant'], 0, 120) ?: null, $it['qty'], $it['price'], $it['seller_receives'], json_encode($it['customer'], JSON_UNESCAPED_UNICODE), mb_substr($it['status'], 0, 20)]);
         }
         $this->makeOrder($it);
     }
@@ -157,7 +181,7 @@ final class Sync
     {
         $row = $this->db->row('SELECT * FROM {p}wmsbb_items WHERE item_id = ?', [$itemId]);
         if (!$row) return 'missing';
-        $it = Bb::item(['item_id' => $row['item_id'], 'order_id' => $row['order_id'], 'external_id' => $row['external_id'], 'title' => $row['title'], 'qty' => $row['qty'], 'price' => $row['price'],
+        $it = Bb::item(['item_id' => $row['item_id'], 'order_id' => $row['order_id'], 'external_id' => $row['external_id'], 'title' => $row['title'], 'variant' => (string)($row['variant'] ?? ''), 'qty' => $row['qty'], 'price' => $row['price'],
             'seller_receives' => $row['seller_receives'], 'status' => $row['status'], 'customer' => json_decode((string)$row['customer'], true) ?: []]);
         $this->makeOrder($it);
         return $this->db->val('SELECT error FROM {p}wmsbb_items WHERE item_id = ?', [$itemId]) ?: null;
@@ -175,6 +199,11 @@ final class Sync
         $map = $it['external_id'] !== '' ? $this->db->row('SELECT product_id FROM {p}wmsbb_products WHERE external_id = ?', [$it['external_id']]) : null;
         if (!$map) { $err('err_unknown_product'); return; }
         if (!$this->warehouse()) { $err('err_no_warehouse'); return; }
+        if ($this->type((int)$map['product_id']) === 'variable') {   // the buyer chose a variation: it is a product of its own in the warehouse
+            $vid = $this->variationFor((int)$map['product_id'], $it['variant']);
+            if (!$vid) { $err('err_variant'); return; }
+            $map['product_id'] = $vid;
+        }
         $doc = $row['doc_id'] ? $docs->find((int)$row['doc_id']) : null;
         if (!$doc) {
             $docId = $docs->save(['type' => 'sale', 'warehouse_id' => $this->warehouseFor((int)$map['product_id'], (float)$it['qty']), 'contact_id' => $this->contactFor($it['customer']), 'moment' => date('Y-m-d H:i:s'),
@@ -189,6 +218,14 @@ final class Sync
         }
         $this->db->q('UPDATE {p}wmsbb_items SET error = NULL WHERE item_id = ?', [$id]);
         if (($it['status'] ?? 'pending') === 'pending') $this->tell($id, 'prepare');
+    }
+
+    /** The warehouse product behind the variation name the buyer chose (the variation name, else the product name; a single variation needs no name). */
+    private function variationFor(int $parent, string $name): int
+    {
+        $rows = $this->parts($parent); $name = mb_strtolower(trim($name));
+        foreach ($rows as $x) if ($name !== '' && (mb_strtolower(trim((string)$x['label'])) === $name || mb_strtolower(trim((string)$x['name'])) === $name)) return (int)$x['id'];
+        return ($name === '' && count($rows) === 1) ? (int)$rows[0]['id'] : 0;
     }
 
     private function contactFor(array $c): ?int
@@ -256,7 +293,9 @@ final class Sync
     public function onDocChanged(int $docId, string $action): void
     {
         $docs = $this->wms['docs']; $doc = $docs->find($docId); if (!$doc) return;
-        foreach ($docs->lines($docId) as $l) $this->pushStock((int)$l['product_id']);
+        $todo = [];
+        foreach ($docs->lines($docId) as $l) foreach ($this->affected((int)$l['product_id']) as $x) $todo[$x] = 1;
+        foreach (array_keys($todo) as $x) $this->pushStock((int)$x);
         // a shipment of a Basebase order was posted → tell the buyer's marketplace
         if ($doc['type'] === 'shipment' && $action === 'post' && $doc['parent_id']) {
             $it = $this->db->row('SELECT item_id, status FROM {p}wmsbb_items WHERE doc_id = ?', [$doc['parent_id']]);
@@ -265,6 +304,15 @@ final class Sync
                 if ($pr['done'] + 0.0000001 >= $pr['ordered']) $this->tell((int)$it['item_id'], 'shipped');
             }
         }
+    }
+
+    /** A product and everything whose stock depends on it: its parts (when it is a bundle) and the variable products / bundles it belongs to. @return int[] */
+    private function affected(int $pid): array
+    {
+        $ids = [$pid];
+        foreach ($this->db->rows('SELECT child_id FROM {p}wms_product_links WHERE parent_id = ?', [$pid]) as $r) $ids[] = (int)$r['child_id'];
+        foreach ($ids as $i) foreach ($this->db->rows('SELECT parent_id FROM {p}wms_product_links WHERE child_id = ?', [$i]) as $r) $ids[] = (int)$r['parent_id'];
+        return array_values(array_unique($ids));
     }
 
     /* ---------------- connection ---------------- */

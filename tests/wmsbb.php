@@ -3,6 +3,7 @@ declare(strict_types=1);
 /** Tests for the Basebase connector's protocol helpers (pure PHP). Run: php tests/wmsbb.php */
 if (!function_exists('mb_substr')) { function mb_substr(string $s, int $start, ?int $len = null): string { return $len === null ? substr($s, $start) : substr($s, $start, $len); } }   // CLI without mbstring
 require dirname(__DIR__) . '/core/plugins/wms-basebase/lib/Bb.php';
+if (!function_exists('mb_strtolower')) { function mb_strtolower(string $s): string { return strtolower($s); } }
 
 use SysferaBb\Bb;
 
@@ -60,9 +61,20 @@ $full = $p + ['short_desc' => 'Short', 'images' => "https://a/x.jpg\nhttps://a/y
     'specs' => json_encode([['section' => '', 'name' => 'Материал', 'value' => 'Керамика'], ['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], ['section' => '', 'name' => 'Пусто', 'value' => '']])];
 $bf = Bb::product($full, array_merge($map, ['images' => '']), 99.0);
 ok($bf['short_description'] === 'Short' && $bf['images'] === ['https://a/x.jpg', 'https://a/y.jpg'], 'short description and product photos are sent; mapping photos win when filled');
-ok($bf['variants'] === [['name' => 'M', 'stock' => 4], ['name' => 'L', 'stock' => 3, 'price' => 2600.0]] && $bf['stock'] === 7, 'options are sent with their own stock and the total replaces the warehouse stock');
 ok($bf['fields']['Материал'] === 'Керамика' && $bf['fields']['Штрихкод'] === '460' && !in_array('Пусто', array_keys($bf['fields']), true) && in_array(['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], $bf['fields'], true), 'own specifications are merged with SKU/barcode/weight');
 ok(Bb::product($full, $map, 99.0)['images'] === ['https://a/1.jpg'], 'photos entered in the Basebase catalog override the product photos');
 ok(!isset($b['variants']) && !isset($b['short_description']), 'a simple product has neither');
+/* product types */
+$parts = [['name' => 'Shirt M', 'label' => 'M', 'own_price' => 0, 'sell_price' => 2000, 'qty' => 1, 'avail' => 4.0], ['name' => 'Shirt L', 'label' => '', 'own_price' => 2200, 'sell_price' => 2000, 'qty' => 1, 'avail' => 3.9], ['name' => 'Shirt XL', 'label' => '', 'own_price' => 0, 'sell_price' => 2500, 'qty' => 1, 'avail' => 0.0]];
+$pv = ['ptype' => 'variable', 'name' => 'Shirt', 'sell_price' => 2000, 'description' => ''];
+$bv = Bb::product($pv, ['external_id' => 'S', 'category' => 'C'], 0.0, $parts);
+ok(count($bv['variants']) === 3 && $bv['variants'][0] === ['name' => 'M', 'stock' => 4] && $bv['variants'][1] === ['name' => 'Shirt L', 'stock' => 3, 'price' => 2200.0] && $bv['variants'][2]['price'] === 2500.0 && $bv['stock'] === 7, 'variable: variations come from warehouse products (stock floored, own price only when it differs)');
+ok(Bb::problems(['ptype' => 'variable', 'name' => 'x', 'sell_price' => 0], ['category' => 'C'], $parts) === [] && Bb::problems(['ptype' => 'variable', 'name' => 'x', 'sell_price' => 0], ['category' => 'C'], []) === ['err_price', 'err_parts'], 'variable: price may come from the variations; variations are required');
+$bb = Bb::product(['ptype' => 'bundle', 'name' => 'Set', 'sell_price' => 100, 'description' => ''], ['external_id' => 'B', 'category' => 'C'], 0.0, [['name' => 'A', 'qty' => 2, 'avail' => 7.0], ['name' => 'B', 'qty' => 1, 'avail' => 2.0]]);
+ok($bb['stock'] === 2 && $bb['fields']['Состав'] === 'A × 2, B × 1' && !isset($bb['variants']), 'bundle: stock from the scarcest part, composition shown');
+$bs = Bb::product(['ptype' => 'downloadable', 'name' => 'Book', 'sell_price' => 100, 'description' => ''], ['external_id' => 'D', 'category' => 'C'], 0.0);
+ok($bs['stock'] === 999 && $bs['fields']['Тип товара'] === 'Цифровой товар', 'downloadable: never out of stock');
+ok(Bb::problems(['ptype' => 'grouped', 'name' => 'G', 'sell_price' => 1], ['category' => 'C']) === ['err_grouped'], 'grouped: not sold as one item');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

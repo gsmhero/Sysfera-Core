@@ -5,7 +5,7 @@ use SysferaWms\{Posting, Stock, Docs, W};
 
 /** Sysfera WMS — warehouse management component. */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Posting', 'Stock', 'Docs', 'W'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Posting', 'Kinds', 'Stock', 'Docs', 'W'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db();
     $stock = new Stock($db);
@@ -56,7 +56,10 @@ return function (\Sysfera\Plugin $sf): void {
     $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses): void {
         $p = $id ? $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$id]) : null;
         if ($id && !$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
-        $page('product', ['p' => $p, 'groups' => $db->rows('SELECT * FROM {p}wms_groups ORDER BY name'),
+        $links = $id ? $db->rows('SELECT l.*, c.name, c.sku, c.sell_price, (SELECT COALESCE(SUM(m.on_hand - m.reserve),0) FROM {p}wms_moves m WHERE m.product_id = c.id) AS avail
+            FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? ORDER BY l.sort, l.id', [$id]) : [];
+        $cands = $db->rows("SELECT id, name, sku FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped')" . ($id ? ' AND id <> ' . (int)$id : '') . ' ORDER BY name LIMIT 1500');
+        $page('product', ['links' => $links, 'cands' => $cands, 'p' => $p, 'groups' => $db->rows('SELECT * FROM {p}wms_groups ORDER BY name'),
             'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? $stock->history($id, 20) : [],
             'units' => ['шт', 'кг', 'г', 'л', 'м', 'упак', 'компл', 'пара']], $p ? $p['name'] : $sf->t('new_product'), 'products');
     };
@@ -70,6 +73,7 @@ return function (\Sysfera\Plugin $sf): void {
         $code = trim((string)($_POST['code'] ?? ''));
         if ($code === '') { $k = 'wms.counter.product'; $db->q('INSERT IGNORE INTO {p}settings (k, v) VALUES (?, ?)', [$k, '0']); $db->q('UPDATE {p}settings SET v = LAST_INSERT_ID(CAST(v AS UNSIGNED) + 1) WHERE k = ?', [$k]); $code = str_pad((string)$db->val('SELECT LAST_INSERT_ID()'), 5, '0', STR_PAD_LEFT); }
         $vat = trim((string)($_POST['vat'] ?? ''));
+        $ptype = \SysferaWms\Kinds::normal((string)($_POST['ptype'] ?? 'simple'));
         $v = [mb_substr($name, 0, 255), ((int)($_POST['group_id'] ?? 0)) ?: null, mb_substr(trim((string)($_POST['sku'] ?? '')), 0, 80) ?: null, mb_substr($code, 0, 40),
             mb_substr(trim((string)($_POST['barcode'] ?? '')), 0, 80) ?: null, mb_substr(trim((string)($_POST['unit'] ?? 'шт')), 0, 20) ?: 'шт',
             $num($_POST['weight'] ?? 0), $num($_POST['volume'] ?? 0), $vat === '' ? null : $num($vat), $num($_POST['buy_price'] ?? 0), $num($_POST['sell_price'] ?? 0), $num($_POST['promo_price'] ?? 0), $num($_POST['min_stock'] ?? 0),
@@ -77,12 +81,21 @@ return function (\Sysfera\Plugin $sf): void {
         if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, promo_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
         else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
         $sf->log('product.saved', ['id' => $id, 'name' => $name]);
-        $db->q('UPDATE {p}wms_products SET short_desc = ?, images = ?, variants = ?, specs = ? WHERE id = ?', [
+        $dl = trim((string)($_POST['download_url'] ?? '')); if ($ptype !== 'downloadable' || !preg_match('~^https://\S+$~i', $dl)) $dl = '';
+        $db->q('UPDATE {p}wms_products SET ptype = ?, download_url = ?, short_desc = ?, images = ?, variants = NULL, specs = ? WHERE id = ?', [
+            $ptype, mb_substr($dl, 0, 500) ?: null,
             mb_substr(trim((string)($_POST['short_desc'] ?? '')), 0, 500) ?: null, \SysferaWms\W::images((string)($_POST['images'] ?? '')) ?: null,
-            ($vr = \SysferaWms\W::variants((array)($_POST['v_name'] ?? []), (array)($_POST['v_price'] ?? []), (array)($_POST['v_stock'] ?? []))) ? json_encode($vr, JSON_UNESCAPED_UNICODE) : null,
-            ($sp = \SysferaWms\W::specs((array)($_POST['a_section'] ?? []), (array)($_POST['a_name'] ?? []), (array)($_POST['a_value'] ?? []))) ? json_encode($sp, JSON_UNESCAPED_UNICODE) : null, $id]);
+            ($sp =\SysferaWms\W::specs((array)($_POST['a_section'] ?? []), (array)($_POST['a_name'] ?? []), (array)($_POST['a_value'] ?? []))) ? json_encode($sp, JSON_UNESCAPED_UNICODE) : null, $id]);
+        /* components: variations of a variable product, items of a grouped one, parts of a bundle */
+        $db->q('DELETE FROM {p}wms_product_links WHERE parent_id = ?', [$id]); $skipped = 0; $sort = 0;
+        foreach (\SysferaWms\Kinds::links($ptype, (int)$id, (array)($_POST['l_child'] ?? []), (array)($_POST['l_label'] ?? []), (array)($_POST['l_qty'] ?? []), (array)($_POST['l_price'] ?? [])) as $l) {
+            $ct = (string)$db->val('SELECT ptype FROM {p}wms_products WHERE id = ?', [$l['child']]);
+            if ($ct === '' || !\SysferaWms\Kinds::allowedChild($ptype, $ct)) { $skipped++; continue; }
+            $db->q('INSERT INTO {p}wms_product_links (parent_id, child_id, label, qty, price, sort) VALUES (?,?,?,?,?,?)', [$id, $l['child'], $l['label'] ?: null, $l['qty'], $l['price'], $sort++]);
+        }
+        if ($skipped) flash($sf->t('links_skipped', ['n' => $skipped]), 'bad');
         \Sysfera\Hooks::do('wms.product.saved', (int)$id, $_POST);   // other components (e.g. the Basebase connector) store their own product fields
-        $open = !$isEdit ? $num($_POST['opening_qty'] ?? 0) : 0.0;   // opening stock of a NEW product = a posted receipt, so it shows in documents and history
+        $open = (!$isEdit && $ptype === 'simple') ? $num($_POST['opening_qty'] ?? 0) : 0.0;   // opening stock of a NEW product = a posted receipt, so it shows in documents and history
         if ($open > 0) {
             $wh = $db->row('SELECT id, use_cells FROM {p}wms_warehouses WHERE id = ? AND active = 1', [(int)($_POST['opening_wh'] ?? 0)]);
             if (!$wh || $wh['use_cells']) { flash($sf->t('err_opening'), 'bad'); redirect(wms_path("/products/$id")); }
@@ -267,7 +280,7 @@ return function (\Sysfera\Plugin $sf): void {
         header('Content-Type: application/json; charset=utf-8');
         if ($q === '') { echo '[]'; return; }
         $like = '%' . $q . '%';
-        $rows = $db->rows('SELECT id, name, sku, code, barcode, unit, buy_price, sell_price FROM {p}wms_products WHERE archived = 0 AND (name LIKE ? OR sku LIKE ? OR code LIKE ? OR barcode = ?) ORDER BY (barcode = ?) DESC, name LIMIT 12', [$like, $like, $like, $q, $q]);
+        $rows = $db->rows("SELECT id, name, sku, code, barcode, unit, buy_price, sell_price FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped') AND (name LIKE ? OR sku LIKE ? OR code LIKE ? OR barcode = ?) ORDER BY (barcode = ?) DESC, name LIMIT 12", [$like, $like, $like, $q, $q]);
         foreach ($rows as &$r) { $r['available'] = $wh ? $stock->available((int)$r['id'], $wh) : null; $r['on_hand'] = $wh ? $stock->onHand((int)$r['id'], $wh) : null; }
         echo json_encode($rows, JSON_UNESCAPED_UNICODE);
     });

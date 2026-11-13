@@ -84,5 +84,23 @@ ok(W::specs(['', 'S'], ['A', ''], ['1', '2']) === [['section' => '', 'name' => '
 ok(W::variants(['M', 'm', '', 'L'], ['0', '2 600,50', ''], ['4', '1', '', '-5']) === [['name' => 'M', 'price' => 0.0, 'stock' => 4], ['name' => 'L', 'price' => 0.0, 'stock' => 0]] || true, 'variants run');
 $vv = W::variants(['M', 'm', 'L'], ['0', '5', '2600,5'], ['4', '1', '-5']);
 ok(count($vv) === 2 && $vv[1] === ['name' => 'L', 'price' => 2600.5, 'stock' => 0], 'options: unique names, comma decimals, stock never negative');
+/* product types */
+require dirname(__DIR__) . '/core/plugins/wms/lib/Kinds.php';
+use SysferaWms\Kinds;
+ok(Kinds::normal('bundle') === 'bundle' && Kinds::normal('x') === 'simple' && Kinds::normal(null) === 'simple', 'type: unknown falls back to simple');
+$lk = Kinds::links('variable', 5, ['#12 · Shirt M', '12', '#5 · self', 'junk', '#13'], ['M', 'dup', 'x', 'y', ''], ['9', '9', '9', '9', '9'], ['500', '0', '0', '0', ''] );
+ok(count($lk) === 2 && $lk[0]['child'] === 12 && $lk[0]['label'] === 'M' && $lk[0]['price'] === 500.0 && $lk[0]['qty'] === 1.0 && $lk[1]['child'] === 13, 'links: ids parsed, duplicates / self / junk dropped, variation keeps label and price');
+$lb = Kinds::links('bundle', 1, ['#2', '#3'], ['a', 'b'], ['2', '0'], ['5', '5']);
+ok($lb[0]['qty'] === 2.0 && $lb[1]['qty'] === 1.0 && $lb[0]['label'] === '' && $lb[0]['price'] === 0.0, 'links: bundle has quantities (0 → 1) and no label/price');
+ok(Kinds::links('simple', 1, ['#2'], [], [], []) === [] && Kinds::links('virtual', 1, ['#2'], [], [], []) === [], 'links: only composite types have components');
+ok(Kinds::allowedChild('variable', 'simple') && !Kinds::allowedChild('variable', 'bundle') && Kinds::allowedChild('grouped', 'virtual') && !Kinds::allowedChild('grouped', 'variable') && !Kinds::allowedChild('simple', 'simple'), 'components: allowed types');
+$kind = [1 => 'simple', 2 => 'bundle', 3 => 'virtual', 4 => 'variable']; $comps = [2 => [['child' => 10, 'qty' => 2.0], ['child' => 11, 'qty' => 1.0]]];
+[$ln, $op, $bad] = Kinds::expand('sale', [['id' => 7, 'product_id' => 2, 'qty' => 3.0, 'cell_id' => null], ['id' => 8, 'product_id' => 3, 'qty' => 1.0], ['id' => 9, 'product_id' => 1, 'qty' => 1.0]], $kind, $comps, [2 => 3.0, 1 => 1.0]);
+ok(!$bad && count($ln) === 3 && $ln[0]['product_id'] === 10 && $ln[0]['qty'] === 6.0 && $ln[1]['product_id'] === 11 && $ln[1]['qty'] === 3.0 && $ln[0]['id'] === 7 && $ln[2]['product_id'] === 1, 'expand: a bundle becomes its parts × quantity, a service is skipped');
+ok($op === [1 => 1.0, 10 => 6.0, 11 => 3.0], 'expand: the open quantity of an order follows the parts');
+ok(Kinds::expand('sale', [['product_id' => 4, 'qty' => 1.0]], $kind, $comps)[2] === ['err_container'], 'expand: a variable product cannot be in a document');
+ok(Kinds::expand('receipt', [['product_id' => 2, 'qty' => 1.0]], $kind, $comps)[2] === ['err_bundle_in'], 'expand: a bundle cannot be received');
+ok(Kinds::bundleStock([['qty' => 2.0, 'avail' => 7.0], ['qty' => 1.0, 'avail' => 2.0]]) === 2.0 && Kinds::bundleStock([]) === 0.0, 'bundle stock = the scarcest part');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);
