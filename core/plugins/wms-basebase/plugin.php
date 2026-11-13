@@ -132,6 +132,31 @@ return function (\Sysfera\Plugin $sf): void {
         $go('shop');
     });
 
+    /* ================= wallet & payout profile (every user, their own shop only) ================= */
+    $route('GET', '/wallet', function () use ($sf, $page, $mine) {
+        $s = $mine(); $w = $s->sellerId() ? $s->wallet() : ['error' => 'no_shop', 'data' => []];
+        $page('wallet', ['w' => $w, 'shop' => $s->sellerId()], $sf->t('nav_wallet'), 'wallet');
+    }, 'wmsbb.wallet');
+    $route('POST', '/wallet', function () use ($sf, $mine, $go) {
+        $s = $mine(); $amt = round((float)str_replace(',', '.', (string)($_POST['amount'] ?? 0)), 2);
+        $r = $s->withdraw($amt);
+        if ($r['error'] === null) flash($sf->t(($r['data']['status'] ?? '') === 'review' ? 'wd_review' : 'wd_sent', ['amount' => number_format($amt, 2, '.', ' ')]));
+        else flash($sf->t('wd_fail', ['e' => $r['data']['message'] ?? (preg_match('/^[a-z_]+$/', (string)$r['error']) ? $sf->t((string)$r['error']) : $r['error'])]), 'bad');
+        $go('wallet');
+    }, 'wmsbb.wallet');
+    $route('GET', '/profile', function () use ($sf, $page, $mine) {
+        $s = $mine(); $p = $s->sellerId() ? $s->profile() : ['error' => 'no_shop', 'data' => []];
+        $page('profile', ['p' => $p, 'shop' => $s->sellerId()], $sf->t('nav_profile'), 'profile');
+    }, 'wmsbb.wallet');
+    $route('POST', '/profile', function () use ($sf, $mine, $go) {
+        $type = (string)($_POST['payout_type'] ?? '');
+        if (!in_array($type, ['self', 'company', 'personal'], true)) { flash($sf->t('pr_type_bad'), 'bad'); $go('profile'); }
+        $r = $mine()->saveProfile($type, (array)($_POST['f'][$type] ?? []));
+        if ($r['error'] !== null) flash($sf->t('wd_fail', ['e' => $r['error']]), 'bad');
+        else { $m = (array)($r['data']['missing_required'] ?? []); flash($m ? $sf->t('pr_saved_missing', ['list' => implode(', ', $m)]) : $sf->t('pr_saved'), $m ? 'warn' : 'ok'); }
+        $go('profile');
+    }, 'wmsbb.wallet');
+
     /* ================= settings ================= */
     $route('GET', '/settings', function () use ($sf, $db, $page, $cfg, $set) {
         if ($cfg('cron_token') === '') $set('cron_token', bin2hex(random_bytes(16)));

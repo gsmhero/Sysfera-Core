@@ -384,6 +384,31 @@ final class Sync
         return array_values(array_unique($ids));
     }
 
+    /* ---------------- wallet & payout profile (live from Basebase, nothing sensitive is kept here) ---------------- */
+
+    private function sellerCall(string $method, string $path, ?array $body = null): array
+    {
+        if ($this->owner <= 0 || !$this->api->configured()) return ['code' => 0, 'data' => [], 'error' => 'not_connected'];
+        if ($this->sellerId() === 0) return ['code' => 0, 'data' => [], 'error' => 'no_shop'];
+        return $this->api->request($method, '/sellers/' . $this->sellerId() . $path, $body, 10);
+    }
+    /** @return array{error:?string,data:array} balance + latest transactions */
+    public function wallet(): array { return $this->sellerCall('GET', '/wallet'); }
+    /** Ask Basebase to pay out; its answer {status: sent|review, message, balance} or an error such as profile_incomplete / too_small / insufficient. */
+    public function withdraw(float $amount): array
+    {
+        if ($amount <= 0) return ['code' => 0, 'data' => [], 'error' => 'bad_amount'];
+        $r = $this->sellerCall('POST', '/wallet/withdraw', ['amount' => round($amount, 2)]);
+        $this->note('wallet.withdraw', ['amount' => round($amount, 2), 'result' => $r['error'] ?? (string)($r['data']['status'] ?? '')]);
+        return $r;
+    }
+    public function profile(): array { return $this->sellerCall('GET', '/profile'); }
+    public function saveProfile(string $type, array $fields): array
+    {
+        $clean = []; foreach ($fields as $id => $v) if (preg_match('/^\d{1,6}$/', (string)$id)) $clean[(string)$id] = mb_substr(trim((string)$v), 0, 190);
+        return $this->sellerCall('PUT', '/profile', ['payout_type' => $type, 'fields' => $clean]);
+    }
+
     /* ---------------- connection ---------------- */
 
     public function ping(): array { return $this->api->request('GET', '/ping'); }
