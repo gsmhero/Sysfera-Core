@@ -21,6 +21,13 @@ $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
     <label class="fld"><span><?= e($sf->t('col_promo_price')) ?>, ₽</span><input name="promo_price" value="<?= e($v('promo_price', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_promo_price')) ?></small></label>
     <label class="fld"><span><?= e($sf->t('col_vat')) ?>, %</span><select name="vat"><option value="">—</option><?php foreach (['0', '10', '22'] as $r): ?><option value="<?= $r ?>" <?= $p && $p['vat'] !== null && (string)(int)$p['vat'] === $r ? 'selected' : '' ?>><?= $r ?>%</option><?php endforeach; ?></select></label>
   </div>
+  <h3><?= e($sf->t('opening_stock')) ?></h3>
+  <?php if (!$p): ?>
+    <?php if ($whs): ?><div class="cols">
+      <label class="fld"><span><?= e($sf->t('opening_qty')) ?></span><input name="opening_qty" value="0" inputmode="decimal"><small class="muted"><?= e($sf->t('hint_opening')) ?></small></label>
+      <label class="fld"><span><?= e($sf->t('opening_wh')) ?></span><select name="opening_wh"><?php foreach ($whs as $w): ?><option value="<?= (int)$w['id'] ?>"><?= e($w['name']) ?></option><?php endforeach; ?></select></label>
+    </div><?php else: ?><p class="muted sm"><?= e($sf->t('opening_none')) ?></p><?php endif; ?>
+  <?php else: ?><p class="muted sm"><?= e($sf->t('opening_existing')) ?></p><?php endif; ?>
   <h3><?= e($sf->t('physical')) ?></h3>
   <div class="cols">
     <label class="fld"><span><?= e($sf->t('col_unit')) ?></span><input name="unit" list="units" value="<?= e($v('unit', 'шт')) ?>" maxlength="20"><datalist id="units"><?php foreach ($units as $u): ?><option value="<?= e($u) ?>"><?php endforeach; ?></datalist></label>

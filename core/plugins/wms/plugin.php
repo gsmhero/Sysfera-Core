@@ -53,17 +53,17 @@ return function (\Sysfera\Plugin $sf): void {
         redirect(wms_path('/products'));
     });
 
-    $productForm = function (?int $id) use ($sf, $db, $stock, $page): void {
+    $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses): void {
         $p = $id ? $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$id]) : null;
         if ($id && !$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $page('product', ['p' => $p, 'groups' => $db->rows('SELECT * FROM {p}wms_groups ORDER BY name'),
-            'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? $stock->history($id, 20) : [],
+            'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? $stock->history($id, 20) : [],
             'units' => ['шт', 'кг', 'г', 'л', 'м', 'упак', 'компл', 'пара']], $p ? $p['name'] : $sf->t('new_product'), 'products');
     };
     $route('GET', '/products/new', fn() => $productForm(null));
     $route('GET', '/products/{id}', fn(array $a) => $productForm((int)$a['id']));
-    $saveProduct = function (?int $id) use ($sf, $db, $num): void {
-        $name = trim((string)($_POST['name'] ?? ''));
+    $saveProduct = function (?int $id) use ($sf, $db, $num, $docs): void {
+        $isEdit = $id !== null; $name = trim((string)($_POST['name'] ?? ''));
         if ($name === '') { flash($sf->t('err_name'), 'bad'); redirect(wms_path($id ? "/products/$id" : '/products/new')); }
         if (($_POST['do'] ?? '') === 'archive' && $id) { $db->q('UPDATE {p}wms_products SET archived = 1 WHERE id = ?', [$id]); flash($sf->t('product_archived')); redirect(wms_path('/products')); }
         if (($_POST['do'] ?? '') === 'restore' && $id) { $db->q('UPDATE {p}wms_products SET archived = 0 WHERE id = ?', [$id]); flash($sf->t('product_restored')); redirect(wms_path("/products/$id")); }
@@ -77,6 +77,16 @@ return function (\Sysfera\Plugin $sf): void {
         if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, promo_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
         else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
         $sf->log('product.saved', ['id' => $id, 'name' => $name]);
+        $open = !$isEdit ? $num($_POST['opening_qty'] ?? 0) : 0.0;   // opening stock of a NEW product = a posted receipt, so it shows in documents and history
+        if ($open > 0) {
+            $wh = $db->row('SELECT id, use_cells FROM {p}wms_warehouses WHERE id = ? AND active = 1', [(int)($_POST['opening_wh'] ?? 0)]);
+            if (!$wh || $wh['use_cells']) { flash($sf->t('err_opening'), 'bad'); redirect(wms_path("/products/$id")); }
+            try {
+                $d = $docs->save(['type' => 'receipt', 'warehouse_id' => (int)$wh['id'], 'moment' => date('Y-m-d H:i:s'), 'comment' => $sf->t('opening_comment')], [['product_id' => $id, 'qty' => $open, 'price' => $v[9]]]);
+                $bad = $docs->post($d);
+                if ($bad) { flash($sf->t('err_opening'), 'bad'); redirect(wms_path("/products/$id")); }
+            } catch (\Throwable $e) { flash($sf->t('err_opening'), 'bad'); redirect(wms_path("/products/$id")); }
+        }
         flash($sf->t('saved')); redirect(wms_path("/products/$id"));
     };
     $route('POST', '/products/new', fn() => $saveProduct(null));
