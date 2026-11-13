@@ -17,8 +17,8 @@ $ready = $sync->ready(); ?>
 <div class="kpis">
   <div class="kpi"><small><?= e($sf->t('kpi_published')) ?></small><b><?= (int)$stats['published'] ?></b><span><a href="<?= e($sf->url('/catalog')) ?>"><?= e($sf->t('manage')) ?> →</a></span></div>
   <div class="kpi <?= $stats['errors'] ? 'warn' : '' ?>"><small><?= e($sf->t('kpi_errors')) ?></small><b><?= (int)$stats['errors'] ?></b><span><?= e($sf->t('kpi_errors_hint')) ?></span></div>
-  <div class="kpi"><small><?= e($sf->t('kpi_open')) ?></small><b><?= (int)$stats['open'] ?></b><span><?= e($sf->t('kpi_open_hint')) ?></span></div>
-  <div class="kpi"><small><?= e($sf->t('kpi_orders')) ?></small><b><?= (int)$stats['orders'] ?></b><span><a href="<?= e($sf->url('/orders')) ?>"><?= e($sf->t('nav_orders')) ?> →</a></span></div>
+  <?php if ($see): ?><div class="kpi"><small><?= e($sf->t('kpi_open')) ?></small><b><?= (int)$stats['open'] ?></b><span><?= e($sf->t('kpi_open_hint')) ?></span></div>
+  <div class="kpi"><small><?= e($sf->t('kpi_orders')) ?></small><b><?= (int)$stats['orders'] ?></b><span><a href="<?= e($sf->url('/orders')) ?>"><?= e($sf->t('nav_orders')) ?> →</a></span></div><?php endif; ?>
 </div>
 <p class="muted sm"><?= e($sf->t('last_poll')) ?>: <?= (int)$cfg('last_poll', '0') ? e(date('d.m.Y H:i', (int)$cfg('last_poll'))) : '—' ?> · <?= e($sf->t('flow_hint')) ?></p>
 

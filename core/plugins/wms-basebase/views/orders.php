@@ -4,10 +4,11 @@ include __DIR__ . '/_nav.php';
 $statusBadge = fn(string $s) => '<span class="badge ' . (['pending' => 'warn', 'prepare' => 'info', 'shipped' => 'ok', 'on_delivery' => 'ok', 'delivered' => 'ok', 'returned' => 'bad', 'archived' => 'mute'][$s] ?? 'mute') . '">' . e($sf->t('st_' . $s)) . '</span>'; ?>
 <div class="page-h"><h1><?= e($sf->t('nav_orders')) ?></h1>
   <?php if ($sync->ready() && $manage): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="pull"><button class="btn">↻ <?= e($sf->t('pull_now')) ?></button></form><?php endif; ?></div>
-<div class="hint"><?= e($sf->t('orders_hint')) ?></div>
-<?php if (!$manage): ?><div class="hint warn"><?= e($sf->t('read_only')) ?></div><?php endif; ?>
+<?php if ($manage): ?><div class="hint"><?= e($sf->t('orders_hint')) ?></div><?php endif; ?>
 
-<?php if (!$rows): ?><div class="card empty"><h3><?= e($sf->t('no_orders')) ?></h3><p><?= e($sf->t('no_orders_hint')) ?></p></div>
+
+<?php if (!$manage): ?><div class="card empty"><h3><?= e($sf->t('hidden_h')) ?></h3><p><?= e($sf->t('hidden_p')) ?></p></div>
+<?php elseif (!$rows): ?><div class="card empty"><h3><?= e($sf->t('no_orders')) ?></h3><p><?= e($sf->t('no_orders_hint')) ?></p></div>
 <?php else: ?>
 <div class="card flush"><table class="tbl">
   <thead><tr><th><?= e($sf->t('basebase_order')) ?></th><th><?= e($sf->t('product')) ?></th><th><?= e($sf->t('buyer')) ?></th><th class="num"><?= e($sf->t('amount')) ?></th><th><?= e($sf->t('wms_order')) ?></th><th><?= e($sf->t('status')) ?></th><th></th></tr></thead>

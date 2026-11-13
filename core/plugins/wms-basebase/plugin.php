@@ -48,10 +48,10 @@ return function (\Sysfera\Plugin $sf): void {
     };
     $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
 
-    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
+    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => !$mayManage() ? 0 : (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
 
     /* ================= overview ================= */
-    $route('GET', '/', function () use ($sf, $db, $page, $sync, $cfg, $set) {
+    $route('GET', '/', function () use ($sf, $db, $page, $sync, $cfg, $set, $mayManage) {
         $s = $sync();
         if ($s->ready() && time() - (int)$cfg('last_poll', '0') > 300) { $set('last_poll', (string)time()); $s->pull(); }   // lazy polling fallback
         $stats = [
@@ -60,8 +60,9 @@ return function (\Sysfera\Plugin $sf): void {
             'orders' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_items'),
             'open' => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')"),
         ];
-        $attention = $db->rows('SELECT * FROM {p}wmsbb_items WHERE error IS NOT NULL ORDER BY item_id DESC LIMIT 10');
-        $page('overview', ['stats' => $stats, 'attention' => $attention, 'badProducts' => $db->rows('SELECT m.product_id, p.name, m.last_error FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND m.last_error IS NOT NULL LIMIT 10')], $sf->t('menu'), 'overview');
+        $see = $mayManage();   // orders are private to the user who connected Basebase
+        $attention = $see ? $db->rows('SELECT * FROM {p}wmsbb_items WHERE error IS NOT NULL ORDER BY item_id DESC LIMIT 10') : [];
+        $page('overview', ['see' => $see, 'stats' => $stats, 'attention' => $attention, 'badProducts' => $db->rows('SELECT m.product_id, p.name, m.last_error FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND m.last_error IS NOT NULL LIMIT 10')], $sf->t('menu'), 'overview');
     });
 
     /* ================= catalog ================= */
@@ -105,7 +106,7 @@ return function (\Sysfera\Plugin $sf): void {
 
     /* ================= orders ================= */
     $route('GET', '/orders', function () use ($sf, $db, $page, $mayManage) {
-        $rows = $db->rows('SELECT i.*, d.number, d.status AS doc_status FROM {p}wmsbb_items i LEFT JOIN {p}wms_docs d ON d.id = i.doc_id ORDER BY i.item_id DESC LIMIT 100');
+        $rows = !$mayManage() ? [] : $db->rows('SELECT i.*, d.number, d.status AS doc_status FROM {p}wmsbb_items i LEFT JOIN {p}wms_docs d ON d.id = i.doc_id ORDER BY i.item_id DESC LIMIT 100');
         $page('orders', ['rows' => $rows, 'manage' => $mayManage()], $sf->t('nav_orders'), 'orders');
     });
     $route('POST', '/orders', function () use ($sf, $sync, $go, $mayManage, $deny) {
