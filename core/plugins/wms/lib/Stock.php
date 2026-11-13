@@ -26,7 +26,7 @@ final class Stock
 
     private function where(array $f, array &$a): string
     {
-        $w = ' WHERE p.archived = 0';
+        $w = ' WHERE p.archived = ' . (($f['only'] ?? '') === 'archived' ? '1' : '0');
         if (!empty($f['q'])) { $w .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.code LIKE ? OR p.barcode = ?)'; $like = '%' . $f['q'] . '%'; array_push($a, $like, $like, $like, (string)$f['q']); }
         if (!empty($f['group_id'])) { $w .= ' AND p.group_id = ?'; $a[] = (int)$f['group_id']; }
         return $w;

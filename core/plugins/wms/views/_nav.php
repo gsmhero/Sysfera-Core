@@ -4,4 +4,5 @@ $tabs = ['dashboard' => ['/', 'nav_dashboard'], 'products' => ['/products', 'nav
 if ($sf->can('wms.admin')) $tabs['settings'] = ['/settings', 'nav_settings'];
 ?>
 <link rel="stylesheet" href="<?= e($sf->asset('wms.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
+<script src="<?= e($sf->asset('wms-menu.js')) ?>?v=<?= e($sf->manifest['version']) ?>" defer></script>
 <nav class="wtabs"><?php foreach ($tabs as $k => [$path, $label]): ?><a href="<?= e($sf->url($path)) ?>" class="<?= $tab === $k ? 'on' : '' ?>"><?= e($sf->t($label)) ?></a><?php endforeach; ?></nav>

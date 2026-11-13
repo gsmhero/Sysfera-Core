@@ -8,7 +8,7 @@ $qs = fn(array $o = []) => '?' . http_build_query(array_filter(array_merge(['q' 
 <form class="bar" method="get">
   <input name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($sf->t('search_products')) ?>" autofocus>
   <select name="group" onchange="this.form.submit()"><option value=""><?= e($sf->t('all_groups')) ?></option><?php foreach ($groups as $g): ?><option value="<?= (int)$g['id'] ?>" <?= (int)$f['group_id'] === (int)$g['id'] ? 'selected' : '' ?>><?= e($g['name']) ?> (<?= (int)$g['n'] ?>)</option><?php endforeach; ?></select>
-  <select name="only" onchange="this.form.submit()"><?php foreach (['all' => 'f_all', 'in' => 'f_in', 'low' => 'f_low', 'zero' => 'f_zero'] as $k => $l): ?><option value="<?= $k ?>" <?= $f['only'] === $k ? 'selected' : '' ?>><?= e($sf->t($l)) ?></option><?php endforeach; ?></select>
+  <select name="only" onchange="this.form.submit()"><?php foreach (['all' => 'f_all', 'in' => 'f_in', 'low' => 'f_low', 'zero' => 'f_zero', 'archived' => 'f_archived'] as $k => $l): ?><option value="<?= $k ?>" <?= $f['only'] === $k ? 'selected' : '' ?>><?= e($sf->t($l)) ?></option><?php endforeach; ?></select>
   <button class="btn"><?= e($sf->t('find')) ?></button>
 </form>
 

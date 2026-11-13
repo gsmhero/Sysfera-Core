@@ -2,13 +2,6 @@
 (function () {
   'use strict';
 
-  /* dropdown menu "New document" */
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest('[data-menu]');
-    document.querySelectorAll('.menu.open').forEach(function (m) { if (!b || m !== b.parentNode) m.classList.remove('open'); });
-    if (b) b.parentNode.classList.toggle('open');
-  });
-
   var C = window.WMS;
   if (!C || !C.draft) return;
   var rows = document.getElementById('rows'), whSel = document.getElementById('wh'), wh2Sel = document.getElementById('wh2');
