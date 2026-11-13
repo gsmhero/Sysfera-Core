@@ -37,6 +37,10 @@ jobs:
         run: php tests/newspub.php
       - name: Messenger and Activity tests
         run: php tests/messenger.php
+      - name: CRM tests
+        run: |
+          php tests/crm.php
+          php tests/crmviews.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

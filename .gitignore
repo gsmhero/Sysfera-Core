@@ -10,6 +10,7 @@ core/plugins/*
 !core/plugins/news-publisher/
 !core/plugins/messenger/
 !core/plugins/activity/
+!core/plugins/crm/
 .DS_Store
 Thumbs.db
 *.log

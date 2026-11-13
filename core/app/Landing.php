@@ -13,7 +13,7 @@ final class Landing
         'activity'  => ['bell',  'ready'],
         'news'      => ['news',  'ready'],
         'accounting'=> ['calc',  'soon'],
-        'crm'       => ['users', 'soon'],
+        'crm'       => ['users', 'ready'],
         'vacancy'   => ['user',  'soon'],
     ];
 

@@ -1,0 +1,13 @@
+{
+  "slug": "crm",
+  "version": "0.1.0",
+  "name": { "en": "Sysfera CRM", "ru": "Sysfera CRM" },
+  "description": {
+    "en": "Clients, deals on kanban boards, tasks and reminders, reports and forecast. Configurable pipelines (project types), stages, custom fields, permission profiles, CSV import and export.",
+    "ru": "Клиенты, сделки на канбан-досках, задачи и напоминания, отчёты и прогноз. Настраиваемые воронки (типы проектов), этапы, собственные поля, профили прав, импорт и экспорт CSV."
+  },
+  "requires": { "core": ">=0.1.9" },
+  "capabilities": {
+    "crm.use": { "en": "CRM: work with clients, deals and tasks (rights come from the user's CRM profile)", "ru": "CRM: работа с клиентами, сделками и задачами (права задаёт профиль пользователя в CRM)" }
+  }
+}
