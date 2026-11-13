@@ -1,0 +1,14 @@
+{
+  "slug": "teams",
+  "version": "0.1.0",
+  "name": { "en": "Sysfera Teams", "ru": "Sysfera Teams" },
+  "description": {
+    "en": "Team collaboration: teams with roles, chat channels with files, @mentions and reactions, a shared task board, a team calendar and files.",
+    "ru": "Командная работа: команды с ролями, каналы чата с файлами, @упоминания и реакции, общая доска задач, календарь команды и файлы."
+  },
+  "requires": { "core": ">=0.1.9" },
+  "capabilities": {
+    "teams.use":    { "en": "Teams: join teams, chat, tasks and calendar", "ru": "Teams: участие в командах, чат, задачи и календарь" },
+    "teams.create": { "en": "Teams: create new teams", "ru": "Teams: создание новых команд" }
+  }
+}

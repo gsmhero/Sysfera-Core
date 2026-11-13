@@ -1,0 +1,9 @@
+<?php /** @var \Sysfera\Plugin $sf @var array $t @var list<array> $files @var int $maxFile */
+use SysferaTeams\Tm;
+$tab = 'files'; require __DIR__ . '/_nav.php'; $tid = (int)$t['id']; $me = $sf->auth()->id(); ?>
+<?php if (Tm::can($t['role'], 'upload') && !\Sysfera\Demo::on()): ?><form class="card row" method="post" enctype="multipart/form-data" action="<?= e($sf->url('/t/' . $tid . '/files/upload')) ?>"><?= csrf_field() ?>
+  <input type="file" name="file" required><button class="btn primary"><?= e($sf->t('upload')) ?></button><small class="muted"><?= e($sf->t('file_rules', ['n' => (int)($maxFile / 1048576)])) ?></small></form><?php endif; ?>
+<div class="card" style="padding:0;overflow:auto"><table class="tbl"><thead><tr><th><?= e($sf->t('f_file')) ?></th><th><?= e($sf->t('f_from')) ?></th><th><?= e($sf->t('f_where')) ?></th><th class="num"><?= e($sf->t('f_size')) ?></th><th></th></tr></thead><tbody>
+<?php foreach ($files as $f): ?><tr><td><a href="<?= e($sf->url('/file/' . (int)$f['id'])) ?>">📄 <?= e($f['name']) ?></a><div class="muted sm"><?= e(substr((string)$f['created_at'], 0, 16)) ?></div></td><td><?= e($f['uname'] ?: '—') ?></td><td><?= $f['cname'] ? '# ' . e($f['cname']) : e($sf->t('files')) ?></td><td class="num"><?= e(human_size((int)$f['size'])) ?></td>
+  <td><?php if ((int)$f['user_id'] === $me || Tm::can($t['role'], 'moderate')): ?><form method="post" action="<?= e($sf->url('/t/' . $tid . '/files/' . (int)$f['id'] . '/delete')) ?>" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= csrf_field() ?><button class="tm-rm" title="<?= e($sf->t('delete')) ?>">×</button></form><?php endif; ?></td></tr><?php endforeach; ?>
+<?php if (!$files): ?><tr><td colspan="5" class="muted" style="text-align:center;padding:24px"><?= e($sf->t('no_files')) ?></td></tr><?php endif; ?></tbody></table></div>

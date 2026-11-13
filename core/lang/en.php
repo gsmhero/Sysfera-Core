@@ -16,6 +16,7 @@ return [
     'land.c.news' => 'News', 'land.c.news_d' => 'Publish news for your users and receive Sysfera core news with every update.',
     'land.c.accounting' => 'Accounting', 'land.c.accounting_d' => 'Income and expenses, invoices and reports for small business.',
     'land.c.crm' => 'CRM', 'land.c.crm_d' => 'Clients, deals on kanban boards, tasks and reminders, reports. Pipelines, fields and access profiles you set up yourself.',
+    'land.c.teams' => 'Teams', 'land.c.teams_d' => 'Team chat with channels and @mentions, task boards, a shared calendar and files — one workspace per team.',
     'land.c.vacancy' => 'Vacancy Manager', 'land.c.vacancy_d' => 'Publish vacancies, collect applications and track hiring stages.',
     'land.how_h' => 'Getting started', 'land.s1' => 'Create an account', 'land.s1d' => 'Register with your email — it takes a minute.',
     'land.s2' => 'Open your tools', 'land.s2d' => 'After signing in you see the components available to you.',

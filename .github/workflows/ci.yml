@@ -41,6 +41,10 @@ jobs:
         run: |
           php tests/crm.php
           php tests/crmviews.php
+      - name: Teams tests
+        run: |
+          php tests/teams.php
+          php tests/teamsviews.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

@@ -14,6 +14,7 @@ final class Landing
         'news'      => ['news',  'ready'],
         'accounting'=> ['calc',  'soon'],
         'crm'       => ['users', 'ready'],
+        'teams'     => ['users', 'ready'],
         'vacancy'   => ['user',  'soon'],
     ];
 
