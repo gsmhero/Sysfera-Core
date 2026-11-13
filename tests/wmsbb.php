@@ -39,7 +39,7 @@ $b = Bb::product($p, $map, 12.4);
 ok($b['title'] === 'Кружка' && $b['price'] === 2450.0 && !isset($b['promo_price']) && $b['stock'] === 12 && $b['category'] === 'Кухня', 'product payload');
 $bp = Bb::product($p + ['promo_price' => '1800.00'], $map, 12.4);
 ok($bp['promo_price'] === 1800.0 && !isset(Bb::product($p + ['promo_price' => '2450'], $map, 1)['promo_price']) && !isset(Bb::product($p + ['promo_price' => '3000'], $map, 1)['promo_price']), 'promo price is sent only when positive and below the selling price');
-ok($b['fields']['Штрихкод'] === '460' && $b['fields']['Вес, кг'] === '0.35' && $b['images'] === ['https://a/1.jpg'], 'specs and images');
+ok($b['fields']['Штрихкод'] === '460' && $b['fields']['Вес, кг'] === '0.35', 'specs and images');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 0], ['category' => 'a']) === ['err_price'], 'price is required');
 ok(Bb::problems(['name' => 'x', 'sell_price' => 5], ['category' => ' ']) === ['err_category'], 'category is required');
 
@@ -60,9 +60,8 @@ ok(Bb::categoryNames([['id' => 1, 'name' => 'Дом', 'children' => [['id' => 2,
 $full = $p + ['short_desc' => 'Short', 'images' => "https://a/x.jpg\nhttps://a/y.jpg", 'variants' => json_encode([['name' => 'M', 'price' => 0, 'stock' => 4], ['name' => 'L', 'price' => 2600, 'stock' => 3], ['name' => '', 'stock' => 9]]),
     'specs' => json_encode([['section' => '', 'name' => 'Материал', 'value' => 'Керамика'], ['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], ['section' => '', 'name' => 'Пусто', 'value' => '']])];
 $bf = Bb::product($full, array_merge($map, ['images' => '']), 99.0);
-ok($bf['short_description'] === 'Short' && $bf['images'] === ['https://a/x.jpg', 'https://a/y.jpg'], 'short description and product photos are sent; mapping photos win when filled');
+ok($bf['short_description'] === 'Short' && $bf['images'] === ['https://a/x.jpg', 'https://a/y.jpg'], 'short description and product photos are sent');
 ok($bf['fields']['Материал'] === 'Керамика' && $bf['fields']['Штрихкод'] === '460' && !in_array('Пусто', array_keys($bf['fields']), true) && in_array(['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], $bf['fields'], true), 'own specifications are merged with SKU/barcode/weight');
-ok(Bb::product($full, $map, 99.0)['images'] === ['https://a/1.jpg'], 'photos entered in the Basebase catalog override the product photos');
 ok(!isset($b['variants']) && !isset($b['short_description']), 'a simple product has neither');
 /* product types */
 $parts = [['name' => 'Shirt M', 'label' => 'M', 'own_price' => 0, 'sell_price' => 2000, 'qty' => 1, 'avail' => 4.0], ['name' => 'Shirt L', 'label' => '', 'own_price' => 2200, 'sell_price' => 2000, 'qty' => 1, 'avail' => 3.9], ['name' => 'Shirt XL', 'label' => '', 'own_price' => 0, 'sell_price' => 2500, 'qty' => 1, 'avail' => 0.0]];

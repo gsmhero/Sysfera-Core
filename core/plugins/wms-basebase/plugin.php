@@ -65,7 +65,7 @@ return function (\Sysfera\Plugin $sf): void {
         if ($only === 'pub') $w .= ' AND m.published = 1';
         $per = 40; $total = (int)$db->val("SELECT COUNT(*) FROM {p}wms_products p LEFT JOIN {p}wmsbb_products m ON m.product_id = p.id$w", $a);
         $pages = max(1, (int)ceil($total / $per)); $cur = min(max(1, (int)($_GET['page'] ?? 1)), $pages);
-        $rows = $db->rows("SELECT p.id, p.name, p.sku, p.code, p.unit, p.sell_price, m.external_id, m.published, m.category, m.images, p.images AS wms_images, m.synced_at, m.last_error, m.last_stock, m.dirty
+        $rows = $db->rows("SELECT p.id, p.name, p.sku, p.code, p.unit, p.sell_price, m.external_id, m.published, m.category, m.images, m.synced_at, m.last_error, m.last_stock, m.dirty
             FROM {p}wms_products p LEFT JOIN {p}wmsbb_products m ON m.product_id = p.id$w ORDER BY m.published DESC, p.name LIMIT $per OFFSET " . (($cur - 1) * $per), $a);
         $s = $sync();
         foreach ($rows as &$r) $r['available'] = $s->available((int)$r['id']);
@@ -79,17 +79,16 @@ return function (\Sysfera\Plugin $sf): void {
         }
         foreach ((array)($_POST['row'] ?? []) as $pid => $f) {
             $pid = (int)$pid; $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$pid]); if (!$p) continue;
-            $pub = !empty($f['pub']) ? 1 : 0; $cat = mb_substr(trim((string)($f['cat'] ?? '')), 0, 120); $img = mb_substr(trim(str_replace("", '', (string)($f['images'] ?? ''))), 0, 4000);
-            if ($img === trim(str_replace("", '', (string)($p['images'] ?? '')))) $img = '';   // same as the product card: keep following it
+            $pub = !empty($f['pub']) ? 1 : 0; $cat = mb_substr(trim((string)($f['cat'] ?? '')), 0, 120); 
             $cur = $db->row('SELECT * FROM {p}wmsbb_products WHERE product_id = ?', [$pid]);
             if (!$cur && !$pub) continue;                       // nothing to remember
             if (!$cur) {
                 $ext = Bb::externalId($p);
                 if ($db->val('SELECT 1 FROM {p}wmsbb_products WHERE external_id = ?', [$ext])) $ext .= '-' . $pid;
-                $db->q('INSERT INTO {p}wmsbb_products (product_id, external_id, published, category, images, dirty) VALUES (?,?,?,?,?,1)', [$pid, $ext, $pub, $cat ?: null, $img ?: null]);
+                $db->q('INSERT INTO {p}wmsbb_products (product_id, external_id, published, category, dirty) VALUES (?,?,?,?,1)', [$pid, $ext, $pub, $cat ?: null]);
             } else {
-                if ((int)$cur['published'] === $pub && (string)$cur['category'] === $cat && (string)$cur['images'] === $img) continue;   // unchanged
-                $db->q('UPDATE {p}wmsbb_products SET published = ?, category = ?, images = ?, dirty = 1 WHERE product_id = ?', [$pub, $cat ?: null, $img ?: null, $pid]);
+                if ((int)$cur['published'] === $pub && (string)$cur['category'] === $cat) continue;   // unchanged
+                $db->q('UPDATE {p}wmsbb_products SET published = ?, category = ?, dirty = 1 WHERE product_id = ?', [$pub, $cat ?: null, $pid]);
             }
             $s->pushProduct($pid) === null ? $done++ : $errors++;
         }

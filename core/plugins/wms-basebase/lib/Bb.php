@@ -116,7 +116,7 @@ final class Bb
         if ($type === 'virtual' || $type === 'downloadable') { $fields['Тип товара'] = $type === 'downloadable' ? 'Цифровой товар' : 'Услуга'; $available = 999.0; }
         $body = ['title' => (string)$p['name'], 'description' => (string)($p['description'] ?? ''), 'category' => (string)$map['category'], 'price' => $price,
             'stock' => $variants ? array_sum(array_column($variants, 'stock')) : self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields,
-            'images' => self::images(trim((string)($map['images'] ?? '')) !== '' ? $map['images'] : ($p['images'] ?? ''))];
+            'images' => self::images($p['images'] ?? '')];
         if (trim((string)($p['short_desc'] ?? '')) !== '') $body['short_description'] = mb_substr(trim((string)$p['short_desc']), 0, 500);
         if ($variants) $body['variants'] = $variants;
         if (($promo = self::promo($p, $price)) > 0) $body['promo_price'] = $promo;
