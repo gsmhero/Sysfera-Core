@@ -102,5 +102,9 @@ ok(Kinds::expand('sale', [['product_id' => 4, 'qty' => 1.0]], $kind, $comps)[2] 
 ok(Kinds::expand('receipt', [['product_id' => 2, 'qty' => 1.0]], $kind, $comps)[2] === ['err_bundle_in'], 'expand: a bundle cannot be received');
 ok(Kinds::bundleStock([['qty' => 2.0, 'avail' => 7.0], ['qty' => 1.0, 'avail' => 2.0]]) === 2.0 && Kinds::bundleStock([]) === 0.0, 'bundle stock = the scarcest part');
 
+/* private documents */
+$m = \SysferaWms\W::mask(['id' => 5, 'number' => 'SO-000001', 'contact' => 'Ivan', 'comment' => 'Red Street 1', 'total' => 200, 'type' => 'sale', 'status' => 'posted', 'progress' => ['done' => 1]]);
+ok($m['contact'] === null && $m['comment'] === null && $m['total'] === 0 && $m['number'] !== 'SO-000001' && !isset($m['progress']) && $m['private'] === true && $m['type'] === 'sale' && $m['status'] === 'posted', 'mask: customer, comment, amount and number are hidden; type and status stay');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

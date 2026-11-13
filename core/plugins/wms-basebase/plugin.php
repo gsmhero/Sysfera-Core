@@ -48,6 +48,12 @@ return function (\Sysfera\Plugin $sf): void {
     };
     $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
 
+    /* documents made from Basebase orders hold private data of the connection owner and of their customers */
+    $sf->on('wms.doc.private', fn($hidden, $d) => $hidden || (($d['source'] ?? '') === 'basebase' && !$mayManage()));
+    $sf->on('wms.partners.hidden', function ($ids) use ($db, $mayManage) {
+        if ($mayManage()) return $ids;
+        return array_merge((array)$ids, array_map('intval', array_column($db->rows("SELECT DISTINCT contact_id FROM {p}wms_docs WHERE source = 'basebase' AND contact_id IS NOT NULL"), 'contact_id')));
+    });
     $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => !$mayManage() ? 0 : (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
 
     /* ================= overview ================= */

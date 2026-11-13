@@ -22,6 +22,8 @@ return function (\Sysfera\Plugin $sf): void {
     $route = function (string $method, string $path, callable $fn, string $cap = 'wms.use') use ($sf, $ensure): void {
         $sf->route($method, $path, function (array $p) use ($fn, $ensure) { $ensure(); return $fn($p); }, ['cap' => $cap]);
     };
+    /* A component (e.g. the Basebase connector) may mark documents as private: then only their owner sees what is in them. Stock figures stay true. */
+    $isPrivate = fn(?array $d): bool => $d !== null && (bool)\Sysfera\Hooks::filter('wms.doc.private', false, $d);
     $page = fn(string $view, array $vars, string $title, string $tab) => $sf->render($view, $vars + ['tab' => $tab, 'stockApi' => $stock], $title);
     $warehouses = fn(bool $all = false) => $db->rows('SELECT * FROM {p}wms_warehouses' . ($all ? '' : ' WHERE active = 1') . ' ORDER BY is_default DESC, name');
     $partners = fn(?string $role = null) => array_values(array_filter(
@@ -31,11 +33,11 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->menu('menu', '/', ['cap' => 'wms.use', 'order' => 20, 'icon' => 'box']);
 
     /* ================= dashboard ================= */
-    $route('GET', '/', function () use ($sf, $stock, $docs, $db, $page) {
+    $route('GET', '/', function () use ($sf, $stock, $docs, $db, $page, $isPrivate) {
         $low = $stock->summary(['only' => 'low'], 8);
-        $recent = $docs->list([], 8);
+        $recent = array_map(fn($r) => $isPrivate($r) ? W::mask($r) : $r, $docs->list([], 8));
         $open = ['purchase' => 0, 'sale' => 0];
-        foreach ($db->rows("SELECT d.type, d.id FROM {p}wms_docs d WHERE d.type IN ('purchase','sale') AND d.status = 'posted'") as $o) { $pr = $docs->progress((int)$o['id']); if ($pr['done'] + 0.0000001 < $pr['ordered']) $open[$o['type']]++; }
+        foreach ($db->rows("SELECT d.type, d.id, d.source, d.contact_id FROM {p}wms_docs d WHERE d.type IN ('purchase','sale') AND d.status = 'posted'") as $o) { if ($isPrivate($o)) continue; $pr = $docs->progress((int)$o['id']); if ($pr['done'] + 0.0000001 < $pr['ordered']) $open[$o['type']]++; }
         $page('dashboard', ['totals' => $stock->totals(), 'low' => $low, 'recent' => $recent, 'open' => $open, 'drafts' => $docs->count(['status' => 'draft'])], $sf->t('nav_dashboard'), 'dashboard');
     });
 
@@ -53,14 +55,14 @@ return function (\Sysfera\Plugin $sf): void {
         redirect(wms_path('/products'));
     });
 
-    $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses): void {
+    $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses, $isPrivate): void {
         $p = $id ? $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$id]) : null;
         if ($id && !$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $links = $id ? $db->rows('SELECT l.*, c.name, c.sku, c.sell_price, (SELECT COALESCE(SUM(m.on_hand - m.reserve),0) FROM {p}wms_moves m WHERE m.product_id = c.id) AS avail
             FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? ORDER BY l.sort, l.id', [$id]) : [];
         $cands = $db->rows("SELECT id, name, sku FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped')" . ($id ? ' AND id <> ' . (int)$id : '') . ' ORDER BY name LIMIT 1500');
         $page('product', ['links' => $links, 'cands' => $cands, 'p' => $p, 'groups' => $db->rows('SELECT * FROM {p}wms_groups ORDER BY name'),
-            'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? $stock->history($id, 20) : [],
+            'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? array_map(fn($h) => $isPrivate($h) ? W::mask($h) : $h, $stock->history($id, 20)) : [],
             'units' => ['шт', 'кг', 'г', 'л', 'м', 'упак', 'компл', 'пара']], $p ? $p['name'] : $sf->t('new_product'), 'products');
     };
     /* "Preview product page": what the card looks like on Basebase (nothing is sent) */
@@ -200,11 +202,11 @@ return function (\Sysfera\Plugin $sf): void {
     }, 'wms.admin');
 
     /* ================= documents ================= */
-    $route('GET', '/docs', function () use ($sf, $docs, $page) {
+    $route('GET', '/docs', function () use ($sf, $docs, $page, $isPrivate) {
         $f = ['group' => (string)($_GET['group'] ?? ''), 'type' => (string)($_GET['type'] ?? ''), 'status' => (string)($_GET['status'] ?? ''), 'q' => trim((string)($_GET['q'] ?? ''))];
         $per = 30; $total = $docs->count($f); $pg = W::page($total, $per, (int)($_GET['page'] ?? 1));
         $rows = $docs->list($f, $per, ($pg['cur'] - 1) * $per);
-        foreach ($rows as &$r) if (in_array($r['type'], ['purchase', 'sale'], true)) $r['progress'] = $docs->progress((int)$r['id']);
+        foreach ($rows as &$r) { if ($isPrivate($r)) { $r = W::mask($r); continue; } if (in_array($r['type'], ['purchase', 'sale'], true)) $r['progress'] = $docs->progress((int)$r['id']); }
         unset($r);
         $page('docs', ['rows' => $rows, 'total' => $total, 'pg' => $pg, 'f' => $f], $sf->t('nav_docs'), 'docs');
     });
@@ -222,13 +224,15 @@ return function (\Sysfera\Plugin $sf): void {
         if (!Posting::known($a['type'])) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $editor(null, $a['type']);
     });
-    $route('GET', '/docs/{id}', function (array $a) use ($sf, $docs, $editor) {
+    $route('GET', '/docs/{id}', function (array $a) use ($sf, $docs, $editor, $isPrivate, $page) {
         $d = $docs->find((int)$a['id']);
         if (!$d) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        if ($isPrivate($d)) { $page('private', ['doc' => $d], $d['number'], 'docs'); return; }
         $editor($d, $d['type']);
     });
-    $route('POST', '/docs/save', function () use ($sf, $docs, $uid) {
+    $route('POST', '/docs/save', function () use ($sf, $docs, $uid, $isPrivate) {
         $id = (int)($_POST['id'] ?? 0) ?: null; $type = (string)($_POST['type'] ?? '');
+        if ($id && $isPrivate($docs->find($id))) { flash($sf->t('doc_private'), 'bad'); redirect(wms_path('/docs')); }
         $lines = array_values((array)($_POST['lines'] ?? []));
         try {
             $new = $id === null;
@@ -243,9 +247,10 @@ return function (\Sysfera\Plugin $sf): void {
         } catch (\Throwable $e) { flash($sf->t($e->getMessage() === 'not_draft' ? 'err_state' : 'err_generic'), 'bad'); \Sysfera\App::log('wms save: ' . $e->getMessage()); if (!$id) redirect(wms_path('/docs')); }
         redirect(wms_path("/docs/$id"));
     });
-    $route('POST', '/docs/act', function () use ($sf, $docs, $uid) {
+    $route('POST', '/docs/act', function () use ($sf, $docs, $uid, $isPrivate) {
         $id = (int)($_POST['id'] ?? 0); $do = (string)($_POST['do'] ?? ''); $d = $docs->find($id);
         if (!$d) redirect(wms_path('/docs'));
+        if ($isPrivate($d)) { flash($sf->t('doc_private'), 'bad'); redirect(wms_path('/docs')); }
         try {
             if ($do === 'post') { $pr = $docs->post($id); if ($pr) foreach ($pr as $x) flash(wms_msg($sf, $x), 'bad'); else { $sf->log('doc.posted', ['id' => $id, 'number' => $d['number'], 'type' => $d['type']]); flash($sf->t('posted_ok', ['n' => $d['number']])); } }
             elseif ($do === 'unpost' || $do === 'cancel') { $pr = $docs->unpost($id, $do === 'cancel'); if ($pr) foreach ($pr as $x) flash(wms_msg($sf, $x), 'bad'); else { $sf->log('doc.' . $do, ['id' => $id, 'number' => $d['number']]); flash($sf->t($do === 'cancel' ? 'cancelled_ok' : 'unposted_ok')); } }
@@ -262,7 +267,8 @@ return function (\Sysfera\Plugin $sf): void {
     /* ================= partners (shared contacts) ================= */
     $route('GET', '/partners', function () use ($sf, $db, $page, $partners) {
         $role = (string)($_GET['role'] ?? ''); $q = trim((string)($_GET['q'] ?? ''));
-        $rows = array_values(array_filter($partners(in_array($role, ['supplier', 'customer'], true) ? $role : null), fn($r) => $q === '' || mb_stripos($r['name'] . ' ' . $r['company'] . ' ' . $r['phone'] . ' ' . $r['email'], $q) !== false));
+        $hide = array_map('intval', (array)\Sysfera\Hooks::filter('wms.partners.hidden', []));   // e.g. customers that came with private orders
+        $rows = array_values(array_filter($partners(in_array($role, ['supplier', 'customer'], true) ? $role : null), fn($r) => !in_array((int)$r['id'], $hide, true) && $q === '' || mb_stripos($r['name'] . ' ' . $r['company'] . ' ' . $r['phone'] . ' ' . $r['email'], $q) !== false));
         $counts = [];
         foreach ($db->rows("SELECT contact_id, type, COUNT(*) n, SUM(CASE WHEN status='posted' THEN total ELSE 0 END) s FROM {p}wms_docs WHERE contact_id IS NOT NULL AND type IN ('purchase','sale') GROUP BY contact_id, type") as $c) $counts[$c['contact_id']][$c['type']] = $c;
         $page('partners', ['rows' => $rows, 'role' => $role, 'q' => $q, 'counts' => $counts], $sf->t('nav_partners'), 'partners');

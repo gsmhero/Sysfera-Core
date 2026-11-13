@@ -86,7 +86,7 @@ $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
   <section class="card"><h3><?= e($sf->t('history')) ?></h3>
     <?php if (!$history): ?><p class="muted"><?= e($sf->t('no_history')) ?></p><?php else: ?>
     <table class="tbl"><tbody><?php foreach ($history as $h): $d = (float)$h['on_hand']; ?>
-      <tr onclick="location='<?= e($sf->url('/docs/' . $h['doc_id'])) ?>'"><td><small class="muted"><?= e(W::date($h['moment'])) ?></small><br><?= e(W::type($sf, $h['type'])) ?> <b><?= e($h['number']) ?></b></td>
+      <tr <?= empty($h['private']) ? 'onclick="location=\'' . e($sf->url('/docs/' . $h['doc_id'])) . '\'"' : '' ?>><td><small class="muted"><?= e(W::date($h['moment'])) ?></small><br><?php if (!empty($h['private'])): ?>🔒 <?= e($sf->t('private_short')) ?><?php else: ?><?= e(W::type($sf, $h['type'])) ?> <b><?= e($h['number']) ?></b><?php endif; ?></td>
       <td class="num"><?php if ($d != 0.0): ?><span class="<?= $d > 0 ? 'ok-t' : 'bad-t' ?>"><?= $d > 0 ? '+' : '' ?><?= e(W::qty($d)) ?></span><?php else: ?><span class="muted"><?= (float)$h['reserve'] != 0.0 ? e($sf->t('col_reserve')) . ' ' . e(W::qty($h['reserve'])) : e($sf->t('col_expected')) . ' ' . e(W::qty($h['expected'])) ?></span><?php endif; ?></td></tr>
     <?php endforeach; ?></tbody></table><?php endif; ?>
   </section>

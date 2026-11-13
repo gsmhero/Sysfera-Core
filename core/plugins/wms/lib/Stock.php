@@ -80,7 +80,7 @@ final class Stock
     public function history(int $product, int $limit = 50): array
     {
         $limit = max(1, min(500, $limit));
-        return $this->db->rows("SELECT m.*, d.type, d.number, d.status, w.name AS warehouse, c.name AS cell FROM {p}wms_moves m JOIN {p}wms_docs d ON d.id = m.doc_id
+        return $this->db->rows("SELECT m.*, d.type, d.number, d.status, d.source, d.contact_id, w.name AS warehouse, c.name AS cell FROM {p}wms_moves m JOIN {p}wms_docs d ON d.id = m.doc_id
             JOIN {p}wms_warehouses w ON w.id = m.warehouse_id LEFT JOIN {p}wms_cells c ON c.id = m.cell_id WHERE m.product_id = ? ORDER BY m.moment DESC, m.id DESC LIMIT $limit", [$product]);
     }
 

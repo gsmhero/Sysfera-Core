@@ -68,6 +68,15 @@ final class W
         return $out;
     }
 
+    /** A document the viewer may not look into: only what keeps the stock figures honest stays. */
+    public static function mask(array $d): array
+    {
+        foreach (['contact', 'comment', 'ref'] as $k) if (array_key_exists($k, $d)) $d[$k] = null;
+        if (array_key_exists('total', $d)) $d['total'] = 0;
+        $d['private'] = true; $d['number'] = '·····'; unset($d['progress']);
+        return $d;
+    }
+
     public static function csv(string $name, array $head, array $rows): never
     {
         header('Content-Type: text/csv; charset=utf-8');

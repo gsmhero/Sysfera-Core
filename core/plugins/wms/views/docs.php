@@ -23,7 +23,7 @@ $groups = ['' => 'grp_all', 'stock' => 'grp_stock', 'buy' => 'grp_buy', 'sell' =
   <thead><tr><th><?= e($sf->t('doc')) ?></th><th><?= e($sf->t('date')) ?></th><th><?= e($sf->t('warehouse')) ?></th><th><?= e($sf->t('partner')) ?></th><th class="num"><?= e($sf->t('col_total')) ?></th><th><?= e($sf->t('status')) ?></th></tr></thead>
   <tbody><?php foreach ($rows as $d): ?>
     <tr onclick="location='<?= e($sf->url('/docs/' . $d['id'])) ?>'"><td><b><?= e($d['number']) ?></b><br><small class="muted"><?= e(W::type($sf, $d['type'])) ?></small></td><td><?= e(W::date($d['moment'])) ?></td>
-      <td class="muted"><?= e($d['warehouse'] ?? '—') ?></td><td><?= e($d['contact'] ?? '—') ?></td><td class="num"><?= $d['total'] > 0 ? e(W::money($d['total'])) : '<span class="muted">—</span>' ?></td>
+      <td class="muted"><?= e($d['warehouse'] ?? '—') ?></td><td><?= !empty($d['private']) ? '<span class="muted">🔒 ' . e($sf->t('private_short')) . '</span>' : e($d['contact'] ?? '—') ?></td><td class="num"><?= $d['total'] > 0 ? e(W::money($d['total'])) : '<span class="muted">—</span>' ?></td>
       <td><?= W::badge($sf, $d['status']) ?><?php if (!empty($d['progress']) && $d['status'] === 'posted'): $pr = $d['progress']; $pc = $pr['ordered'] > 0 ? min(100, (int)round($pr['done'] / $pr['ordered'] * 100)) : 0; ?><div class="bar-mini" title="<?= e(W::qty($pr['done']) . ' / ' . W::qty($pr['ordered'])) ?>"><i style="width:<?= $pc ?>%"></i></div><?php endif; ?></td></tr>
   <?php endforeach; ?></tbody></table></div>
 <?php if ($pg['pages'] > 1): ?><div class="pager"><?php for ($i = 1; $i <= $pg['pages']; $i++): ?><a class="<?= $i === $pg['cur'] ? 'on' : '' ?>" href="<?= e($sf->url('/docs') . $qs(['page' => $i])) ?>"><?= $i ?></a><?php endfor; ?></div><?php endif; ?>
