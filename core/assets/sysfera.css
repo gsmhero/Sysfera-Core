@@ -73,3 +73,6 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 .land-foot{padding:26px 0;color:var(--mut);font-size:13px}.land-foot .land-w{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
 
 .side nav a .nbadge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-weight:700;font-size:11px;line-height:20px;text-align:center}
+
+.chk input[type=checkbox]{flex:none;width:16px;height:16px;margin:0}
+.caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}.caps>span{grid-column:1/-1;margin:0}.caps .chk{margin:0;align-items:flex-start}.caps .chk input{margin-top:3px}

@@ -12,7 +12,11 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
   <h3><?= e(t('settings.registration')) ?></h3>
   <p class="muted sm"><?= e(t('settings.registration_hint')) ?></p>
   <label class="chk"><input type="checkbox" name="registration" value="1" <?= $app->setting('registration', '0') === '1' ? 'checked' : '' ?>> <?= e(t('settings.registration_open')) ?></label>
-  <?php if ($caps): ?><div class="caps"><span class="muted sm"><?= e(t('settings.default_caps')) ?></span><?php foreach ($caps as $c => $label): ?><label class="chk"><input type="checkbox" name="default_caps[]" value="<?= e($c) ?>" <?= in_array($c, $defaults, true) ? 'checked' : '' ?>> <?= e($label) ?></label><?php endforeach; ?></div><?php endif; ?>
+  <?php $grantAll = $app->setting('grant_all_new', '1') !== '0'; ?>
+  <label class="chk"><input type="checkbox" name="grant_all_new" value="1" id="grant-all-new" <?= $grantAll ? 'checked' : '' ?>> <?= e(t('settings.grant_all_new')) ?></label>
+  <?php if ($caps): ?><div class="caps" id="default-caps"><span class="muted sm"><?= e(t('settings.default_caps')) ?></span><?php foreach ($caps as $c => $label): ?><label class="chk"><input type="checkbox" name="default_caps[]" value="<?= e($c) ?>" <?= $grantAll || in_array($c, $defaults, true) ? 'checked' : '' ?> <?= $grantAll ? 'disabled' : '' ?>> <?= e($label) ?></label><?php endforeach; ?></div>
+  <script>(function(){var g=document.getElementById("grant-all-new"),b=document.querySelectorAll("#default-caps input");if(!g)return;var saved=[].map.call(b,function(i){return i.checked});
+    function ap(){b.forEach(function(i,n){if(g.checked){i.checked=true;i.disabled=true}else{i.disabled=false}})}g.addEventListener("change",ap);ap()})();</script><?php endif; ?>
   <h3><?= e(t('settings.updates')) ?></h3>
   <label class="chk"><input type="checkbox" name="auto_install" value="1" <?= $app->setting('auto_install', '0') === '1' ? 'checked' : '' ?>> <?= e(t('settings.auto_install')) ?></label>
   <p class="muted sm"><?= e(t('settings.auto_install_hint')) ?></p>

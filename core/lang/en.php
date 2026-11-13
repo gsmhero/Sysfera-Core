@@ -63,7 +63,7 @@ return [
     'settings.site_name' => 'Site name', 'settings.default_lang' => 'Default language', 'settings.timezone' => 'Time zone',
     'settings.registration' => 'Registration', 'settings.registration_open' => 'Allow visitors to register themselves',
     'settings.registration_hint' => 'Off by default: only administrators create accounts. If you open registration, choose what new users may use.',
-    'settings.default_caps' => 'New users get access to:',
+    'settings.grant_all_new' => 'Grant all components to new users (always on: every new user gets every installed component)', 'settings.default_caps' => 'New users get access to:',
     'settings.updates' => 'Updates', 'settings.update_url' => 'Update server (manifest URL)',
     'settings.update_hint' => 'Leave empty to use the official server. Only HTTPS addresses are accepted for downloads.',
     'settings.saved' => 'Settings saved.', 'settings.auto_install' => 'Automatically install new components', 'settings.auto_install_hint' => 'New components offered by the update server are downloaded and installed (checked every 6 hours when you open the dashboard). With default access they become available to all users. Components you uninstall are not brought back.', 'settings.grant_h' => 'Components for existing users', 'settings.grant_hint' => 'Gives every current user access to all installed components. Existing access is kept; administrators already have everything.', 'settings.grant_btn' => 'Grant all components to existing users', 'settings.grant_confirm' => 'Give all existing users access to all components?', 'settings.grant_done' => 'Access updated for {n} users.',

@@ -176,7 +176,8 @@ return function (App $app): void {
             $app->setSetting('registration', !empty($_POST['registration']) ? '1' : '0');
             $app->setSetting('landing', !empty($_POST['landing']) ? '1' : '0');
             $app->setSetting('auto_install', !empty($_POST['auto_install']) ? '1' : '0');
-            $app->setSetting('default_caps', json_encode(array_values(array_intersect((array)($_POST['default_caps'] ?? []), array_keys($app->plugins()->capabilities())))));
+            $app->setSetting('grant_all_new', !empty($_POST['grant_all_new']) ? '1' : '0');
+            if (empty($_POST['grant_all_new'])) $app->setSetting('default_caps', json_encode(array_values(array_intersect((array)($_POST['default_caps'] ?? []), array_keys($app->plugins()->capabilities()))))); // with "all" ticked the list is not sent: keep the previous one
             $url = trim((string)($_POST['update_url'] ?? ''));
             $app->setSetting('update_url', preg_match('~^https?://~', $url) ? $url : '');
             flash(t('settings.saved')); redirect('/settings');

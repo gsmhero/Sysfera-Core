@@ -73,7 +73,7 @@ final class App
     public function defaultCaps(): array
     {
         $raw = $this->setting('default_caps', '*');
-        if ($raw === '*') return array_keys($this->plugins()->capabilities());
+        if ($raw === '*' || $this->setting('grant_all_new', '1') !== '0') return array_keys($this->plugins()->capabilities());
         return array_values((array)(json_decode($raw, true) ?: []));
     }
     /** Adds every installed component's capability to every non-admin user. Returns how many users changed. */
