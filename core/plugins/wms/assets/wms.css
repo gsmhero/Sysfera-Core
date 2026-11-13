@@ -88,3 +88,5 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 [data-ptype=bundle] [data-rep=l] .rep-row{grid-template-columns:3fr 1fr .7fr auto}
 .c-stock{text-align:right}
 @media(max-width:640px){[data-rep=l] .rep-row,[data-ptype] [data-rep=l] .rep-row{grid-template-columns:1fr 1fr auto}[data-rep=l] .c-stock{display:none}}
+
+.docprog .bar-mini.big{height:8px;border-radius:4px;margin-top:10px}.docprog .row.between{align-items:center;gap:12px}

@@ -98,6 +98,10 @@ final class App
     public function menu(): array
     {
         $items = array_filter(Hooks::filter('menu.items', $this->menu), fn($i) => empty($i['cap']) || ($this->auth && $this->auth->can($i['cap'])));
+        foreach ($items as &$i) {   // a plugin may attach a counter (callable returning a number) to its menu item
+            if (isset($i['badge']) && is_callable($i['badge'])) { try { $i['badge'] = (int)($i['badge'])(); } catch (\Throwable $e) { $i['badge'] = 0; } }
+        }
+        unset($i);
         usort($items, fn($a, $b) => ($a['order'] ?? 50) <=> ($b['order'] ?? 50));
         return $items;
     }

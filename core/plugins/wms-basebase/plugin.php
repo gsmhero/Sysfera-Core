@@ -41,7 +41,7 @@ return function (\Sysfera\Plugin $sf): void {
     };
     $go = fn(string $p = '') => redirect('/p/wms-basebase/' . ltrim($p, '/'));
 
-    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh']);
+    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
 
     /* ================= overview ================= */
     $route('GET', '/', function () use ($sf, $db, $page, $sync, $cfg, $set) {

@@ -23,7 +23,7 @@ $cfg = ['type' => $type, 'draft' => $draft, 'withPrice' => $withPrice, 'physical
 <div class="hint"><?= e($sf->t('hint_' . $type)) ?></div>
 
 <?php if ($progress && $status === 'posted'): $pc = $progress['ordered'] > 0 ? min(100, (int)round($progress['done'] / $progress['ordered'] * 100)) : 0; ?>
-  <div class="card progress"><div class="row between"><b><?= e($sf->t($type === 'purchase' ? 'received_of' : 'shipped_of', ['done' => W::qty($progress['done']), 'all' => W::qty($progress['ordered'])])) ?></b>
+  <div class="card docprog"><div class="row between"><b><?= e($sf->t($type === 'purchase' ? 'received_of' : 'shipped_of', ['done' => W::qty($progress['done']), 'all' => W::qty($progress['ordered'])])) ?></b>
     <?php if ($progress['done'] + 0.0000001 < $progress['ordered']): ?><form method="post" action="<?= e($sf->url('/docs/act')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$id ?>"><input type="hidden" name="do" value="child"><button class="btn primary"><?= e($sf->t($type === 'purchase' ? 'make_receiving' : 'make_shipment')) ?> →</button></form><?php endif; ?></div>
     <div class="bar-mini big"><i style="width:<?= $pc ?>%"></i></div></div>
 <?php endif; ?>

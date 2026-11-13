@@ -71,3 +71,5 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 .land-steps{list-style:none;counter-reset:s;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;padding:0;margin:26px 0 0}
 .land-steps li{counter-increment:s;background:var(--bg);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:6px}.land-steps li:before{content:counter(s);width:30px;height:30px;border-radius:50%;background:var(--acc);color:var(--acc-ink);display:grid;place-items:center;font-weight:700}.land-steps span{color:var(--mut);font-size:14px}
 .land-foot{padding:26px 0;color:var(--mut);font-size:13px}.land-foot .land-w{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+
+.side nav a .nbadge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#ef4444;color:#fff;font-weight:700;font-size:11px;line-height:20px;text-align:center}
