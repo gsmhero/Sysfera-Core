@@ -77,6 +77,10 @@ return function (\Sysfera\Plugin $sf): void {
         if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, promo_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
         else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
         $sf->log('product.saved', ['id' => $id, 'name' => $name]);
+        $db->q('UPDATE {p}wms_products SET short_desc = ?, images = ?, variants = ?, specs = ? WHERE id = ?', [
+            mb_substr(trim((string)($_POST['short_desc'] ?? '')), 0, 500) ?: null, \SysferaWms\W::images((string)($_POST['images'] ?? '')) ?: null,
+            ($vr = \SysferaWms\W::variants((array)($_POST['v_name'] ?? []), (array)($_POST['v_price'] ?? []), (array)($_POST['v_stock'] ?? []))) ? json_encode($vr, JSON_UNESCAPED_UNICODE) : null,
+            ($sp = \SysferaWms\W::specs((array)($_POST['a_section'] ?? []), (array)($_POST['a_name'] ?? []), (array)($_POST['a_value'] ?? []))) ? json_encode($sp, JSON_UNESCAPED_UNICODE) : null, $id]);
         $open = !$isEdit ? $num($_POST['opening_qty'] ?? 0) : 0.0;   // opening stock of a NEW product = a posted receipt, so it shows in documents and history
         if ($open > 0) {
             $wh = $db->row('SELECT id, use_cells FROM {p}wms_warehouses WHERE id = ? AND active = 1', [(int)($_POST['opening_wh'] ?? 0)]);

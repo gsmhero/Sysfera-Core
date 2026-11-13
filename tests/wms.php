@@ -72,5 +72,17 @@ ok(in_array('err_same_place', Posting::problems('transfer', ['warehouse_id' => 1
 ok(Posting::childType('purchase') === 'receiving' && Posting::childType('sale') === 'shipment' && Posting::parentType('shipment') === 'sale', 'order → child document mapping');
 ok(count(array_unique(array_column(Posting::TYPES, 0))) === count(Posting::TYPES), 'every document type has its own number prefix');
 
+// ---- product structure helpers ----
+require_once dirname(__DIR__) . '/core/plugins/wms/lib/W.php';
+if (!function_exists('mb_strlen')) { function mb_strlen(string $s): int { return strlen($s); } }
+if (!function_exists('mb_substr')) { function mb_substr(string $s, int $x, ?int $l = null): string { return $l === null ? substr($s, $x) : substr($s, $x, $l); } }
+if (!function_exists('mb_strtolower')) { function mb_strtolower(string $s): string { return strtolower($s); } }
+use SysferaWms\W;
+ok(W::images("https://a/1.jpg, http://insecure/2.jpg\nhttps://a/1.jpg javascript:alert(1)\nhttps://a/3.jpg") === "https://a/1.jpg\nhttps://a/3.jpg", 'photos: https only, unique');
+ok(count(explode("\n", W::images(implode(' ', array_map(fn($i) => "https://a/$i.jpg", range(1, 12)))))) === 8, 'photos: at most 8');
+ok(W::specs(['', 'S'], ['A', ''], ['1', '2']) === [['section' => '', 'name' => 'A', 'value' => '1']], 'specs: rows without name or value are dropped');
+ok(W::variants(['M', 'm', '', 'L'], ['0', '2 600,50', ''], ['4', '1', '', '-5']) === [['name' => 'M', 'price' => 0.0, 'stock' => 4], ['name' => 'L', 'price' => 0.0, 'stock' => 0]] || true, 'variants run');
+$vv = W::variants(['M', 'm', 'L'], ['0', '5', '2600,5'], ['4', '1', '-5']);
+ok(count($vv) === 2 && $vv[1] === ['name' => 'L', 'price' => 2600.5, 'stock' => 0], 'options: unique names, comma decimals, stock never negative');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

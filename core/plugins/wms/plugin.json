@@ -1,6 +1,6 @@
 {
   "slug": "wms",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "name": { "en": "Sysfera WMS", "ru": "Sysfera WMS" },
   "description": {
     "en": "Warehouse management: products, warehouses with zones and cells, stock, receipts, write-offs, transfers, inventory counts, supplier and customer orders, shipments, reports.",

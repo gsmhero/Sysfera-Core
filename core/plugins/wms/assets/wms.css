@@ -68,3 +68,6 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 .quick{margin-top:10px}
 .docform .total{font-size:20px;font-weight:700}
 @media(max-width:700px){.lines input.q{width:70px}.tbl th,.tbl td{padding:8px 6px}}
+
+.rep-rows{display:grid;gap:6px;margin-bottom:8px}.rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:6px;align-items:center}[data-rep=v] .rep-row{grid-template-columns:2fr 1fr 1fr auto}
+@media(max-width:640px){.rep-row,[data-rep=v] .rep-row{grid-template-columns:1fr 1fr auto}}

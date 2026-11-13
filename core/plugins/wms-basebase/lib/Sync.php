@@ -61,6 +61,7 @@ final class Sync
         $map = $this->db->row('SELECT * FROM {p}wmsbb_products WHERE product_id = ? AND published = 1', [$pid]);
         if (!$map) return null;
         if (!$map['synced_at']) return $this->pushProduct($pid);
+        if (Bb::variants((array)$this->db->row('SELECT variants FROM {p}wms_products WHERE id = ?', [$pid]))) return $map['dirty'] ? $this->pushProduct($pid) : null;   // options carry their own stock: only a full push is correct
         if (!$this->ready()) { $this->db->q('UPDATE {p}wmsbb_products SET dirty = 1 WHERE product_id = ?', [$pid]); return 'not_connected'; }
         $units = Bb::stockUnits($this->warehouse() ? $this->wms['stock']->available($pid, $this->warehouse()) : 0.0);
         if ($map['last_stock'] !== null && (int)$map['last_stock'] === $units && !$map['dirty']) return null;

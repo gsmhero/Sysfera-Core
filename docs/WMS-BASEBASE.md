@@ -11,7 +11,7 @@ Separate component `wms-basebase` (requires `wms` ≥ 0.1.1 and core ≥ 0.1.2).
 ## Data flow
 | Direction | What | How |
 |---|---|---|
-| WMS → Basebase | Products ticked in *Catalog* (title, description, category, price, stock, SKU, barcode/weight as specs, up to 8 https photos) | `PUT /sellers/{id}/products/{external_id}` |
+| WMS → Basebase | Products ticked in *Catalog*: name, short description, description, category, selling price, promo price, stock, SKU, up to 8 https photos, options (with own stock and price), specifications (section / name / value; barcode and weight are added automatically) | `PUT /sellers/{id}/products/{external_id}` |
 | WMS → Basebase | Stock after **every posted/unposted document** (only when the number changed) | `PATCH …/stock` (404 → full product push) |
 | WMS → Basebase | Un-ticked or archived product | `DELETE …/products/{external_id}` (hidden) |
 | Basebase → WMS | New order item | webhook `order.created` (+ polling `GET /orders?since_id=`) → customer order **SO…** is created and **posted** (reserve); buyer saved as a shared contact with role *customer* |
@@ -28,3 +28,23 @@ One Basebase order item = one WMS customer order (`source = basebase`, `ref = it
 - The API secret is kept in the settings table in plain text (as other credentials in v1); use HTTPS and a strong admin password.
 - Core 0.1.2 adds `Plugin::api()` for public machine endpoints; WMS 0.1.1 adds the `wms.doc_changed` hook and the `wms.services` filter that this connector uses.
 - Tests: `php tests/wmsbb.php` (signing, id/price/stock mapping, payloads).
+
+## Product structure (WMS ↔ Basebase)
+The WMS product card has the same fields as the Basebase product form:
+
+| Basebase | WMS product card |
+|---|---|
+| Product name | Name |
+| Short description | Short description |
+| Description | Description |
+| Category | *Basebase → Catalog* (category is a Basebase list, chosen per product there) |
+| SKU | SKU |
+| Price | Selling price |
+| Promo price (you receive) | Promo price |
+| Stock | Warehouse available quantity, or the sum of the options' stock |
+| Options (variable product) | Options: name, own price (optional), stock |
+| Specifications | Specifications: section, name, value |
+| Main image + gallery (8) | Photos: https links, first = main (the *Catalog* photo box, if filled, overrides) |
+| Status Active / Draft | *Published* tick in the Catalog (unticking hides the product) |
+
+With options, stock is entered per option and the warehouse quantity is not sent; a change is delivered by a full push of the product.

@@ -55,5 +55,14 @@ ok(str_contains(Bb::comment($a), 'Basebase #1055 / 8841') && str_contains(Bb::co
 ok(Bb::releasesReserve('returned') && !Bb::releasesReserve('shipped'), 'only returned/cancelled release the reserve');
 ok(Bb::categoryNames([['id' => 1, 'name' => 'Дом', 'children' => [['id' => 2, 'name' => 'Кухня']]], ['id' => 3, 'name' => 'Дом']]) === ['Дом', 'Кухня'], 'category names are flattened and unique');
 
+// ---- product structure (options, specifications, photos, short description) ----
+$full = $p + ['short_desc' => 'Short', 'images' => "https://a/x.jpg\nhttps://a/y.jpg", 'variants' => json_encode([['name' => 'M', 'price' => 0, 'stock' => 4], ['name' => 'L', 'price' => 2600, 'stock' => 3], ['name' => '', 'stock' => 9]]),
+    'specs' => json_encode([['section' => '', 'name' => 'Материал', 'value' => 'Керамика'], ['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], ['section' => '', 'name' => 'Пусто', 'value' => '']])];
+$bf = Bb::product($full, array_merge($map, ['images' => '']), 99.0);
+ok($bf['short_description'] === 'Short' && $bf['images'] === ['https://a/x.jpg', 'https://a/y.jpg'], 'short description and product photos are sent; mapping photos win when filled');
+ok($bf['variants'] === [['name' => 'M', 'stock' => 4], ['name' => 'L', 'stock' => 3, 'price' => 2600.0]] && $bf['stock'] === 7, 'options are sent with their own stock and the total replaces the warehouse stock');
+ok($bf['fields']['Материал'] === 'Керамика' && $bf['fields']['Штрихкод'] === '460' && !in_array('Пусто', array_keys($bf['fields']), true) && in_array(['section' => 'Размеры', 'name' => 'Высота', 'value' => '10 см'], $bf['fields'], true), 'own specifications are merged with SKU/barcode/weight');
+ok(Bb::product($full, $map, 99.0)['images'] === ['https://a/1.jpg'], 'photos entered in the Basebase catalog override the product photos');
+ok(!isset($b['variants']) && !isset($b['short_description']), 'a simple product has neither');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

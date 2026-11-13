@@ -35,7 +35,19 @@ $v = fn(string $k, $d = '') => $p[$k] ?? $d; ?>
     <label class="fld"><span><?= e($sf->t('col_volume')) ?>, <?= e($sf->t('m3')) ?></span><input name="volume" value="<?= e($v('volume', '0')) ?>" inputmode="decimal"></label>
     <label class="fld"><span><?= e($sf->t('col_min_stock')) ?></span><input name="min_stock" value="<?= e($v('min_stock', '0')) ?>" inputmode="decimal"><small class="muted"><?= e($sf->t('min_stock_hint')) ?></small></label>
   </div>
-  <label class="fld"><span><?= e($sf->t('col_description')) ?></span><textarea name="description" rows="3" maxlength="4000"><?= e($v('description')) ?></textarea></label>
+  <label class="fld"><span><?= e($sf->t('col_short_desc')) ?></span><input name="short_desc" value="<?= e($v('short_desc')) ?>" maxlength="500"><small class="muted"><?= e($sf->t('hint_short_desc')) ?></small></label>
+  <label class="fld"><span><?= e($sf->t('col_description')) ?></span><textarea name="description" rows="5" maxlength="4000"><?= e($v('description')) ?></textarea></label>
+  <label class="fld"><span><?= e($sf->t('col_images')) ?></span><textarea name="images" rows="3" maxlength="4500" placeholder="https://…/photo-1.jpg"><?= e($v('images')) ?></textarea><small class="muted"><?= e($sf->t('hint_images')) ?></small></label>
+  <?php $vars = json_decode((string)$v('variants'), true) ?: []; $specs = json_decode((string)$v('specs'), true) ?: []; ?>
+  <h3><?= e($sf->t('options_h')) ?></h3><p class="muted sm"><?= e($sf->t('hint_options')) ?></p>
+  <div data-rep="v"><div class="rep-rows"><?php foreach ($vars as $x): ?><div class="rep-row"><input name="v_name[]" value="<?= e($x['name']) ?>" placeholder="<?= e($sf->t('opt_name')) ?>"><input name="v_price[]" value="<?= e($x['price'] ?: '') ?>" inputmode="decimal" placeholder="<?= e($sf->t('opt_price')) ?>"><input name="v_stock[]" value="<?= (int)$x['stock'] ?>" inputmode="numeric" placeholder="<?= e($sf->t('opt_stock')) ?>"><button type="button" class="btn sm" data-del>×</button></div><?php endforeach; ?></div>
+    <template><div class="rep-row"><input name="v_name[]" placeholder="<?= e($sf->t('opt_name')) ?>"><input name="v_price[]" inputmode="decimal" placeholder="<?= e($sf->t('opt_price')) ?>"><input name="v_stock[]" inputmode="numeric" placeholder="<?= e($sf->t('opt_stock')) ?>"><button type="button" class="btn sm" data-del>×</button></div></template>
+    <button type="button" class="btn sm" data-add>+ <?= e($sf->t('opt_add')) ?></button></div>
+  <h3><?= e($sf->t('specs_h')) ?></h3><p class="muted sm"><?= e($sf->t('hint_specs')) ?></p>
+  <div data-rep="a"><div class="rep-rows"><?php foreach ($specs as $x): ?><div class="rep-row"><input name="a_section[]" value="<?= e($x['section']) ?>" placeholder="<?= e($sf->t('spec_section')) ?>"><input name="a_name[]" value="<?= e($x['name']) ?>" placeholder="<?= e($sf->t('spec_name')) ?>"><input name="a_value[]" value="<?= e($x['value']) ?>" placeholder="<?= e($sf->t('spec_value')) ?>"><button type="button" class="btn sm" data-del>×</button></div><?php endforeach; ?></div>
+    <template><div class="rep-row"><input name="a_section[]" placeholder="<?= e($sf->t('spec_section')) ?>"><input name="a_name[]" placeholder="<?= e($sf->t('spec_name')) ?>"><input name="a_value[]" placeholder="<?= e($sf->t('spec_value')) ?>"><button type="button" class="btn sm" data-del>×</button></div></template>
+    <button type="button" class="btn sm" data-add>+ <?= e($sf->t('spec_add')) ?></button></div>
+  <script src="<?= e($sf->asset('wms-product.js')) ?>?v=<?= e($sf->manifest['version']) ?>" defer></script>
   <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button>
     <?php if ($p && !$p['archived']): ?><button class="btn danger" name="do" value="archive" data-confirm="<?= e($sf->t('confirm_archive')) ?>"><?= e($sf->t('archive')) ?></button><?php endif; ?>
     <?php if ($p && $p['archived']): ?><button class="btn" name="do" value="restore"><?= e($sf->t('restore')) ?></button><?php endif; ?></div>

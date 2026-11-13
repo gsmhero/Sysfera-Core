@@ -37,6 +37,37 @@ final class W
         return ['pages' => $pages, 'cur' => min(max(1, $cur), $pages)];
     }
 
+    /** Photo URLs from a text box: https only, unique, max 8, one per line. */
+    public static function images(?string $text): string
+    {
+        $out = [];
+        foreach (preg_split('/[\s,]+/', (string)$text, -1, PREG_SPLIT_NO_EMPTY) as $u) if (preg_match('~^https://[^\s]+$~i', $u) && mb_strlen($u) <= 500) $out[] = $u;
+        return implode("\n", array_slice(array_values(array_unique($out)), 0, 8));
+    }
+
+    /** Specifications from parallel form arrays → list of {section,name,value}; rows without a name or value are dropped. */
+    public static function specs(array $section, array $name, array $value): array
+    {
+        $out = [];
+        foreach ($name as $i => $n) {
+            $n = mb_substr(trim((string)$n), 0, 120); $v = mb_substr(trim((string)($value[$i] ?? '')), 0, 500);
+            if ($n !== '' && $v !== '' && count($out) < 60) $out[] = ['section' => mb_substr(trim((string)($section[$i] ?? '')), 0, 120), 'name' => $n, 'value' => $v];
+        }
+        return $out;
+    }
+
+    /** Options (variants) from parallel form arrays → list of {name,price,stock}; price 0 = same as the product, names are unique. */
+    public static function variants(array $name, array $price, array $stock): array
+    {
+        $out = []; $seen = [];
+        foreach ($name as $i => $n) {
+            $n = mb_substr(trim((string)$n), 0, 120); if ($n === '' || isset($seen[mb_strtolower($n)]) || count($out) >= 50) continue;
+            $seen[mb_strtolower($n)] = 1;
+            $out[] = ['name' => $n, 'price' => max(0.0, round((float)str_replace(',', '.', (string)($price[$i] ?? 0)), 2)), 'stock' => max(0, (int)($stock[$i] ?? 0))];
+        }
+        return $out;
+    }
+
     public static function csv(string $name, array $head, array $rows): never
     {
         header('Content-Type: text/csv; charset=utf-8');

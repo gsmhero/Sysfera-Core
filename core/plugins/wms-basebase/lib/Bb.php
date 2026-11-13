@@ -50,6 +50,19 @@ final class Bb
         return $e;
     }
 
+    /** Options of a variable product as Basebase wants them: [{name, stock, price?}]. Empty for a simple product. */
+    public static function variants(array $p): array
+    {
+        $out = [];
+        foreach ((array)(json_decode((string)($p['variants'] ?? ''), true) ?: []) as $v) {
+            $n = trim((string)($v['name'] ?? '')); if ($n === '') continue;
+            $row = ['name' => $n, 'stock' => max(0, (int)($v['stock'] ?? 0))];
+            if ((float)($v['price'] ?? 0) > 0) $row['price'] = round((float)$v['price'], 2);
+            $out[] = $row;
+        }
+        return $out;
+    }
+
     /** The seller's own price on Basebase (0 = none): must be positive and below the selling price. */
     public static function promo(array $p, float $price): float
     {
@@ -65,8 +78,16 @@ final class Bb
         if (!empty($p['sku'])) $fields['Артикул'] = (string)$p['sku'];
         if (!empty($p['barcode'])) $fields['Штрихкод'] = (string)$p['barcode'];
         if ((float)($p['weight'] ?? 0) > 0) $fields['Вес, кг'] = rtrim(rtrim(number_format((float)$p['weight'], 3, '.', ''), '0'), '.');
+        foreach ((array)(json_decode((string)($p['specs'] ?? ''), true) ?: []) as $s) {   // own specifications; a plain name → value pair when there is no section
+            if (trim((string)($s['name'] ?? '')) === '' || trim((string)($s['value'] ?? '')) === '') continue;
+            if (trim((string)($s['section'] ?? '')) === '') $fields[(string)$s['name']] = (string)$s['value']; else $fields[] = ['section' => (string)$s['section'], 'name' => (string)$s['name'], 'value' => (string)$s['value']];
+        }
+        $variants = self::variants($p);
         $body = ['title' => (string)$p['name'], 'description' => (string)($p['description'] ?? ''), 'category' => (string)$map['category'], 'price' => $price,
-            'stock' => self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields, 'images' => self::images($map['images'] ?? '')];
+            'stock' => $variants ? array_sum(array_column($variants, 'stock')) : self::stockUnits($available), 'sku' => (string)$map['external_id'], 'fields' => $fields,
+            'images' => self::images(trim((string)($map['images'] ?? '')) !== '' ? $map['images'] : ($p['images'] ?? ''))];
+        if (trim((string)($p['short_desc'] ?? '')) !== '') $body['short_description'] = mb_substr(trim((string)$p['short_desc']), 0, 500);
+        if ($variants) $body['variants'] = $variants;
         if (($promo = self::promo($p, $price)) > 0) $body['promo_price'] = $promo;
         return $body;
     }
