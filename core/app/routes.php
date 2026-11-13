@@ -145,6 +145,14 @@ return function (App $app): void {
                 if (!Demo::on() || ($_POST['confirm'] ?? '') !== 'RESET') { flash(t('settings.demo_confirm_bad'), 'bad'); redirect('/settings'); }
                 Demo::reset($app); flash(t('settings.demo_done')); redirect('/settings');
             }
+            if (($_POST['do'] ?? '') === 'grant_all') {
+                $all = array_keys($app->plugins()->capabilities()); $n = 0;
+                foreach ($app->db()->rows("SELECT id, caps FROM {p}users WHERE role <> 'admin'") as $u) {
+                    $have = json_decode((string)$u['caps'], true) ?: []; $new = array_values(array_unique(array_merge($have, $all)));
+                    if (count($new) !== count($have)) { $app->db()->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode($new), $u['id']]); $n++; }
+                }
+                flash(t('settings.grant_done', ['n' => $n])); redirect('/settings');
+            }
             if (($_POST['do'] ?? '') === 'log_clear') { @file_put_contents(SF_ROOT . '/storage/error.log', ''); flash(t('log.cleared')); redirect('/settings'); }
             if (in_array($_POST['do'] ?? '', ['mail_save', 'mail_test'], true)) {
                 $set = fn(string $k, int $max = 190) => $app->setSetting($k, mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max));

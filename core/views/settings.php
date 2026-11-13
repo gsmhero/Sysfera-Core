@@ -24,6 +24,9 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
   <label class="fld inline"><span><?= e(t('settings.demo_hours')) ?></span><select name="demo_hours"><?php foreach (\Sysfera\Demo::HOURS as $h): ?><option <?= \Sysfera\Demo::hours() === $h ? 'selected' : '' ?>><?= $h ?></option><?php endforeach; ?></select></label>
   <div style="margin-top:14px"><button class="btn primary"><?= e(t('common.save')) ?></button></div>
 </form>
+<form class="card" method="post" data-confirm="<?= e(t('settings.grant_confirm')) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="grant_all">
+  <h3><?= e(t('settings.grant_h')) ?></h3><p class="muted sm"><?= e(t('settings.grant_hint')) ?></p><button class="btn"><?= e(t('settings.grant_btn')) ?></button>
+</form>
 <?php if (\Sysfera\Demo::on()): ?>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="demo_reset">
   <h3><?= e(t('settings.demo_reset')) ?></h3><p class="muted sm"><?= e(t('settings.demo_reset_hint')) ?></p>

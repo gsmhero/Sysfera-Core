@@ -66,7 +66,7 @@ return [
     'settings.default_caps' => 'New users get access to:',
     'settings.updates' => 'Updates', 'settings.update_url' => 'Update server (manifest URL)',
     'settings.update_hint' => 'Leave empty to use the official server. Only HTTPS addresses are accepted for downloads.',
-    'settings.saved' => 'Settings saved.',
+    'settings.saved' => 'Settings saved.', 'settings.grant_h' => 'Components for existing users', 'settings.grant_hint' => 'Gives every current user access to all installed components. Existing access is kept; administrators already have everything.', 'settings.grant_btn' => 'Grant all components to existing users', 'settings.grant_confirm' => 'Give all existing users access to all components?', 'settings.grant_done' => 'Access updated for {n} users.',
     'news.title' => 'Core News', 'news.news' => 'News', 'news.update' => 'Update', 'news.warning' => 'Warning', 'news.more' => 'Read more', 'news.per' => 'Per page', 'news.from' => 'From', 'news.to' => 'To', 'news.apply' => 'Show', 'news.reset' => 'Reset dates', 'news.total' => '{n} posts', 'news.none' => 'No posts in this period.',
     'settings.news_on' => 'Show Core News on the dashboard', 'settings.news_hint' => 'Loads one small file (news.json) from the update server at most once an hour. Only your IP address and the Sysfera version are visible to that server. Turn off if you do not want this.',
     'log.title' => 'Error log', 'log.hint' => 'The latest entries of storage/error.log. Send these lines to support when something does not work.', 'log.empty' => 'No errors recorded.', 'log.clear' => 'Clear log', 'log.cleared' => 'Log cleared.',
