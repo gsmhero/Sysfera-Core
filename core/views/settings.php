@@ -1,5 +1,5 @@
 <?php /** @var array $caps @var array $langs */
-$app = \Sysfera\App::get(); $defaults = json_decode($app->setting('default_caps', '[]'), true) ?: []; ?>
+$app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
 <div class="page-h"><h1><?= e(t('nav.settings')) ?></h1></div>
 <form class="card" method="post"><?= csrf_field() ?>
   <label class="fld"><span><?= e(t('settings.site_name')) ?></span><input name="site_name" value="<?= e($app->setting('site_name', 'Sysfera')) ?>" maxlength="80"></label>

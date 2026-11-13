@@ -69,6 +69,13 @@ final class App
         $this->settings ??= array_column($this->db()->rows('SELECT k, v FROM {p}settings'), 'v', 'k');
         return $this->settings[$k] ?? $default;
     }
+    /** Capabilities given to new users: every component's capability until the administrator chooses a list in Settings. */
+    public function defaultCaps(): array
+    {
+        $raw = $this->setting('default_caps', '*');
+        if ($raw === '*') return array_keys($this->plugins()->capabilities());
+        return array_values((array)(json_decode($raw, true) ?: []));
+    }
     public function setSetting(string $k, string $v): void
     {
         $this->db()->q('INSERT INTO {p}settings (k, v) VALUES (?,?) ON DUPLICATE KEY UPDATE v = VALUES(v)', [$k, $v]);

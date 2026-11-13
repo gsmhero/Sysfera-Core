@@ -45,7 +45,7 @@ return function (App $app): void {
         if ($open && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $res = $auth->register((string)($_POST['email'] ?? ''), (string)($_POST['name'] ?? ''), (string)($_POST['password'] ?? ''), 'user', I18n::lang());
             if (is_int($res)) {
-                $caps = Demo::on() ? Demo::caps($app) : (json_decode($app->setting('default_caps', '[]'), true) ?: []);
+                $caps = Demo::on() ? Demo::caps($app) : $app->defaultCaps();
                 $app->db()->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode(array_values($caps)), $res]);
                 $auth->start($res); flash(t('auth.welcome')); redirect('/');
             }
