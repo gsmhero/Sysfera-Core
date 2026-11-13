@@ -7,7 +7,7 @@
 h2{font-size:17px;margin:24px 0 10px}
 .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .card.flush{padding:0;overflow-x:auto}.card h3{margin:0 0 10px;font-size:15px}.card h3 small{font-weight:400}
-.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cols2.wide-left{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.cols2.wide-left{grid-template-columns:minmax(0,1.7fr) minmax(320px,1fr)}
 @media(max-width:860px){.cols2,.cols2.wide-left{grid-template-columns:1fr}}
 
 /* tables */
@@ -71,3 +71,7 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 
 .rep-rows{display:grid;gap:6px;margin-bottom:8px}.rep-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:6px;align-items:center}[data-rep=v] .rep-row{grid-template-columns:2fr 1fr 1fr auto}
 @media(max-width:640px){.rep-row,[data-rep=v] .rep-row{grid-template-columns:1fr 1fr auto}}
+
+/* product page, right column: tables must fit the card */
+.cols2.wide-left>div>.card{overflow-x:auto}.cols2.wide-left .tbl th,.cols2.wide-left .tbl td{padding:8px 6px}.cols2.wide-left .tbl th{font-size:12px;white-space:normal}
+.card .tbl+h3,.card h3+.tbl+h3{margin-top:20px}
