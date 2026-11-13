@@ -1,5 +1,9 @@
 <?php /** @var array $u */ ?>
 <div class="page-h"><h1><?= e(t('nav.profile')) ?></h1></div>
+<?php if (!empty($u['delete_requested_at'])): ?>
+<form class="card" method="post"><?= csrf_field() ?><h3><?= e(t('profile.delete_asked')) ?></h3><p class="muted"><?= e(t('profile.delete_text')) ?></p>
+  <div class="row"><button class="btn danger" name="do" value="agree_delete" data-confirm="<?= e(t('profile.delete_confirm')) ?>"><?= e(t('profile.delete_agree')) ?></button><button class="btn" name="do" value="decline_delete"><?= e(t('profile.delete_decline')) ?></button></div></form>
+<?php endif; ?>
 <div class="cols">
   <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="account"><h3><?= e(t('profile.account')) ?></h3>
     <label class="fld"><span><?= e(t('auth.name')) ?></span><input name="name" value="<?= e($u['name']) ?>" required></label>

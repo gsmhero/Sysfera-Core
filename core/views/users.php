@@ -4,7 +4,7 @@
 <div class="list">
 <?php foreach ($users as $x): $have = json_decode((string)$x['caps'], true) ?: []; $self = (int)$x['id'] === $me; ?>
   <form method="post" class="card item col"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
-    <div class="row between"><div><b><?= e($x['name']) ?></b> <small class="muted"><?= e($x['email']) ?></small> <?php if ($x['status'] === 'blocked'): ?><span class="badge bad"><?= e(t('users.blocked')) ?></span><?php endif; ?><div class="muted sm"><?= e(t('users.last_login')) ?>: <?= e(ago($x['last_login'])) ?></div></div>
+    <div class="row between"><div><b><?= e($x['name']) ?></b> <small class="muted"><?= e($x['email']) ?></small> <?php if ($x['status'] === 'blocked'): ?><span class="badge bad"><?= e(t('users.blocked')) ?></span><?php endif; ?><?php if (!empty($x['delete_requested_at'])): ?><span class="badge warn"><?= e(t('users.awaiting_consent')) ?></span><?php endif; ?><div class="muted sm"><?= e(t('users.last_login')) ?>: <?= e(ago($x['last_login'])) ?></div></div>
       <?php if ($self): ?><span class="badge ok"><?= e(t('users.you')) ?></span><?php endif; ?></div>
     <?php if (!$self): ?>
     <div class="row">
@@ -12,7 +12,7 @@
       <label class="fld inline"><span><?= e(t('users.status')) ?></span><select name="status"><option value="active"><?= e(t('users.active')) ?></option><option value="blocked" <?= $x['status'] === 'blocked' ? 'selected' : '' ?>><?= e(t('users.blocked')) ?></option></select></label>
     </div>
     <?php if ($caps): ?><div class="caps"><span class="muted sm"><?= e(t('users.caps')) ?></span><?php foreach ($caps as $c => $label): ?><label class="chk"><input type="checkbox" name="caps[]" value="<?= e($c) ?>" <?= in_array($c, $have, true) ? 'checked' : '' ?>> <?= e($label) ?></label><?php endforeach; ?></div><?php endif; ?>
-    <div class="row"><button class="btn primary" name="do" value="save"><?= e(t('common.save')) ?></button><button class="btn danger" name="do" value="delete" data-confirm="<?= e(t('users.confirm_delete')) ?>"><?= e(t('common.delete')) ?></button></div>
+    <div class="row"><button class="btn primary" name="do" value="save"><?= e(t('common.save')) ?></button><?php if (empty($x['delete_requested_at'])): ?><button class="btn danger" name="do" value="delete" data-confirm="<?= e(t('users.confirm_delete')) ?>"><?= e(t('users.ask_delete')) ?></button><?php else: ?><button class="btn" name="do" value="cancel_delete"><?= e(t('users.cancel_delete')) ?></button><?php endif; ?></div>
     <?php endif; ?>
   </form>
 <?php endforeach; ?>

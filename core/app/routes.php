@@ -75,10 +75,17 @@ return function (App $app): void {
         ], t('nav.dashboard'));
     });
 
-    $r->add('*', '/profile', function () use ($auth, $db) {
+    $r->add('*', '/profile', function () use ($auth, $db) {   // account, password, agreeing to a deletion asked by the administrator
         $u = $auth->user();
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = $_POST['do'] ?? '';
+            if ($do === 'decline_delete') { $db->q('UPDATE {p}users SET delete_requested_at = NULL WHERE id = ?', [$u['id']]); flash(t('profile.delete_declined')); redirect('/profile'); }
+            if ($do === 'agree_delete') {
+                if (empty($u['delete_requested_at'])) redirect('/profile');
+                if ($u['role'] === 'admin' && (int)$db->val("SELECT COUNT(*) FROM {p}users WHERE role = 'admin' AND status = 'active'") < 2) { flash(t('profile.last_admin'), 'bad'); redirect('/profile'); }
+                $uid = (int)$u['id']; Hooks::do('user.deleted', $uid);
+                $db->q('DELETE FROM {p}users WHERE id = ?', [$uid]); $auth->logout(); redirect('/');
+            }
             if ($do === 'password') {
                 if (!password_verify((string)($_POST['old'] ?? ''), $u['password_hash'])) flash(t('profile.wrong_password'), 'bad');
                 elseif (mb_strlen((string)($_POST['new'] ?? '')) < 8) flash(t('auth.short_password'), 'bad');
@@ -133,7 +140,8 @@ return function (App $app): void {
                     $caps = array_values(array_intersect((array)($_POST['caps'] ?? []), array_keys($app->plugins()->capabilities())));
                     $db->q('UPDATE {p}users SET role = ?, status = ?, caps = ? WHERE id = ?', [in_array($_POST['role'] ?? '', ['admin', 'user'], true) ? $_POST['role'] : 'user', ($_POST['status'] ?? '') === 'blocked' ? 'blocked' : 'active', json_encode($caps), $id]);
                     flash(t('users.saved'));
-                } elseif ($do === 'delete') { $db->q('DELETE FROM {p}users WHERE id = ?', [$id]); flash(t('users.deleted')); }
+                } elseif ($do === 'delete') { $db->q('UPDATE {p}users SET delete_requested_at = NOW() WHERE id = ?', [$id]); flash(t('users.delete_requested')); }   // only the user can agree to it
+                elseif ($do === 'cancel_delete') { $db->q('UPDATE {p}users SET delete_requested_at = NULL WHERE id = ?', [$id]); flash(t('users.saved')); }
             } else flash(t('users.not_self'), 'warn');
             redirect('/users');
         }

@@ -48,3 +48,11 @@ The WMS product card has the same fields as the Basebase product form:
 | Status Active / Draft | *Published* tick in the Catalog (unticking hides the product) |
 
 When a buyer orders a variation, the WMS order is made for that warehouse product; a bundle is taken apart into its parts, so their stock goes down. A change of stock of a part is delivered as a full push of the variable product or bundle it belongs to. A grouped product is not sold as one item (publish its products one by one).
+
+## Users, shops and privacy (connector 0.3, WMS 0.3, core 0.1.24)
+
+* Everyone — the Agent (site administrator) included — works as an independent seller: **products, documents, stock figures, reports and Basebase orders are visible and editable only by their owner** (`owner_id`). Warehouses, cells and zones are shared infrastructure managed by the administrator.
+* Users never connect to Basebase themselves. The administrator enters the **Agent credentials once** (Connection tab). Each user gets a Basebase seller (created through the Agent account, `external_id = sfu-<user id>`) automatically on their first published product, or from **My shop**; the shop name they set there is what buyers see on Basebase. The Agent fee on Basebase works as before.
+* Orders from Basebase are matched to the user by `seller_id`; stock pushes, polling and status updates run per user.
+* Users list (Core): the administrator can **block** (Suspend) a user; **Delete** only sends a request, the account is removed when the user clicks *Agree* in their profile.
+* Upgrading: products and documents get their owner from `created_by`, otherwise the first administrator; the former single connected seller moves to the user who owned the connection.

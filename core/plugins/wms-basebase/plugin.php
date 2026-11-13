@@ -40,60 +40,50 @@ return function (\Sysfera\Plugin $sf): void {
         }, ['cap' => $cap]);
     };
     $go = fn(string $p = '') => redirect('/p/wms-basebase/' . ltrim($p, '/'));
-    /* Orders and products belong to the user who set up the connection. Anybody else (even an administrator) may look, but cannot manage them. */
-    $mayManage = function () use ($sf, $cfg, $set): bool {
-        $o = (int)$cfg('owner_id', '0');
-        if ($o === 0) { if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') $set('owner_id', (string)$sf->auth()->id()); return true; }   // nobody owns it yet: the first to manage it does
-        return $o === $sf->auth()->id();
-    };
+    /* Every user has own shop, products and orders (like a seller in a multi-vendor shop); they all trade through the Agent's account on Basebase. */
+    $me = fn(): int => $sf->auth()->id();
+    $mine = fn(): Sync => $sync()->forOwner($me());
+    $mayManage = fn(): bool => true;
     $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
-
-    /* documents made from Basebase orders hold private data of the connection owner and of their customers */
-    $sf->on('wms.doc.private', fn($hidden, $d) => $hidden || (($d['source'] ?? '') === 'basebase' && !$mayManage()));
-    $sf->on('wms.partners.hidden', function ($ids) use ($db, $mayManage) {
-        if ($mayManage()) return $ids;
-        return array_merge((array)$ids, array_map('intval', array_column($db->rows("SELECT DISTINCT contact_id FROM {p}wms_docs WHERE source = 'basebase' AND contact_id IS NOT NULL"), 'contact_id')));
-    });
-    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => !$mayManage() ? 0 : (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')")]);   // new orders still to be shipped
+    $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE owner_id = ? AND status IN ('pending','prepare')", [$me()])]);   // new orders still to be shipped
 
     /* ================= overview ================= */
-    $route('GET', '/', function () use ($sf, $db, $page, $sync, $cfg, $set, $mayManage) {
-        $s = $sync();
-        if ($s->ready() && time() - (int)$cfg('last_poll', '0') > 300) { $set('last_poll', (string)time()); $s->pull(); }   // lazy polling fallback
+    $route('GET', '/', function () use ($sf, $db, $page, $mine, $me, $mayManage) {
+        $s = $mine(); $o = $me();
+        if ($s->ready() && $s->sellerId() > 0 && time() - (int)($s->seller()['last_poll'] ?? 0) > 300) $s->pull();   // lazy polling fallback (pull() stamps last_poll)
         $stats = [
-            'published' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_products WHERE published = 1'),
-            'errors' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_products WHERE published = 1 AND last_error IS NOT NULL'),
-            'orders' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_items'),
-            'open' => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE status IN ('pending','prepare')"),
+            'published' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND p.owner_id = ?', [$o]),
+            'errors' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND m.last_error IS NOT NULL AND p.owner_id = ?', [$o]),
+            'orders' => (int)$db->val('SELECT COUNT(*) FROM {p}wmsbb_items WHERE owner_id = ?', [$o]),
+            'open' => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE owner_id = ? AND status IN ('pending','prepare')", [$o]),
         ];
         $see = $mayManage();   // orders are private to the user who connected Basebase
-        $attention = $see ? $db->rows('SELECT * FROM {p}wmsbb_items WHERE error IS NOT NULL ORDER BY item_id DESC LIMIT 10') : [];
-        $page('overview', ['see' => $see, 'stats' => $stats, 'attention' => $attention, 'badProducts' => $db->rows('SELECT m.product_id, p.name, m.last_error FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND m.last_error IS NOT NULL LIMIT 10')], $sf->t('menu'), 'overview');
+        $attention = $see ? $db->rows('SELECT * FROM {p}wmsbb_items WHERE owner_id = ? AND error IS NOT NULL ORDER BY item_id DESC LIMIT 10', [$o]) : [];
+        $page('overview', ['see' => $see, 'stats' => $stats, 'attention' => $attention, 'badProducts' => $db->rows('SELECT m.product_id, p.name, m.last_error FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE m.published = 1 AND m.last_error IS NOT NULL AND p.owner_id = ' . $o . ' LIMIT 10')], $sf->t('menu'), 'overview');
     });
 
     /* ================= catalog ================= */
-    $route('GET', '/catalog', function () use ($sf, $db, $page, $sync, $cfg, $mayManage) {
+    $route('GET', '/catalog', function () use ($sf, $db, $page, $mine, $cfg, $mayManage, $me) {
         $q = trim((string)($_GET['q'] ?? '')); $only = (string)($_GET['only'] ?? '');
-        $w = ' WHERE p.archived = 0'; $a = [];
+        $w = ' WHERE p.archived = 0 AND p.owner_id = ?'; $a = [$me()];
         if ($q !== '') { $w .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.code LIKE ?)'; $l = '%' . $q . '%'; array_push($a, $l, $l, $l); }
         if ($only === 'pub') $w .= ' AND m.published = 1';
         $per = 40; $total = (int)$db->val("SELECT COUNT(*) FROM {p}wms_products p LEFT JOIN {p}wmsbb_products m ON m.product_id = p.id$w", $a);
         $pages = max(1, (int)ceil($total / $per)); $cur = min(max(1, (int)($_GET['page'] ?? 1)), $pages);
         $rows = $db->rows("SELECT p.id, p.name, p.sku, p.code, p.unit, p.sell_price, m.external_id, m.published, m.category, m.images, m.synced_at, m.last_error, m.last_stock, m.dirty
             FROM {p}wms_products p LEFT JOIN {p}wmsbb_products m ON m.product_id = p.id$w ORDER BY m.published DESC, p.name LIMIT $per OFFSET " . (($cur - 1) * $per), $a);
-        $s = $sync();
+        $s = $mine();
         foreach ($rows as &$r) $r['available'] = $s->available((int)$r['id']);
         unset($r);
         $page('catalog', ['manage' => $mayManage(), 'rows' => $rows, 'q' => $q, 'only' => $only, 'total' => $total, 'pg' => ['pages' => $pages, 'cur' => $cur], 'cats' => json_decode($cfg('categories', '[]'), true) ?: []], $sf->t('nav_catalog'), 'catalog');
     });
-    $route('POST', '/catalog', function () use ($sf, $db, $sync, $go, $mayManage, $deny) {
-        if (!$mayManage()) $deny();
-        $s = $sync(); $errors = 0; $done = 0;
+    $route('POST', '/catalog', function () use ($sf, $db, $mine, $go, $me) {
+        $s = $mine(); $errors = 0; $done = 0;
         if (($_POST['do'] ?? '') === 'sync_all') {
             $r = $s->pushAll(); flash($sf->t('synced', ['ok' => $r['ok'], 'bad' => $r['failed']]), $r['failed'] ? 'bad' : 'ok'); $go('catalog');
         }
         foreach ((array)($_POST['row'] ?? []) as $pid => $f) {
-            $pid = (int)$pid; $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$pid]); if (!$p) continue;
+            $pid = (int)$pid; $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ? AND owner_id = ?', [$pid, $me()]); if (!$p) continue;   // only own products
             $pub = !empty($f['pub']) ? 1 : 0; $cat = mb_substr(trim((string)($f['cat'] ?? '')), 0, 120); 
             $cur = $db->row('SELECT * FROM {p}wmsbb_products WHERE product_id = ?', [$pid]);
             if (!$cur && !$pub) continue;                       // nothing to remember
@@ -111,45 +101,54 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /* ================= orders ================= */
-    $route('GET', '/orders', function () use ($sf, $db, $page, $mayManage) {
-        $rows = !$mayManage() ? [] : $db->rows('SELECT i.*, d.number, d.status AS doc_status FROM {p}wmsbb_items i LEFT JOIN {p}wms_docs d ON d.id = i.doc_id ORDER BY i.item_id DESC LIMIT 100');
+    $route('GET', '/orders', function () use ($sf, $db, $page, $mayManage, $me) {
+        $rows = $db->rows('SELECT i.*, d.number, d.status AS doc_status FROM {p}wmsbb_items i LEFT JOIN {p}wms_docs d ON d.id = i.doc_id WHERE i.owner_id = ? ORDER BY i.item_id DESC LIMIT 100', [$me()]);
         $page('orders', ['rows' => $rows, 'manage' => $mayManage()], $sf->t('nav_orders'), 'orders');
     });
-    $route('POST', '/orders', function () use ($sf, $sync, $go, $mayManage, $deny) {
-        if (!$mayManage()) $deny();
-        $s = $sync(); $do = (string)($_POST['do'] ?? ''); $id = (int)($_POST['item'] ?? 0);
+    $route('POST', '/orders', function () use ($sf, $mine, $go) {
+        $s = $mine(); $do = (string)($_POST['do'] ?? ''); $id = (int)($_POST['item'] ?? 0);
         if ($do === 'pull') { $n = $s->pull(); flash($sf->t('pulled', ['n' => $n])); }
         elseif ($do === 'retry') { $e = $s->retry($id); flash($e ? $sf->t('retry_failed') : $sf->t('retry_ok'), $e ? 'bad' : 'ok'); }
         elseif ($do === 'shipped') { $e = $s->tell($id, 'shipped'); flash($e ? $e : $sf->t('saved'), $e ? 'bad' : 'ok'); }
         $go('orders');
     });
 
+    /* ================= my shop (every user) ================= */
+    $route('GET', '/shop', function () use ($sf, $db, $page, $mine, $client) {
+        $s = $mine();
+        $page('shop', ['row' => $s->seller(), 'agentOk' => $client->configured(), 'whs' => $db->rows('SELECT id, name FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, name')], $sf->t('nav_shop'), 'shop');
+    });
+    $route('POST', '/shop', function () use ($sf, $db, $mine, $go, $me) {
+        $s = $mine(); $do = (string)($_POST['do'] ?? 'save'); $s->seller();
+        if ($do === 'save') {
+            $shop = mb_substr(trim((string)($_POST['shop_name'] ?? '')), 0, 190);
+            $ws = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));
+            $db->q('UPDATE {p}wmsbb_sellers SET shop_name = ?, warehouse_ids = ? WHERE owner_id = ?', [$shop ?: null, json_encode($ws), $me()]);
+            flash($sf->t('saved'));
+        } elseif ($do === 'connect') {
+            $e = $s->ensureSeller();
+            if ($e === null) flash($sf->t('shop_created', ['id' => $s->sellerId()])); else flash($sf->t('shop_err', ['e' => preg_match('/^[a-z_]+$/', $e) ? $sf->t($e) : $e]), 'bad');
+        }
+        $go('shop');
+    });
+
     /* ================= settings ================= */
     $route('GET', '/settings', function () use ($sf, $db, $page, $cfg, $set) {
         if ($cfg('cron_token') === '') $set('cron_token', bin2hex(random_bytes(16)));
         if ($cfg('agent_key') === '') $set('agent_key', bin2hex(random_bytes(16)));   // AGENT_KEY of the contract (§2): identifies this install when the agent is linked in Basebase
-        $page('settings', ['whs' => $db->rows('SELECT id, name FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, name')], $sf->t('nav_settings'), 'settings');
+        $page('settings', [], $sf->t('nav_settings'), 'settings');
     }, 'wmsbb.admin');
-    $route('POST', '/settings', function () use ($sf, $sync, $cfg, $set, $go) {
+    $route('POST', '/settings', function () use ($sf, $sync, $cfg, $set, $go) {   // site-wide: the Agent account
         $s = $sync(); $do = (string)($_POST['do'] ?? 'save');
         if ($do === 'save') {
             $set('agent_id', (string)max(0, (int)($_POST['agent_id'] ?? 0)));
             $url = trim((string)($_POST['api_url'] ?? '')); $set('api_url', $url !== '' ? $url : 'https://www.basebase.ru/api/v1');
             if (trim((string)($_POST['secret'] ?? '')) !== '') $set('secret', trim((string)$_POST['secret']));
-            $set('seller_id', (string)max(0, (int)($_POST['seller_id'] ?? 0)));
-            if ((int)$cfg('owner_id', '0') === 0) $set('owner_id', (string)$sf->auth()->id());   // the first one to connect owns the connection
-            $ws = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));
-            $set('warehouse_ids', json_encode($ws)); $set('warehouse_id', (string)($ws[0] ?? 0));
             flash($sf->t('saved'));
         } elseif ($do === 'test') {
             $r = $s->ping();
             if ($r['error'] === null) { $s->refreshCategories(); flash($sf->t('ping_ok', ['fee' => (string)($r['data']['agency_fee'] ?? '?'), 'pc' => (string)($r['data']['platform_commission'] ?? '?')])); }
             else flash($sf->t('ping_fail', ['e' => $r['error']]), 'bad');
-        } elseif ($do === 'create_seller') {
-            $r = (new Client($cfg))->request('POST', '/sellers', ['email' => trim((string)($_POST['email'] ?? '')), 'name' => trim((string)($_POST['name'] ?? '')), 'shop_name' => trim((string)($_POST['shop_name'] ?? '')),
-                'phone' => trim((string)($_POST['phone'] ?? '')), 'external_id' => 'sysfera-' . substr(md5((string)($_SERVER['HTTP_HOST'] ?? 'sysfera')), 0, 10)], 10);
-            if ($r['error'] === null && !empty($r['data']['seller_id'])) { $set('seller_id', (string)(int)$r['data']['seller_id']); flash($sf->t('seller_created', ['id' => (int)$r['data']['seller_id']])); }
-            else flash($sf->t('ping_fail', ['e' => $r['error'] ?? '?']), 'bad');
         } elseif ($do === 'token') { $set('cron_token', bin2hex(random_bytes(16))); flash($sf->t('saved')); }
         $go('settings');
     }, 'wmsbb.admin');
@@ -176,14 +175,13 @@ return function (\Sysfera\Plugin $sf): void {
         $t = $cfg('cron_token', '');
         if ($t === '' || !hash_equals($t, (string)($_GET['token'] ?? ''))) { $json(['error' => 'unauthorized'], 401); return; }
         $s = $sync(); if (!$s || !$s->ready()) { $json(['error' => 'not_ready'], 503); return; }
-        $set('last_poll', (string)time());
         $new = $s->pull(); $push = $s->pushAll(true);
         $json(['ok' => true, 'new_items' => $new, 'products_ok' => $push['ok'], 'products_failed' => $push['failed']]);
     });
 
     /* ================= demo mode ================= */
     // visitors of a public demo must not push demo data to a real Basebase account; the owner's connection settings survive a reset
-    $sf->on('demo.reset', function () use ($db) { foreach (['wmsbb_products', 'wmsbb_items', 'wmsbb_events'] as $t) $db->q("DELETE FROM {p}$t"); });
+    $sf->on('demo.reset', function () use ($db) { foreach (['wmsbb_products', 'wmsbb_items', 'wmsbb_events', 'wmsbb_sellers'] as $t) $db->q("DELETE FROM {p}$t"); });
     \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['wmsbb.use', 'wmsbb.admin'])));
 
     /* ================= fields on the WMS product card ================= */
@@ -213,7 +211,7 @@ return function (\Sysfera\Plugin $sf): void {
             $db->q('INSERT INTO {p}wmsbb_products (product_id, external_id, published, category, dirty) VALUES (?,?,?,?,1)', [$pid, $ext, $pub, $cat ?: null]);
         } else $db->q('UPDATE {p}wmsbb_products SET published = ?, category = ?, dirty = 1 WHERE product_id = ?', [$pub, $cat ?: null, $pid]);
         $s = $sync();
-        if ($s && $s->ready()) { $err = $s->pushProduct($pid); if ($err !== null) flash($sf->t('pf_push_fail', ['e' => preg_match('/^[a-z_]+$/', $err) ? $sf->t($err) : $err]), 'bad'); }
+        if ($s && $s->ready()) { $err = $s->forOwner((int)$p['owner_id'])->pushProduct($pid); if ($err !== null) flash($sf->t('pf_push_fail', ['e' => preg_match('/^[a-z_]+$/', $err) ? $sf->t($err) : $err]), 'bad'); }
     });
 
     /* ================= react to the warehouse ================= */

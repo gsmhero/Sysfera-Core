@@ -27,6 +27,7 @@ final class Stock
     private function where(array $f, array &$a): string
     {
         $w = ' WHERE p.archived = ' . (($f['only'] ?? '') === 'archived' ? '1' : '0');
+        if (($o = Scope::id()) !== null) { $w .= ' AND p.owner_id = ?'; $a[] = $o; }
         if (!empty($f['q'])) { $w .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR p.code LIKE ? OR p.barcode = ?)'; $like = '%' . $f['q'] . '%'; array_push($a, $like, $like, $like, (string)$f['q']); }
         if (!empty($f['group_id'])) { $w .= ' AND p.group_id = ?'; $a[] = (int)$f['group_id']; }
         return $w;
@@ -80,7 +81,7 @@ final class Stock
     public function history(int $product, int $limit = 50): array
     {
         $limit = max(1, min(500, $limit));
-        return $this->db->rows("SELECT m.*, d.type, d.number, d.status, d.source, d.contact_id, w.name AS warehouse, c.name AS cell FROM {p}wms_moves m JOIN {p}wms_docs d ON d.id = m.doc_id
+        return $this->db->rows("SELECT m.*, d.type, d.number, d.status, d.source, d.contact_id, d.owner_id, w.name AS warehouse, c.name AS cell FROM {p}wms_moves m JOIN {p}wms_docs d ON d.id = m.doc_id
             JOIN {p}wms_warehouses w ON w.id = m.warehouse_id LEFT JOIN {p}wms_cells c ON c.id = m.cell_id WHERE m.product_id = ? ORDER BY m.moment DESC, m.id DESC LIMIT $limit", [$product]);
     }
 
@@ -92,18 +93,19 @@ final class Stock
             COALESCE(SUM(CASE WHEN m.moment < ? THEN m.on_hand END),0) AS opening,
             COALESCE(SUM(CASE WHEN m.moment >= ? AND m.moment <= ? AND m.on_hand > 0 THEN m.on_hand END),0) AS income,
             COALESCE(-SUM(CASE WHEN m.moment >= ? AND m.moment <= ? AND m.on_hand < 0 THEN m.on_hand END),0) AS outcome
-            FROM {p}wms_products p JOIN {p}wms_moves m ON m.product_id = p.id$join GROUP BY p.id
-            HAVING opening <> 0 OR income <> 0 OR outcome <> 0 ORDER BY p.name", [$from, $from, $to, $from, $to]);
+            FROM {p}wms_products p JOIN {p}wms_moves m ON m.product_id = p.id$join" . (($o = Scope::id()) !== null ? ' WHERE p.owner_id = ' . $o : '') . "
+            GROUP BY p.id HAVING opening <> 0 OR income <> 0 OR outcome <> 0 ORDER BY p.name", [$from, $from, $to, $from, $to]);
     }
 
     /** Numbers for the dashboard. */
     public function totals(): array
     {
+        $o = Scope::id();
         $r = $this->db->row('SELECT COALESCE(SUM(t.h * p.buy_price),0) AS value, COALESCE(SUM(t.h),0) AS qty, COALESCE(SUM(t.r),0) AS reserve, COALESCE(SUM(t.e),0) AS expected
-            FROM (SELECT product_id, SUM(on_hand) h, SUM(reserve) r, SUM(expected) e FROM {p}wms_moves GROUP BY product_id) t JOIN {p}wms_products p ON p.id = t.product_id') ?: [];
-        $low = (int)$this->db->val('SELECT COUNT(*) FROM (SELECT p.id, p.min_stock FROM {p}wms_products p LEFT JOIN {p}wms_moves m ON m.product_id = p.id WHERE p.archived = 0 AND p.min_stock > 0
+            FROM (SELECT product_id, SUM(on_hand) h, SUM(reserve) r, SUM(expected) e FROM {p}wms_moves GROUP BY product_id) t JOIN {p}wms_products p ON p.id = t.product_id' . ($o ? ' WHERE p.owner_id = ' . $o : '')) ?: [];
+        $low = (int)$this->db->val('SELECT COUNT(*) FROM (SELECT p.id, p.min_stock FROM {p}wms_products p LEFT JOIN {p}wms_moves m ON m.product_id = p.id WHERE p.archived = 0 AND p.min_stock > 0' . ($o ? ' AND p.owner_id = ' . $o : '') . '
             GROUP BY p.id HAVING COALESCE(SUM(m.on_hand),0) - COALESCE(SUM(m.reserve),0) < min_stock) x');
         return ['value' => (float)($r['value'] ?? 0), 'qty' => (float)($r['qty'] ?? 0), 'reserve' => (float)($r['reserve'] ?? 0), 'expected' => (float)($r['expected'] ?? 0), 'low' => $low,
-            'products' => (int)$this->db->val('SELECT COUNT(*) FROM {p}wms_products WHERE archived = 0')];
+            'products' => (int)$this->db->val('SELECT COUNT(*) FROM {p}wms_products WHERE archived = 0' . ($o ? ' AND owner_id = ' . $o : ''))];
     }
 }

@@ -5,9 +5,10 @@ use SysferaWms\{Posting, Stock, Docs, W};
 
 /** Sysfera WMS — warehouse management component. */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Posting', 'Kinds', 'Stock', 'Docs', 'W'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Posting', 'Kinds', 'Stock', 'Docs', 'W', 'Scope'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db();
+    Scope::$resolver = fn() => $sf->auth()->id();
     $stock = new Stock($db);
     $docs = new Docs($db, $stock, fn(string $k, string $d = '') => $sf->setting($k, $d));
     $uid = fn() => $sf->auth()->id() ?: null;
@@ -23,7 +24,7 @@ return function (\Sysfera\Plugin $sf): void {
         $sf->route($method, $path, function (array $p) use ($fn, $ensure) { $ensure(); return $fn($p); }, ['cap' => $cap]);
     };
     /* A component (e.g. the Basebase connector) may mark documents as private: then only their owner sees what is in them. Stock figures stay true. */
-    $isPrivate = fn(?array $d): bool => $d !== null && (bool)\Sysfera\Hooks::filter('wms.doc.private', false, $d);
+    $isPrivate = fn(?array $d): bool => $d !== null && (!Scope::owns($d) || (bool)\Sysfera\Hooks::filter('wms.doc.private', false, $d));
     $page = fn(string $view, array $vars, string $title, string $tab) => $sf->render($view, $vars + ['tab' => $tab, 'stockApi' => $stock], $title);
     $warehouses = fn(bool $all = false) => $db->rows('SELECT * FROM {p}wms_warehouses' . ($all ? '' : ' WHERE active = 1') . ' ORDER BY is_default DESC, name');
     $partners = fn(?string $role = null) => array_values(array_filter(
@@ -37,7 +38,7 @@ return function (\Sysfera\Plugin $sf): void {
         $low = $stock->summary(['only' => 'low'], 8);
         $recent = array_map(fn($r) => $isPrivate($r) ? W::mask($r) : $r, $docs->list([], 8));
         $open = ['purchase' => 0, 'sale' => 0];
-        foreach ($db->rows("SELECT d.type, d.id, d.source, d.contact_id FROM {p}wms_docs d WHERE d.type IN ('purchase','sale') AND d.status = 'posted'") as $o) { if ($isPrivate($o)) continue; $pr = $docs->progress((int)$o['id']); if ($pr['done'] + 0.0000001 < $pr['ordered']) $open[$o['type']]++; }
+        foreach ($db->rows("SELECT d.type, d.id, d.source, d.contact_id, d.owner_id FROM {p}wms_docs d WHERE d.type IN ('purchase','sale') AND d.status = 'posted'" . (($me = Scope::id()) ? ' AND d.owner_id = ' . $me : '')) as $o) { if ($isPrivate($o)) continue; $pr = $docs->progress((int)$o['id']); if ($pr['done'] + 0.0000001 < $pr['ordered']) $open[$o['type']]++; }
         $page('dashboard', ['totals' => $stock->totals(), 'low' => $low, 'recent' => $recent, 'open' => $open, 'drafts' => $docs->count(['status' => 'draft'])], $sf->t('nav_dashboard'), 'dashboard');
     });
 
@@ -57,10 +58,10 @@ return function (\Sysfera\Plugin $sf): void {
 
     $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses, $isPrivate): void {
         $p = $id ? $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$id]) : null;
-        if ($id && !$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        if ($id && (!$p || !Scope::owns($p))) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $links = $id ? $db->rows('SELECT l.*, c.name, c.sku, c.sell_price, (SELECT COALESCE(SUM(m.on_hand - m.reserve),0) FROM {p}wms_moves m WHERE m.product_id = c.id) AS avail
             FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? ORDER BY l.sort, l.id', [$id]) : [];
-        $cands = $db->rows("SELECT id, name, sku FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped')" . ($id ? ' AND id <> ' . (int)$id : '') . ' ORDER BY name LIMIT 1500');
+        $cands = $db->rows("SELECT id, name, sku FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped')" . (($me = Scope::id()) ? ' AND owner_id = ' . $me : '') . ($id ? ' AND id <> ' . (int)$id : '') . ' ORDER BY name LIMIT 1500');
         $page('product', ['links' => $links, 'cands' => $cands, 'p' => $p, 'groups' => $db->rows('SELECT * FROM {p}wms_groups ORDER BY name'),
             'whs' => array_values(array_filter($warehouses(), fn($w) => !$w['use_cells'])), 'byWh' => $id ? $stock->byWarehouse($id) : [], 'byCell' => $id ? $stock->byCell($id) : [], 'history' => $id ? array_map(fn($h) => $isPrivate($h) ? W::mask($h) : $h, $stock->history($id, 20)) : [],
             'units' => ['шт', 'кг', 'г', 'л', 'м', 'упак', 'компл', 'пара']], $p ? $p['name'] : $sf->t('new_product'), 'products');
@@ -68,7 +69,7 @@ return function (\Sysfera\Plugin $sf): void {
     /* "Preview product page": what the card looks like on Basebase (nothing is sent) */
     $route('GET', '/products/{id}/preview', function (array $a) use ($sf, $db, $stock): void {
         $p = $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [(int)$a['id']]);
-        if (!$p) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        if (!$p || !Scope::owns($p)) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $type = (string)$p['ptype'];
         $avail = fn(int $id): float => (float)$db->val('SELECT COALESCE(SUM(on_hand - reserve),0) FROM {p}wms_moves WHERE product_id = ?', [$id]);
         $parts = $db->rows('SELECT l.qty, l.label, l.price AS own_price, c.id, c.name, c.sell_price FROM {p}wms_product_links l JOIN {p}wms_products c ON c.id = l.child_id WHERE l.parent_id = ? AND c.archived = 0 ORDER BY l.sort, l.id', [$p['id']]);
@@ -100,6 +101,7 @@ return function (\Sysfera\Plugin $sf): void {
     $route('GET', '/products/{id}', fn(array $a) => $productForm((int)$a['id']));
     $saveProduct = function (?int $id) use ($sf, $db, $num, $docs): void {
         $isEdit = $id !== null; $name = trim((string)($_POST['name'] ?? ''));
+        if ($id && !Scope::owns($db->row('SELECT owner_id FROM {p}wms_products WHERE id = ?', [$id]))) { http_response_code(404); echo e($sf->t('not_found')); return; }
         if ($name === '') { flash($sf->t('err_name'), 'bad'); redirect(wms_path($id ? "/products/$id" : '/products/new')); }
         if (($_POST['do'] ?? '') === 'archive' && $id) { $db->q('UPDATE {p}wms_products SET archived = 1 WHERE id = ?', [$id]); flash($sf->t('product_archived')); redirect(wms_path('/products')); }
         if (($_POST['do'] ?? '') === 'restore' && $id) { $db->q('UPDATE {p}wms_products SET archived = 0 WHERE id = ?', [$id]); flash($sf->t('product_restored')); redirect(wms_path("/products/$id")); }
@@ -112,7 +114,7 @@ return function (\Sysfera\Plugin $sf): void {
             $num($_POST['weight'] ?? 0), $num($_POST['volume'] ?? 0), $vat === '' ? null : $num($vat), $num($_POST['buy_price'] ?? 0), $num($_POST['sell_price'] ?? 0), $num($_POST['promo_price'] ?? 0), $num($_POST['min_stock'] ?? 0),
             mb_substr(trim((string)($_POST['description'] ?? '')), 0, 4000) ?: null];
         if ($id) { $db->q('UPDATE {p}wms_products SET name=?, group_id=?, sku=?, code=?, barcode=?, unit=?, weight=?, volume=?, vat=?, buy_price=?, sell_price=?, promo_price=?, min_stock=?, description=? WHERE id = ?', [...$v, $id]); }
-        else { $db->q('INSERT INTO {p}wms_products (name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', $v); $id = $db->insertId(); }
+        else { $db->q('INSERT INTO {p}wms_products (owner_id, name, group_id, sku, code, barcode, unit, weight, volume, vat, buy_price, sell_price, promo_price, min_stock, description) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [Scope::id() ?: $sf->auth()->id(), ...$v]); $id = $db->insertId(); }
         $sf->log('product.saved', ['id' => $id, 'name' => $name]);
         $dl = trim((string)($_POST['download_url'] ?? '')); if ($ptype !== 'downloadable' || !preg_match('~^https://\S+$~i', $dl)) $dl = '';
         $db->q('UPDATE {p}wms_products SET ptype = ?, download_url = ?, short_desc = ?, images = ?, variants = NULL, specs = ? WHERE id = ?', [
@@ -122,7 +124,7 @@ return function (\Sysfera\Plugin $sf): void {
         /* components: variations of a variable product, items of a grouped one, parts of a bundle */
         $db->q('DELETE FROM {p}wms_product_links WHERE parent_id = ?', [$id]); $skipped = 0; $sort = 0;
         foreach (\SysferaWms\Kinds::links($ptype, (int)$id, (array)($_POST['l_child'] ?? []), (array)($_POST['l_label'] ?? []), (array)($_POST['l_qty'] ?? []), (array)($_POST['l_price'] ?? [])) as $l) {
-            $ct = (string)$db->val('SELECT ptype FROM {p}wms_products WHERE id = ?', [$l['child']]);
+            $ct = (string)$db->val('SELECT ptype FROM {p}wms_products WHERE id = ? AND owner_id <=> (SELECT owner_id FROM {p}wms_products WHERE id = ?)', [$l['child'], $id]);
             if ($ct === '' || !\SysferaWms\Kinds::allowedChild($ptype, $ct)) { $skipped++; continue; }
             $db->q('INSERT INTO {p}wms_product_links (parent_id, child_id, label, qty, price, sort) VALUES (?,?,?,?,?,?)', [$id, $l['child'], $l['label'] ?: null, $l['qty'], $l['price'], $sort++]);
         }
@@ -270,7 +272,7 @@ return function (\Sysfera\Plugin $sf): void {
         $hide = array_map('intval', (array)\Sysfera\Hooks::filter('wms.partners.hidden', []));   // e.g. customers that came with private orders
         $rows = array_values(array_filter($partners(in_array($role, ['supplier', 'customer'], true) ? $role : null), fn($r) => !in_array((int)$r['id'], $hide, true) && $q === '' || mb_stripos($r['name'] . ' ' . $r['company'] . ' ' . $r['phone'] . ' ' . $r['email'], $q) !== false));
         $counts = [];
-        foreach ($db->rows("SELECT contact_id, type, COUNT(*) n, SUM(CASE WHEN status='posted' THEN total ELSE 0 END) s FROM {p}wms_docs WHERE contact_id IS NOT NULL AND type IN ('purchase','sale') GROUP BY contact_id, type") as $c) $counts[$c['contact_id']][$c['type']] = $c;
+        foreach ($db->rows("SELECT contact_id, type, COUNT(*) n, SUM(CASE WHEN status='posted' THEN total ELSE 0 END) s FROM {p}wms_docs WHERE contact_id IS NOT NULL AND type IN ('purchase','sale')" . (($me = Scope::id()) ? ' AND owner_id = ' . $me : '') . " GROUP BY contact_id, type") as $c) $counts[$c['contact_id']][$c['type']] = $c;
         $page('partners', ['rows' => $rows, 'role' => $role, 'q' => $q, 'counts' => $counts], $sf->t('nav_partners'), 'partners');
     });
     $route('POST', '/partners', function () use ($sf, $db, $uid) {
@@ -299,8 +301,8 @@ return function (\Sysfera\Plugin $sf): void {
 
     /* ================= audit ================= */
     $route('GET', '/audit', function () use ($sf, $db, $page) {
-        $per = 40; $total = (int)$db->val("SELECT COUNT(*) FROM {p}events WHERE plugin = 'wms'"); $pg = W::page($total, $per, (int)($_GET['page'] ?? 1));
-        $rows = $db->rows("SELECT e.*, u.name AS user FROM {p}events e LEFT JOIN {p}users u ON u.id = e.user_id WHERE e.plugin = 'wms' ORDER BY e.id DESC LIMIT $per OFFSET " . (($pg['cur'] - 1) * $per));
+        $per = 40; $total = (int)$db->val("SELECT COUNT(*) FROM {p}events WHERE plugin = 'wms'" . (($me = Scope::id()) ? ' AND user_id = ' . $me : '')); $pg = W::page($total, $per, (int)($_GET['page'] ?? 1));
+        $rows = $db->rows("SELECT e.*, u.name AS user FROM {p}events e LEFT JOIN {p}users u ON u.id = e.user_id WHERE e.plugin = 'wms'" . (($me = Scope::id()) ? ' AND e.user_id = ' . $me : '') . " ORDER BY e.id DESC LIMIT $per OFFSET " . (($pg['cur'] - 1) * $per));
         $page('audit', ['rows' => $rows, 'pg' => $pg, 'total' => $total], $sf->t('nav_audit'), 'audit');
     });
 
@@ -317,7 +319,7 @@ return function (\Sysfera\Plugin $sf): void {
         header('Content-Type: application/json; charset=utf-8');
         if ($q === '') { echo '[]'; return; }
         $like = '%' . $q . '%';
-        $rows = $db->rows("SELECT id, name, sku, code, barcode, unit, buy_price, sell_price FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped') AND (name LIKE ? OR sku LIKE ? OR code LIKE ? OR barcode = ?) ORDER BY (barcode = ?) DESC, name LIMIT 12", [$like, $like, $like, $q, $q]);
+        $rows = $db->rows("SELECT id, name, sku, code, barcode, unit, buy_price, sell_price FROM {p}wms_products WHERE archived = 0 AND ptype NOT IN ('variable','grouped')" . (($me = Scope::id()) ? ' AND owner_id = ' . $me : '') . " AND (name LIKE ? OR sku LIKE ? OR code LIKE ? OR barcode = ?) ORDER BY (barcode = ?) DESC, name LIMIT 12", [$like, $like, $like, $q, $q]);
         foreach ($rows as &$r) { $r['available'] = $wh ? $stock->available((int)$r['id'], $wh) : null; $r['on_hand'] = $wh ? $stock->onHand((int)$r['id'], $wh) : null; }
         echo json_encode($rows, JSON_UNESCAPED_UNICODE);
     });
@@ -357,7 +359,7 @@ return function (\Sysfera\Plugin $sf): void {
         ];
         $ids = []; $lines = [];
         foreach ($items as $n => [$name, $sku, $buy, $sell, $min, $qty]) {
-            $db->q('INSERT INTO {p}wms_products (group_id, name, sku, code, unit, buy_price, sell_price, min_stock, source) VALUES (?,?,?,?,?,?,?,?,?)', [$grp, $name, $sku, str_pad((string)($n + 1), 5, '0', STR_PAD_LEFT), $ru ? 'шт' : 'pcs', $buy, $sell, $min, 'demo']);
+            $db->q('INSERT INTO {p}wms_products (owner_id, group_id, name, sku, code, unit, buy_price, sell_price, min_stock, source) VALUES (?,?,?,?,?,?,?,?,?,?)', [$sf->auth()->id() ?: null, $grp, $name, $sku, str_pad((string)($n + 1), 5, '0', STR_PAD_LEFT), $ru ? 'шт' : 'pcs', $buy, $sell, $min, 'demo']);
             $ids[] = $db->insertId();
             if ($qty > 0) $lines[] = ['product_id' => $ids[$n], 'qty' => $qty, 'price' => $buy];
         }

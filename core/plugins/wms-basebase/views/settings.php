@@ -15,27 +15,13 @@ $hasSecret = $cfg('secret', '') !== ''; ?>
     <label class="fld"><span><?= e($sf->t('api_address')) ?></span><input name="api_url" value="<?= e($cfg('api_url', 'https://www.basebase.ru/api/v1')) ?>"></label>
   </div>
   <label class="fld"><span>API secret</span><input name="secret" type="password" autocomplete="off" placeholder="<?= $hasSecret ? e($sf->t('secret_saved')) : '' ?>"></label>
-  <h3>2. <?= e($sf->t('s_seller')) ?></h3>
-  <div class="cols">
-    <label class="fld"><span>Seller ID</span><input name="seller_id" value="<?= e($cfg('seller_id', '')) ?>" inputmode="numeric"></label>
-    <div class="fld"><span><?= e($sf->t('s_warehouse')) ?></span><?php $sel = array_map('intval', (array)(json_decode($cfg('warehouse_ids', '[]'), true) ?: [])) ?: ((int)$cfg('warehouse_id', '0') ? [(int)$cfg('warehouse_id', '0')] : []); ?>
-      <div class="bbwh"><?php foreach ($whs as $i => $w): ?><label class="chk"><input type="checkbox" name="warehouse_ids[]" value="<?= (int)$w['id'] ?>" <?= in_array((int)$w['id'], $sel, true) || (!$sel && $i === 0) ? 'checked' : '' ?>> <?= e($w['name']) ?></label><?php endforeach; ?></div><small class="muted"><?= e($sf->t('s_warehouse_hint')) ?></small></div>
-  </div>
   <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button></div>
 </form>
 
 <?php if ($client->configured()): ?>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="test"><h3><?= e($sf->t('s_test')) ?></h3><p class="muted sm"><?= e($sf->t('s_test_hint')) ?></p><button class="btn"><?= e($sf->t('s_test_btn')) ?></button></form>
 
-<?php if (!$sync->sellerId()): ?>
-<form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="create_seller"><h3><?= e($sf->t('s_create')) ?></h3><p class="muted sm"><?= e($sf->t('s_create_hint')) ?></p>
-  <div class="cols">
-    <label class="fld"><span>Email *</span><input name="email" type="email" required></label>
-    <label class="fld"><span><?= e($sf->t('s_name')) ?> *</span><input name="name" required maxlength="190"></label>
-    <label class="fld"><span><?= e($sf->t('s_shop')) ?> *</span><input name="shop_name" required maxlength="190"></label>
-    <label class="fld"><span><?= e($sf->t('phone')) ?></span><input name="phone" maxlength="60"></label>
-  </div><button class="btn primary"><?= e($sf->t('s_create_btn')) ?></button></form>
-<?php endif; endif; ?>
+<?php endif; ?>
 </div>
 
 <div>

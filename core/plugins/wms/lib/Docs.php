@@ -42,6 +42,7 @@ final class Docs
     private function filter(array $f): array
     {
         $w = ' WHERE 1=1'; $a = [];
+        if (($o = Scope::id()) !== null) { $w .= ' AND d.owner_id = ?'; $a[] = $o; }
         if (!empty($f['type']) && Posting::known((string)$f['type'])) { $w .= ' AND d.type = ?'; $a[] = $f['type']; }
         if (!empty($f['group'])) { $types = array_keys(array_filter(Posting::TYPES, fn($m) => $m[1] === $f['group'])); if ($types) { $w .= ' AND d.type IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; array_push($a, ...$types); } }
         if (!empty($f['status']) && in_array($f['status'], ['draft', 'posted', 'cancelled'], true)) { $w .= ' AND d.status = ?'; $a[] = $f['status']; }
@@ -91,7 +92,7 @@ final class Docs
             $clean = [];
             foreach ($lines as $l) {
                 $p = (int)($l['product_id'] ?? 0); $q = round((float)str_replace(',', '.', (string)($l['qty'] ?? 0)), 3);
-                if ($p <= 0 || !$this->db->val('SELECT 1 FROM {p}wms_products WHERE id = ?', [$p])) continue;
+                if ($p <= 0 || !$this->db->val('SELECT 1 FROM {p}wms_products WHERE id = ?' . (($o = ((int)($d['owner_id'] ?? 0)) ?: Scope::id()) ? ' AND owner_id = ' . $o : ''), [$p])) continue;
                 $clean[] = ['product_id' => $p, 'qty' => $q, 'price' => round((float)str_replace(',', '.', (string)($l['price'] ?? 0)), 2),
                     'cell_id' => ((int)($l['cell_id'] ?? 0)) ?: null, 'to_cell_id' => ((int)($l['to_cell_id'] ?? 0)) ?: null, 'note' => mb_substr(trim((string)($l['note'] ?? '')), 0, 255) ?: null];
             }
@@ -102,8 +103,8 @@ final class Docs
             if ($id === null) {
                 $type = (string)($d['type'] ?? '');
                 if (!Posting::known($type)) throw new \RuntimeException('type');
-                $this->db->q('INSERT INTO {p}wms_docs (type, number, status, moment, warehouse_id, to_warehouse_id, contact_id, parent_id, total, comment, source, ref, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                    [$type, $this->nextNumber($type), 'draft', ...$head, $d['source'] ?? null, $d['ref'] ?? null, $userId]);
+                $this->db->q('INSERT INTO {p}wms_docs (type, number, status, moment, warehouse_id, to_warehouse_id, contact_id, parent_id, total, comment, source, ref, created_by, owner_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                    [$type, $this->nextNumber($type), 'draft', ...$head, $d['source'] ?? null, $d['ref'] ?? null, $userId, ((int)($d['owner_id'] ?? 0)) ?: (Scope::id() ?? $userId)]);
                 $id = $this->db->insertId();
             } else {
                 $cur = $this->find($id);
@@ -129,7 +130,7 @@ final class Docs
             $take = min($q, (float)$l['qty']); $open[(int)$l['product_id']] = $q - $take;
             $lines[] = ['product_id' => $l['product_id'], 'qty' => $take, 'price' => $l['price']];
         }
-        return $this->save(['type' => $type, 'warehouse_id' => $p['warehouse_id'], 'contact_id' => $p['contact_id'], 'parent_id' => $parentId, 'moment' => date('Y-m-d H:i:s'), 'comment' => null], $lines, null, $userId);
+        return $this->save(['type' => $type, 'warehouse_id' => $p['warehouse_id'], 'contact_id' => $p['contact_id'], 'parent_id' => $parentId, 'owner_id' => $p['owner_id'] ?? null, 'moment' => date('Y-m-d H:i:s'), 'comment' => null], $lines, null, $userId);
     }
 
     /** Post: validate, check stock, write ledger rows. @return string[] problems (translation keys, or ['stock:<name>'...]); empty = posted */

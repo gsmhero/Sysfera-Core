@@ -115,4 +115,6 @@ return [
     'upd.bad_package' => 'The update package is invalid. Nothing was changed.',
     'upd.not_writable' => 'Files are not writable. Check folder permissions.',
     'upd.failed' => 'Update failed: {why}. Previous files were restored; backup: storage/backups/{dir}.',
+    'users.delete_requested' => 'Deletion requested: the account is removed only after its owner agrees.', 'users.awaiting_consent' => 'Deletion awaits the user\'s consent', 'users.ask_delete' => 'Request deletion', 'users.cancel_delete' => 'Withdraw the request',
+    'profile.delete_asked' => 'The administrator asks to delete your account', 'profile.delete_text' => 'Your account, with your products and orders, is removed only if you agree. Until then nothing changes.', 'profile.delete_agree' => 'Agree and delete my account', 'profile.delete_decline' => 'Decline', 'profile.delete_confirm' => 'Delete your account for good?', 'profile.delete_declined' => 'Request declined. Your account stays.', 'profile.last_admin' => 'This is the last active administrator: it cannot be deleted.',
 ];

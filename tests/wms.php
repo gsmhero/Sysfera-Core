@@ -106,5 +106,13 @@ ok(Kinds::bundleStock([['qty' => 2.0, 'avail' => 7.0], ['qty' => 1.0, 'avail' =>
 $m = \SysferaWms\W::mask(['id' => 5, 'number' => 'SO-000001', 'contact' => 'Ivan', 'comment' => 'Red Street 1', 'total' => 200, 'type' => 'sale', 'status' => 'posted', 'progress' => ['done' => 1]]);
 ok($m['contact'] === null && $m['comment'] === null && $m['total'] === 0 && $m['number'] !== 'SO-000001' && !isset($m['progress']) && $m['private'] === true && $m['type'] === 'sale' && $m['status'] === 'posted', 'mask: customer, comment, amount and number are hidden; type and status stay');
 
+require_once dirname(__DIR__) . '/core/plugins/wms/lib/Scope.php';
+\SysferaWms\Scope::$resolver = fn() => 7;
+ok(\SysferaWms\Scope::id() === 7 && \SysferaWms\Scope::owns(['owner_id' => 7]) && !\SysferaWms\Scope::owns(['owner_id' => 8]) && !\SysferaWms\Scope::owns(['id' => 1]) && !\SysferaWms\Scope::owns(null), 'scope: a user owns only rows with their own owner_id (the admin too)');
+ok(\SysferaWms\Scope::as(0, fn() => \SysferaWms\Scope::id() === null && \SysferaWms\Scope::owns(['owner_id' => 8])) && \SysferaWms\Scope::id() === 7, 'scope: system context (cron, webhook) sees everything, then returns');
+ok(\SysferaWms\Scope::as(9, fn() => \SysferaWms\Scope::id()) === 9, 'scope: work can be done on behalf of one owner');
+\SysferaWms\Scope::$resolver = fn() => 0;
+ok(\SysferaWms\Scope::id() === null, 'scope: no logged-in user means no filter');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);
