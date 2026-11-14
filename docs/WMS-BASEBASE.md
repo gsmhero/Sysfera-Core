@@ -56,3 +56,6 @@ When a buyer orders a variation, the WMS order is made for that warehouse produc
 * Orders from Basebase are matched to the user by `seller_id`; stock pushes, polling and status updates run per user.
 * Users list (Core): the administrator can **block** (Suspend) a user; **Delete** only sends a request, the account is removed when the user clicks *Agree* in their profile.
 * Upgrading: products and documents get their owner from `created_by`, otherwise the first administrator; the former single connected seller moves to the user who owned the connection.
+
+## When Basebase deletes a user (connector 0.5.1)
+If the Basebase administrator deletes a seller (Users manager → Delete: the shop and products are removed, the wallet moves to the admin wallet, the user disappears from the Agent's seller list), the next request for that user answers "Seller not found". The connector then forgets the seller id and marks the user's products for a new upload. The user can publish a product again or press **Create my shop now** in *My shop*: a new seller is created through the Agent account (same email, same or a new shop name) and the products are uploaded again.

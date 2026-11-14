@@ -132,7 +132,27 @@ final class Sync
         return $best;
     }
     public function stockOf(int $pid, int $warehouse): float { return $this->availIn($pid, $warehouse); }
-    private function base(string $ext = ''): string { return '/sellers/' . $this->sellerId() . '/products' . ($ext === '' ? '' : '/' . rawurlencode($ext)); }
+    private function base(string $ext = ''): string { return '/products' . ($ext === '' ? '' : '/' . rawurlencode($ext)); }
+
+    /**
+     * A request on this user's seller. If Basebase says the seller no longer exists (the administrator deleted the user there), the link is dropped
+     * and the products are marked for a new upload; with $recreate (publishing) a new shop is created at once under the user's shop name.
+     */
+    private function sreq(string $method, string $suffix, ?array $body = null, int $timeout = 6, bool $recreate = false): array
+    {
+        $r = $this->api->request($method, '/sellers/' . $this->sellerId() . $suffix, $body, $timeout);
+        if ($r['code'] === 404 && preg_match('/seller not found/i', (string)$r['error']) && $this->owner > 0) {
+            $this->forgetSeller();
+            if ($recreate && $this->ensureSeller() === null) $r = $this->api->request($method, '/sellers/' . $this->sellerId() . $suffix, $body, $timeout);
+        }
+        return $r;
+    }
+    private function forgetSeller(): void
+    {
+        $this->db->q('UPDATE {p}wmsbb_sellers SET seller_id = 0, since_id = 0 WHERE owner_id = ?', [$this->owner]);
+        $this->db->q('UPDATE {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id SET m.synced_at = NULL, m.last_stock = NULL, m.dirty = 1 WHERE p.owner_id = ?', [$this->owner]);
+        $this->note('shop.deleted', ['owner' => $this->owner]);
+    }
 
     /* ---------------- products & stock ---------------- */
 
@@ -150,7 +170,7 @@ final class Sync
         if (!$this->ready()) return $this->fail($pid, 'not_connected');
         $avail = $this->available($pid);
         $body = Bb::product($p, $map, $avail, $parts);
-        $r = $this->api->request('PUT', $this->base($map['external_id']), $body, empty($body['images']) ? 10 : 60);   // Basebase downloads the photos while answering
+        $r = $this->sreq('PUT', $this->base($map['external_id']), $body, empty($body['images']) ? 10 : 60, true);   // Basebase downloads the photos while answering
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$body['stock'], $pid]);
         return null;
@@ -159,7 +179,7 @@ final class Sync
     private function hide(array $map): ?string
     {
         if (!$this->ready() || !$map['synced_at']) return null;   // never published: nothing to hide
-        $r = $this->api->request('DELETE', $this->base($map['external_id']));
+        $r = $this->sreq('DELETE', $this->base($map['external_id']));
         if ($r['error'] !== null && $r['code'] !== 404) return $this->fail((int)$map['product_id'], $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NULL, last_stock = NULL, dirty = 0, last_error = NULL WHERE product_id = ?', [$map['product_id']]);
         return null;
@@ -176,7 +196,7 @@ final class Sync
         if (!$this->ready()) { $this->db->q('UPDATE {p}wmsbb_products SET dirty = 1 WHERE product_id = ?', [$pid]); return 'not_connected'; }
         $units = Bb::stockUnits($this->available($pid));
         if ($map['last_stock'] !== null && (int)$map['last_stock'] === $units && !$map['dirty']) return null;
-        $r = $this->api->request('PATCH', $this->base($map['external_id']) . '/stock', ['stock' => $units], 5);
+        $r = $this->sreq('PATCH', $this->base($map['external_id']) . '/stock', ['stock' => $units], 5);
         if ($r['code'] === 404) return $this->pushProduct($pid);
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
         $this->db->q('UPDATE {p}wmsbb_products SET last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$units, $pid]);
@@ -212,7 +232,8 @@ final class Sync
         if ($this->sellerId() === 0) return 0;
         $new = 0; $since = (int)$this->c('since_id', '0');
         for ($page = 0; $page < 5; $page++) {
-            $r = $this->api->request('GET', '/sellers/' . $this->sellerId() . '/orders?since_id=' . $since . '&limit=100', null, 10);
+            $r = $this->sreq('GET', '/orders?since_id=' . $since . '&limit=100', null, 10);
+            if ($this->sellerId() === 0) break;   // the shop was deleted on Basebase
             if ($r['error'] !== null) { ($this->set)('last_error', $r['error']); break; }   // site-wide note
             $items = (array)($r['data']['items'] ?? []);
             foreach ($items as $raw) {
@@ -332,7 +353,7 @@ final class Sync
         $o = (int)$this->db->val('SELECT owner_id FROM {p}wmsbb_items WHERE item_id = ?', [$itemId]);
         if ($o !== $this->owner) return $o > 0 && $this->owner === 0 ? $this->forOwner($o)->tell($itemId, $status) : 'missing';
         if (!$this->ready() || $this->sellerId() === 0) return 'not_connected';
-        $r = $this->api->request('PATCH', '/sellers/' . $this->sellerId() . '/orders/' . $itemId, ['status' => $status], 5);
+        $r = $this->sreq('PATCH', '/orders/' . $itemId, ['status' => $status], 5);
         if ($r['error'] !== null) { $this->db->q('UPDATE {p}wmsbb_items SET error = ? WHERE item_id = ?', [mb_substr('bb: ' . $r['error'], 0, 250), $itemId]); return $r['error']; }
         $this->db->q('UPDATE {p}wmsbb_items SET status = ? WHERE item_id = ?', [$status, $itemId]);
         return null;
@@ -392,7 +413,7 @@ final class Sync
     {
         if ($this->owner <= 0 || !$this->api->configured()) return ['code' => 0, 'data' => [], 'error' => 'not_connected'];
         if ($this->sellerId() === 0) return ['code' => 0, 'data' => [], 'error' => 'no_shop'];
-        return $this->api->request($method, '/sellers/' . $this->sellerId() . $path, $body, 10);
+        return $this->sreq($method, $path, $body, 10);
     }
     /** @return array{error:?string,data:array} balance + latest transactions */
     public function wallet(): array { return $this->sellerCall('GET', '/wallet'); }
