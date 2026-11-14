@@ -8,7 +8,9 @@ $sid = (int)($row['seller_id'] ?? 0); ?>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="save">
   <label class="fld"><span><?= e($sf->t('s_shop')) ?></span><input name="shop_name" maxlength="190" value="<?= e($row['shop_name'] ?? '') ?>" placeholder="<?= e($sf->auth()->user()['name'] ?? '') ?>"><small class="muted"><?= e($sf->t('shop_name_hint')) ?></small></label>
   <div class="fld"><span><?= e($sf->t('s_warehouse')) ?></span>
-    <div class="bbwh"><?php foreach ($whs as $i => $w): ?><label class="chk"><input type="checkbox" name="warehouse_ids[]" value="<?= (int)$w['id'] ?>" <?= in_array((int)$w['id'], $sel, true) || (!$sel && $i === 0) ? 'checked' : '' ?>> <?= e($w['name']) ?></label><?php endforeach; ?></div>
+    <label class="chk"><input type="checkbox" name="all_wh" value="1" id="bb-all-wh" <?= !$sel ? 'checked' : '' ?>> <b><?= e($sf->t('all_wh')) ?></b></label>
+    <div class="bbwh" id="bb-wh-list"><?php foreach ($whs as $w): ?><label class="chk"><input type="checkbox" name="warehouse_ids[]" value="<?= (int)$w['id'] ?>" <?= in_array((int)$w['id'], $sel, true) ? 'checked' : '' ?>> <?= e($w['name']) ?></label><?php endforeach; ?></div>
+    <script>(function(){var a=document.getElementById("bb-all-wh"),l=document.getElementById("bb-wh-list");if(!a)return;function f(){l.style.display=a.checked?"none":""}a.addEventListener("change",f);f()})();</script>
     <small class="muted"><?= e($sf->t('s_warehouse_hint')) ?></small></div>
   <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button></div>
 </form>

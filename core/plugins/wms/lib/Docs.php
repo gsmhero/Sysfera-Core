@@ -98,7 +98,9 @@ final class Docs
             }
             $moment = date('Y-m-d H:i:s', strtotime((string)($d['moment'] ?? '')) ?: time());
             $total = 0.0; foreach ($clean as $l) $total += $l['qty'] * $l['price'];
-            $head = [$moment, ((int)($d['warehouse_id'] ?? 0)) ?: null, ((int)($d['to_warehouse_id'] ?? 0)) ?: null, ((int)($d['contact_id'] ?? 0)) ?: null,
+            $ow = ((int)($d['owner_id'] ?? 0)) ?: (Scope::id() ?? $userId);
+            $okWh = fn($w) => ((int)$w && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND owner_id <=> ?', [(int)$w, $ow])) ? (int)$w : null;
+            $head = [$moment, $okWh($d['warehouse_id'] ?? 0), $okWh($d['to_warehouse_id'] ?? 0), ((int)($d['contact_id'] ?? 0)) ?: null,
                 ((int)($d['parent_id'] ?? 0)) ?: null, round($total, 2), mb_substr(trim((string)($d['comment'] ?? '')), 0, 2000) ?: null];
             if ($id === null) {
                 $type = (string)($d['type'] ?? '');

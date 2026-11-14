@@ -18,7 +18,8 @@ return function (\Sysfera\Plugin $sf): void {
     /** a first warehouse exists from the very first visit */
     $ensure = function () use ($db, $sf): void {
         static $done = false; if ($done) return; $done = true;
-        if (!(int)$db->val('SELECT COUNT(*) FROM {p}wms_warehouses')) $db->q('INSERT INTO {p}wms_warehouses (name, code, is_default) VALUES (?,?,1)', [$sf->t('main_warehouse'), 'MAIN']);
+        $o = Scope::id();
+        if (!(int)$db->val('SELECT COUNT(*) FROM {p}wms_warehouses WHERE owner_id <=> ?', [$o])) $db->q('INSERT INTO {p}wms_warehouses (name, code, is_default, owner_id) VALUES (?,?,1,?)', [$sf->t('main_warehouse'), 'MAIN', $o]);
     };
     $route = function (string $method, string $path, callable $fn, string $cap = 'wms.use') use ($sf, $ensure): void {
         $sf->route($method, $path, function (array $p) use ($fn, $ensure) { $ensure(); return $fn($p); }, ['cap' => $cap]);
@@ -26,7 +27,7 @@ return function (\Sysfera\Plugin $sf): void {
     /* A component (e.g. the Basebase connector) may mark documents as private: then only their owner sees what is in them. Stock figures stay true. */
     $isPrivate = fn(?array $d): bool => $d !== null && (!Scope::owns($d) || (bool)\Sysfera\Hooks::filter('wms.doc.private', false, $d));
     $page = fn(string $view, array $vars, string $title, string $tab) => $sf->render($view, $vars + ['tab' => $tab, 'stockApi' => $stock], $title);
-    $warehouses = fn(bool $all = false) => $db->rows('SELECT * FROM {p}wms_warehouses' . ($all ? '' : ' WHERE active = 1') . ' ORDER BY is_default DESC, name');
+    $warehouses = fn(bool $all = false) => $db->rows('SELECT * FROM {p}wms_warehouses WHERE 1=1' . ($all ? '' : ' AND active = 1') . (($o = Scope::id()) ? ' AND owner_id = ' . $o : '') . ' ORDER BY is_default DESC, name');
     $partners = fn(?string $role = null) => array_values(array_filter(
         array_map(function ($r) { $r['roles'] = (json_decode((string)$r['custom'], true)['roles'] ?? []); return $r; }, $db->rows('SELECT id, name, company, phone, email, custom FROM {p}contacts ORDER BY name LIMIT 1000')),
         fn($r) => $role === null || in_array($role, $r['roles'], true)));
@@ -132,7 +133,7 @@ return function (\Sysfera\Plugin $sf): void {
         \Sysfera\Hooks::do('wms.product.saved', (int)$id, $_POST);   // other components (e.g. the Basebase connector) store their own product fields
         $open = (!$isEdit && $ptype === 'simple') ? $num($_POST['opening_qty'] ?? 0) : 0.0;   // opening stock of a NEW product = a posted receipt, so it shows in documents and history
         if ($open > 0) {
-            $wh = $db->row('SELECT id, use_cells FROM {p}wms_warehouses WHERE id = ? AND active = 1', [(int)($_POST['opening_wh'] ?? 0)]);
+            $wh = $db->row('SELECT id, use_cells FROM {p}wms_warehouses WHERE id = ? AND active = 1 AND owner_id <=> ?', [(int)($_POST['opening_wh'] ?? 0), Scope::id() ?: $sf->auth()->id()]);
             if (!$wh || $wh['use_cells']) { flash($sf->t('err_opening'), 'bad'); redirect(wms_path("/products/$id")); }
             try {
                 $d = $docs->save(['type' => 'receipt', 'warehouse_id' => (int)$wh['id'], 'moment' => date('Y-m-d H:i:s'), 'comment' => $sf->t('opening_comment')], [['product_id' => $id, 'qty' => $open, 'price' => $v[9]]]);
@@ -160,17 +161,17 @@ return function (\Sysfera\Plugin $sf): void {
     /* ================= warehouses ================= */
     $route('GET', '/warehouses', function () use ($sf, $db, $page) {
         $page('warehouses', ['rows' => $db->rows('SELECT w.*, (SELECT COUNT(*) FROM {p}wms_cells c WHERE c.warehouse_id = w.id AND c.active = 1) cells,
-            (SELECT COALESCE(SUM(m.on_hand),0) FROM {p}wms_moves m WHERE m.warehouse_id = w.id) qty FROM {p}wms_warehouses w ORDER BY w.active DESC, w.is_default DESC, w.name')], $sf->t('nav_warehouses'), 'warehouses');
+            (SELECT COALESCE(SUM(m.on_hand),0) FROM {p}wms_moves m WHERE m.warehouse_id = w.id) qty FROM {p}wms_warehouses w' . (($o = Scope::id()) ? ' WHERE w.owner_id = ' . $o : '') . ' ORDER BY w.active DESC, w.is_default DESC, w.name')], $sf->t('nav_warehouses'), 'warehouses');
     });
     $route('POST', '/warehouses', function () use ($sf, $db) {
         $name = trim((string)($_POST['name'] ?? ''));
         if ($name === '') { flash($sf->t('err_name'), 'bad'); redirect(wms_path('/warehouses')); }
-        $db->q('INSERT INTO {p}wms_warehouses (name, code, address, use_cells) VALUES (?,?,?,?)', [mb_substr($name, 0, 190), mb_substr(trim((string)($_POST['code'] ?? '')), 0, 40) ?: null, mb_substr(trim((string)($_POST['address'] ?? '')), 0, 255) ?: null, !empty($_POST['use_cells']) ? 1 : 0]);
+        $db->q('INSERT INTO {p}wms_warehouses (owner_id, name, code, address, use_cells) VALUES (?,?,?,?,?)', [Scope::id() ?: $sf->auth()->id(), mb_substr($name, 0, 190), mb_substr(trim((string)($_POST['code'] ?? '')), 0, 40) ?: null, mb_substr(trim((string)($_POST['address'] ?? '')), 0, 255) ?: null, !empty($_POST['use_cells']) ? 1 : 0]);
         $id = $db->insertId(); flash($sf->t('warehouse_added')); redirect(wms_path("/warehouses/$id"));
-    }, 'wms.admin');
+    });
     $route('GET', '/warehouses/{id}', function (array $a) use ($sf, $db, $stock, $page) {
         $w = $db->row('SELECT * FROM {p}wms_warehouses WHERE id = ?', [(int)$a['id']]);
-        if (!$w) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        if (!$w || !Scope::owns($w)) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $cells = $db->rows('SELECT c.*, z.name AS zone, (SELECT COALESCE(SUM(m.on_hand),0) FROM {p}wms_moves m WHERE m.cell_id = c.id) AS qty FROM {p}wms_cells c LEFT JOIN {p}wms_zones z ON z.id = c.zone_id WHERE c.warehouse_id = ? AND c.active = 1 ORDER BY z.name, c.name', [$w['id']]);
         $cellId = (int)($_GET['cell'] ?? 0);
         $page('warehouse', ['w' => $w, 'zones' => $db->rows('SELECT * FROM {p}wms_zones WHERE warehouse_id = ? ORDER BY name', [$w['id']]), 'cells' => $cells,
@@ -178,11 +179,11 @@ return function (\Sysfera\Plugin $sf): void {
     });
     $route('POST', '/warehouses/{id}', function (array $a) use ($sf, $db) {
         $id = (int)$a['id']; $do = (string)($_POST['do'] ?? '');
-        $w = $db->row('SELECT * FROM {p}wms_warehouses WHERE id = ?', [$id]); if (!$w) redirect(wms_path('/warehouses'));
+        $w = $db->row('SELECT * FROM {p}wms_warehouses WHERE id = ?', [$id]); if (!$w || !Scope::owns($w)) redirect(wms_path('/warehouses'));
         if ($do === 'save') {
             $name = trim((string)($_POST['name'] ?? '')); if ($name === '') { flash($sf->t('err_name'), 'bad'); redirect(wms_path("/warehouses/$id")); }
             $db->q('UPDATE {p}wms_warehouses SET name=?, code=?, address=?, comment=?, use_cells=? WHERE id = ?', [mb_substr($name, 0, 190), mb_substr(trim((string)($_POST['code'] ?? '')), 0, 40) ?: null, mb_substr(trim((string)($_POST['address'] ?? '')), 0, 255) ?: null, mb_substr(trim((string)($_POST['comment'] ?? '')), 0, 2000) ?: null, !empty($_POST['use_cells']) ? 1 : 0, $id]);
-            if (!empty($_POST['is_default'])) { $db->q('UPDATE {p}wms_warehouses SET is_default = 0'); $db->q('UPDATE {p}wms_warehouses SET is_default = 1 WHERE id = ?', [$id]); }
+            if (!empty($_POST['is_default'])) { $db->q('UPDATE {p}wms_warehouses SET is_default = 0 WHERE owner_id <=> ?', [$w['owner_id']]); $db->q('UPDATE {p}wms_warehouses SET is_default = 1 WHERE id = ?', [$id]); }
             flash($sf->t('saved'));
         } elseif ($do === 'archive') {
             $qty = (float)$db->val('SELECT COALESCE(SUM(on_hand),0) FROM {p}wms_moves WHERE warehouse_id = ?', [$id]);
@@ -201,7 +202,7 @@ return function (\Sysfera\Plugin $sf): void {
             else { $db->q('UPDATE {p}wms_cells SET active = 0 WHERE id = ? AND warehouse_id = ?', [$c, $id]); flash($sf->t('saved')); }
         }
         redirect(wms_path("/warehouses/$id"));
-    }, 'wms.admin');
+    });
 
     /* ================= documents ================= */
     $route('GET', '/docs', function () use ($sf, $docs, $page, $isPrivate) {
@@ -219,7 +220,7 @@ return function (\Sysfera\Plugin $sf): void {
         $page('doc', ['doc' => $doc, 'type' => $type, 'lines' => $doc ? $docs->lines((int)$doc['id']) : [], 'whs' => $warehouses(), 'cells' => $cells,
             'partners' => $partners(), 'parent' => $parent, 'progress' => $doc && in_array($type, ['purchase', 'sale'], true) ? $docs->progress((int)$doc['id']) : null,
             'children' => $doc ? $db->rows('SELECT id, type, number, status, total FROM {p}wms_docs WHERE parent_id = ? ORDER BY id', [(int)$doc['id']]) : [],
-            'defaultWh' => (int)($db->val('SELECT id FROM {p}wms_warehouses WHERE is_default = 1 AND active = 1 LIMIT 1') ?: 0)],
+            'defaultWh' => (int)($db->val('SELECT id FROM {p}wms_warehouses WHERE is_default = 1 AND active = 1 AND owner_id <=> ? LIMIT 1', [Scope::id()]) ?: 0)],
             $doc ? $doc['number'] : $sf->t('new_doc') . ': ' . W::type($sf, $type), 'docs');
     };
     $route('GET', '/docs/new/{type}', function (array $a) use ($sf, $editor) {
@@ -347,7 +348,7 @@ return function (\Sysfera\Plugin $sf): void {
         foreach (['wms_moves', 'wms_doc_lines', 'wms_docs', 'wms_products', 'wms_groups', 'wms_cells', 'wms_zones', 'wms_warehouses'] as $t) $db->q("DELETE FROM {p}$t");
         $db->q("DELETE FROM {p}settings WHERE k LIKE 'plugin.wms.%'");
         $ru = \Sysfera\I18n::lang() === 'ru';
-        $db->q('INSERT INTO {p}wms_warehouses (name, code, is_default, address) VALUES (?,?,1,?)', [$sf->t('main_warehouse'), 'MAIN', $ru ? 'Москва, ул. Складская, 1' : 'Warehouse St. 1']);
+        $db->q('INSERT INTO {p}wms_warehouses (owner_id, name, code, is_default, address) VALUES (?,?,?,1,?)', [$sf->auth()->id() ?: null, $sf->t('main_warehouse'), 'MAIN', $ru ? 'Москва, ул. Складская, 1' : 'Warehouse St. 1']);
         $wh = $db->insertId();
         $db->q('INSERT INTO {p}wms_groups (name) VALUES (?)', [$ru ? 'Кухня' : 'Kitchen']); $grp = $db->insertId();
         $items = [   // name, sku, buy, sell, min, qty received

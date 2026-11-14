@@ -25,7 +25,7 @@ final class Plugin
     /** Sidebar entry. $label is a translation key of this plugin (e.g. "menu") or plain text. */
     public function menu(string $label, string $path, array $opt = []): void
     {
-        $this->app->addMenu(['label' => $label, 'slug' => $this->slug, 'path' => '/p/' . $this->slug . '/' . ltrim($path, '/'), 'cap' => $opt['cap'] ?? null, 'order' => $opt['order'] ?? 50, 'icon' => $opt['icon'] ?? null, 'badge' => $opt['badge'] ?? null]);
+        $this->app->addMenu(['label' => $label, 'slug' => $this->slug, 'path' => '/p/' . $this->slug . '/' . ltrim($path, '/'), 'cap' => $opt['cap'] ?? null, 'order' => $opt['order'] ?? 50, 'admin' => !empty($opt['admin']), 'icon' => $opt['icon'] ?? null, 'badge' => $opt['badge'] ?? null]);
     }
 
     public function on(string $hook, callable $fn, int $priority = 10): void { Hooks::on($hook, $fn, $priority); }

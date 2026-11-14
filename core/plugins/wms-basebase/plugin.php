@@ -33,11 +33,11 @@ return function (\Sysfera\Plugin $sf): void {
         return $s = new Sync($db, $svc, $client, $cfg, $set, $sf->contacts(), $note);
     };
     $page = fn(string $view, array $vars, string $title, string $tab) => $sf->render($view, $vars + ['tab' => $tab, 'client' => $client, 'cfg' => $cfg, 'sync' => $sync()], $title);
-    $route = function (string $method, string $path, callable $fn, string $cap = 'wmsbb.use') use ($sf, $sync): void {
+    $route = function (string $method, string $path, callable $fn, string $cap = 'wmsbb.use') use ($sf, $sync): void {   // $cap 'admin' = site administrator only (the Agent)
         $sf->route($method, $path, function (array $p) use ($fn, $sync) {
             if (!$sync()) { flash(t('plugins.need_plugin', ['name' => 'wms']), 'bad'); redirect('/plugins'); }
             return $fn($p);
-        }, ['cap' => $cap]);
+        }, $cap === 'admin' ? ['admin' => true] : ['cap' => $cap]);
     };
     $go = fn(string $p = '') => redirect('/p/wms-basebase/' . ltrim($p, '/'));
     /* Every user has own shop, products and orders (like a seller in a multi-vendor shop); they all trade through the Agent's account on Basebase. */
@@ -45,6 +45,7 @@ return function (\Sysfera\Plugin $sf): void {
     $mine = fn(): Sync => $sync()->forOwner($me());
     $mayManage = fn(): bool => true;
     $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
+    $sf->menu('menu_connect', '/settings', ['admin' => true, 'order' => 26, 'icon' => 'settings']);   // the Agent's own section: the account that links this site with basebase.ru
     $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE owner_id = ? AND status IN ('pending','prepare')", [$me()])]);   // new orders still to be shipped
 
     /* ================= overview ================= */
@@ -114,15 +115,15 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /* ================= my shop (every user) ================= */
-    $route('GET', '/shop', function () use ($sf, $db, $page, $mine, $client) {
+    $route('GET', '/shop', function () use ($sf, $db, $page, $mine, $client, $me) {
         $s = $mine();
-        $page('shop', ['row' => $s->seller(), 'agentOk' => $client->configured(), 'whs' => $db->rows('SELECT id, name FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, name')], $sf->t('nav_shop'), 'shop');
+        $page('shop', ['row' => $s->seller(), 'agentOk' => $client->configured(), 'whs' => $db->rows('SELECT id, name FROM {p}wms_warehouses WHERE active = 1 AND owner_id = ? ORDER BY is_default DESC, name', [$me()])], $sf->t('nav_shop'), 'shop');
     });
     $route('POST', '/shop', function () use ($sf, $db, $mine, $go, $me) {
         $s = $mine(); $do = (string)($_POST['do'] ?? 'save'); $s->seller();
         if ($do === 'save') {
             $shop = mb_substr(trim((string)($_POST['shop_name'] ?? '')), 0, 190);
-            $ws = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));
+            $ws = !empty($_POST['all_wh']) ? [] : array_values(array_unique(array_filter(array_map('intval', (array)($_POST['warehouse_ids'] ?? [])))));   // none = all own warehouses
             $db->q('UPDATE {p}wmsbb_sellers SET shop_name = ?, warehouse_ids = ? WHERE owner_id = ?', [$shop ?: null, json_encode($ws), $me()]);
             flash($sf->t('saved'));
         } elseif ($do === 'connect') {
@@ -135,7 +136,7 @@ return function (\Sysfera\Plugin $sf): void {
     /* ================= wallet & payout profile (every user, their own shop only) ================= */
     $route('GET', '/wallet', function () use ($sf, $page, $mine) {
         $s = $mine(); $w = $s->sellerId() ? $s->wallet() : ['error' => 'no_shop', 'data' => []];
-        $page('wallet', ['w' => $w, 'shop' => $s->sellerId()], $sf->t('nav_wallet'), 'wallet');
+        $page('wallet', ['w' => $w, 'shop' => $s->sellerId(), 'agent' => $sf->auth()->isAdmin() ? $s->agentWallet() : null], $sf->t('nav_wallet'), 'wallet');
     }, 'wmsbb.wallet');
     $route('POST', '/wallet', function () use ($sf, $mine, $go) {
         $s = $mine(); $amt = round((float)str_replace(',', '.', (string)($_POST['amount'] ?? 0)), 2);
@@ -162,7 +163,7 @@ return function (\Sysfera\Plugin $sf): void {
         if ($cfg('cron_token') === '') $set('cron_token', bin2hex(random_bytes(16)));
         if ($cfg('agent_key') === '') $set('agent_key', bin2hex(random_bytes(16)));   // AGENT_KEY of the contract (§2): identifies this install when the agent is linked in Basebase
         $page('settings', [], $sf->t('nav_settings'), 'settings');
-    }, 'wmsbb.admin');
+    }, 'admin');
     $route('POST', '/settings', function () use ($sf, $sync, $cfg, $set, $go) {   // site-wide: the Agent account
         $s = $sync(); $do = (string)($_POST['do'] ?? 'save');
         if ($do === 'save') {
@@ -176,7 +177,7 @@ return function (\Sysfera\Plugin $sf): void {
             else flash($sf->t('ping_fail', ['e' => $r['error']]), 'bad');
         } elseif ($do === 'token') { $set('cron_token', bin2hex(random_bytes(16))); flash($sf->t('saved')); }
         $go('settings');
-    }, 'wmsbb.admin');
+    }, 'admin');
 
     /* ================= machine endpoints (called by Basebase / by cron) ================= */
     $json = function (array $d, int $code = 200): void { http_response_code($code); header('Content-Type: application/json; charset=utf-8'); echo json_encode($d, JSON_UNESCAPED_UNICODE); };

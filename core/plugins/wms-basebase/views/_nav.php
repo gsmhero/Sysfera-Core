@@ -1,7 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var string $tab */
 $tabs = ['overview' => ['/', 'nav_overview'], 'catalog' => ['/catalog', 'nav_catalog'], 'orders' => ['/orders', 'nav_orders'], 'shop' => ['/shop', 'nav_shop']];
 if ($sf->can('wmsbb.wallet')) { $tabs['wallet'] = ['/wallet', 'nav_wallet']; $tabs['profile'] = ['/profile', 'nav_profile']; }
-if ($sf->can('wmsbb.admin')) $tabs['settings'] = ['/settings', 'nav_settings'];
 /** translate a stored error: a lang key of this plugin, a WMS posting key, or "stock:<name>|<have>|<need>" */
 $why = function (?string $raw) use ($sf): string {
     if ($raw === null || $raw === '') return '';

@@ -76,8 +76,9 @@ final class Sync
     public function warehouse(): int
     {
         $w = (int)$this->c('warehouse_id', '0');
-        if ($w && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1', [$w])) return $w;
-        return (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1');
+        $mine = $this->owner > 0 ? ' AND owner_id = ' . $this->owner : '';
+        if ($w && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1' . $mine, [$w])) return $w;
+        return (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1' . $mine . ' ORDER BY is_default DESC, id LIMIT 1');
     }
     /** Warehouses whose stock is sold on Basebase (setting warehouse_ids, JSON list; falls back to the old single warehouse_id, then to the default warehouse). */
     public function warehouses(): array
@@ -85,8 +86,9 @@ final class Sync
         $ids = array_map('intval', (array)(json_decode($this->c('warehouse_ids', '[]'), true) ?: []));
         if (!$ids && (int)$this->c('warehouse_id', '0')) $ids = [(int)$this->c('warehouse_id', '0')];
         $out = [];
-        foreach (array_unique($ids) as $w) if ($w > 0 && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1', [$w])) $out[] = $w;
-        if (!$out && ($d = (int)$this->db->val('SELECT id FROM {p}wms_warehouses WHERE active = 1 ORDER BY is_default DESC, id LIMIT 1'))) $out[] = $d;
+        $mine = $this->owner > 0 ? ' AND owner_id = ' . $this->owner : '';
+        foreach (array_unique($ids) as $w) if ($w > 0 && $this->db->val('SELECT 1 FROM {p}wms_warehouses WHERE id = ? AND active = 1' . $mine, [$w])) $out[] = $w;
+        if (!$out) foreach ($this->db->rows('SELECT id FROM {p}wms_warehouses WHERE active = 1' . $mine . ' ORDER BY is_default DESC, id') as $r) $out[] = (int)$r['id'];   // nothing chosen = all warehouses of this user
         return $out;
     }
     private function type(int $pid): string { return (string)($this->db->val('SELECT ptype FROM {p}wms_products WHERE id = ?', [$pid]) ?: 'simple'); }
@@ -402,6 +404,8 @@ final class Sync
         $this->note('wallet.withdraw', ['amount' => round($amount, 2), 'result' => $r['error'] ?? (string)($r['data']['status'] ?? '')]);
         return $r;
     }
+    /** The Agent's own balance on Basebase: the Agency fee of every sale made through this site (administrator only, read-only). */
+    public function agentWallet(): array { return $this->api->request('GET', '/agent/wallet', null, 10); }
     public function profile(): array { return $this->sellerCall('GET', '/profile'); }
     public function saveProfile(string $type, array $fields): array
     {

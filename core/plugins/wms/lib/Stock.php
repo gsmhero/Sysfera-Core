@@ -59,7 +59,7 @@ final class Stock
     public function byWarehouse(int $product): array
     {
         return $this->db->rows('SELECT w.id, w.name, COALESCE(SUM(m.on_hand),0) on_hand, COALESCE(SUM(m.reserve),0) reserve, COALESCE(SUM(m.expected),0) expected
-            FROM {p}wms_warehouses w LEFT JOIN {p}wms_moves m ON m.warehouse_id = w.id AND m.product_id = ? WHERE w.active = 1 GROUP BY w.id ORDER BY w.is_default DESC, w.name', [$product]);
+            FROM {p}wms_warehouses w LEFT JOIN {p}wms_moves m ON m.warehouse_id = w.id AND m.product_id = ? WHERE w.active = 1' . (Scope::id() ? ' AND w.owner_id = ' . Scope::id() : '') . ' GROUP BY w.id ORDER BY w.is_default DESC, w.name', [$product]);
     }
 
     /** Stock of one product by cell (only cells holding something). */

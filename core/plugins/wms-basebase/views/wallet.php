@@ -1,8 +1,13 @@
-<?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $w @var int $shop */
+<?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $w @var int $shop @var ?array $agent */
 include __DIR__ . '/_nav.php';
 $fmt = fn($n) => number_format((float)$n, 2, '.', ' ');
 $d = $w['data'] ?? []; $err = $w['error'] ?? null; ?>
 <div class="page-h"><h1><?= e($sf->t('nav_wallet')) ?></h1></div>
+<?php if (!empty($agent)): $ad = $agent['data'] ?? []; ?>
+<section class="card"><h3><?= e($sf->t('agent_fee_h')) ?></h3>
+<?php if (!empty($agent['error'])): ?><p class="muted"><?= e($sf->t('agent_fee_na')) ?></p>
+<?php else: ?><div class="bigno"><?= e($fmt($ad['balance'] ?? 0)) ?> ₽</div><p class="muted sm"><?= e($sf->t('agent_fee_hint')) ?></p><?php endif; ?></section>
+<?php endif; ?>
 <?php if (!$shop): ?><div class="hint warn"><?= e($sf->t('no_shop_yet')) ?> <a href="<?= e($sf->url('/shop')) ?>"><?= e($sf->t('nav_shop')) ?></a></div>
 <?php elseif ($err): ?><div class="hint warn"><?= e($sf->t('wd_fail', ['e' => preg_match('/^[a-z_]+$/', (string)$err) ? $sf->t((string)$err) : $err])) ?></div>
 <?php else: ?>

@@ -97,7 +97,7 @@ final class App
     /** Sidebar items visible to the current user, in order. Core items first, then plugins. */
     public function menu(): array
     {
-        $items = array_filter(Hooks::filter('menu.items', $this->menu), fn($i) => empty($i['cap']) || ($this->auth && $this->auth->can($i['cap'])));
+        $items = array_filter(Hooks::filter('menu.items', $this->menu), fn($i) => (empty($i['cap']) || ($this->auth && $this->auth->can($i['cap']))) && (empty($i['admin']) || ($this->auth && $this->auth->isAdmin())));
         foreach ($items as &$i) {   // a plugin may attach a counter (callable returning a number) to its menu item
             if (isset($i['badge']) && is_callable($i['badge'])) { try { $i['badge'] = (int)($i['badge'])(); } catch (\Throwable $e) { $i['badge'] = 0; } }
         }

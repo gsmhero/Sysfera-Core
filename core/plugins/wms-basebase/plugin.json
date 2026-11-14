@@ -1,15 +1,14 @@
 {
   "slug": "wms-basebase",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "name": { "en": "Sysfera WMS → Basebase", "ru": "Sysfera WMS → Basebase" },
   "description": {
     "en": "Sell warehouse products on Basebase: publishes products and live stock, receives Basebase orders as customer orders with reserve, reports shipments back. Uses Basebase Partner API v1.",
     "ru": "Продажа товаров склада на Basebase: публикует товары и остатки, принимает заказы Basebase как заказы покупателей с резервом, сообщает об отгрузке. Работает через Partner API v1 Basebase."
   },
-  "requires": { "core": ">=0.1.4", "plugins": { "wms": ">=0.3.1" } },
+  "requires": { "core": ">=0.1.25", "plugins": { "wms": ">=0.4.0" } },
   "capabilities": {
     "wmsbb.use":   { "en": "Basebase: catalog and orders",   "ru": "Basebase: каталог и заказы" },
-    "wmsbb.wallet": { "en": "Basebase: wallet and payouts", "ru": "Basebase: кошелёк и выплаты" },
-    "wmsbb.admin": { "en": "Basebase: connection settings",  "ru": "Basebase: настройки подключения" }
+    "wmsbb.wallet": { "en": "Basebase: wallet and payouts", "ru": "Basebase: кошелёк и выплаты" }
   }
 }

@@ -1,8 +1,9 @@
 <?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $whs @var \SysferaBb\Client $client @var \SysferaBb\Sync $sync @var callable $cfg */
-include __DIR__ . '/_nav.php';
+?><link rel="stylesheet" href="<?= e(url('/assets/p/wms/wms.css')) ?>"><link rel="stylesheet" href="<?= e($sf->asset('bb.css')) ?>"><?php
 $site = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'your-site') . \Sysfera\App::basePath();
 $hasSecret = $cfg('secret', '') !== ''; ?>
-<div class="page-h"><h1><?= e($sf->t('nav_settings')) ?></h1></div>
+<div class="page-h"><h1><?= e($sf->t('menu_connect')) ?></h1><a class="btn" href="<?= e($sf->url('/')) ?>">← <?= e($sf->t('menu')) ?></a></div>
+<div class="hint"><?= e($sf->t('connect_hint')) ?></div>
 
 <div class="cols2 wide-left"><div>
 <section class="card"><h3>0. AGENT_KEY</h3><p class="muted sm"><?= e($sf->t('s_key_hint')) ?></p>
