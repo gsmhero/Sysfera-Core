@@ -13,20 +13,57 @@ final class TaskTypes
     public const KINDS = ['text', 'textarea', 'email', 'phone', 'url', 'shop', 'task', 'contact'];
     public const APPS = ['missions', 'crm'];
 
+    /** One monochrome line-icon set (24x24, stroke = currentColor). A type stores the icon NAME, never an emoji (emoji broke on databases without utf8mb4). */
+    public const ICONS = [
+        'check'       => '<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m8 12 3 3 5-6"/>',
+        'checkcircle' => '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+        'circle'      => '<circle cx="12" cy="12" r="8"/>',
+        'dot'         => '<circle cx="12" cy="12" r="3"/>',
+        'phone'       => '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+        'mail'        => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+        'chat'        => '<path d="M4 5h16v11H9l-5 4z"/>',
+        'users'       => '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>',
+        'clock'       => '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        'calendar'    => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+        'link'        => '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+        'note'        => '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
+        'cart'        => '<circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.5 12H19l2-8H6"/>',
+        'gift'        => '<rect x="3" y="9" width="18" height="12" rx="1"/><path d="M3 13h18M12 9v12M12 9c-3 0-4-4-1.5-4 2 0 1.5 4 1.5 4zm0 0c3 0 4-4 1.5-4-2 0-1.5 4-1.5 4z"/>',
+        'truck'       => '<path d="M2 6h11v10H2zM13 9h4l4 4v3h-8"/><circle cx="7" cy="18" r="1.8"/><circle cx="17" cy="18" r="1.8"/>',
+        'dollar'      => '<circle cx="12" cy="12" r="9"/><path d="M14.5 9a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2A2.5 2 0 0 1 9.5 15M12 6v1.5M12 16.5V18"/>',
+        'arrow'       => '<path d="M5 12h14M13 6l6 6-6 6"/>',
+        'flag'        => '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>',
+        'star'        => '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+        'heart'       => '<path d="M12 20s-8-5-8-11a4.5 4.5 0 0 1 8-2.5A4.5 4.5 0 0 1 20 9c0 6-8 11-8 11z"/>',
+        'pin'         => '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+        'tag'         => '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/>',
+        'bell'        => '<path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0"/>',
+        'bolt'        => '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+    ];
+
+    /** a safe icon name (anything unknown, e.g. an old emoji, becomes "dot") */
+    public static function iconName(string $n): string { $n = strtolower(trim($n)); return isset(self::ICONS[$n]) ? $n : 'dot'; }
+
+    /** the icon as inline SVG, takes the text colour */
+    public static function svg(string $icon, int $px = 16): string
+    {
+        return '<svg class="ttico" width="' . $px . '" height="' . $px . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-0.15em">' . self::ICONS[self::iconName($icon)] . '</svg>';
+    }
+
     /** the built-in types: code => [name, name_ru, icon, color, apps, fields] (field = [key, kind, label, label_ru]) */
     public const DEFAULTS = [
-        'todo'           => ['To-do', 'Задача', '☑', '#6b7280', 'missions,crm', []],
-        'call'           => ['Call', 'Звонок', '☎', '#2563eb', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон']]],
-        'email'          => ['Email', 'Письмо', '✉', '#7c3aed', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['to', 'email', 'To (email)', 'Кому (email)'], ['subject', 'text', 'Subject', 'Тема'], ['body', 'textarea', 'Message', 'Текст письма']]],
-        'meeting'        => ['Meeting', 'Встреча', '👥', '#059669', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон'], ['place', 'text', 'Place name', 'Название места'], ['address', 'text', 'Address', 'Адрес'], ['link', 'url', 'Link', 'Ссылка']]],
-        'deadline'       => ['Deadline', 'Дедлайн', '⏰', '#dc2626', 'missions,crm', []],
-        'visit_url'      => ['Visit URL', 'Открыть ссылку', '🔗', '#0891b2', 'missions,crm', [['url', 'url', 'Address (https://…)', 'Адрес (https://…)']]],
-        'note'           => ['Note', 'Заметка', '📝', '#ca8a04', 'missions,crm', [['note', 'textarea', 'Note', 'Заметка']]],
-        'buy_product'    => ['Buy product', 'Купить товар', '🛒', '#ea580c', 'missions,crm', [['url', 'shop', 'Basebase shop link', 'Ссылка на магазин Basebase']]],
-        'go_to_task'     => ['Go to task', 'Перейти к задаче', '↪', '#4f46e5', 'missions', [['target', 'task', 'Go to', 'Перейти к']]],
-        'no_action'      => ['No action', 'Без действия', '○', '#9ca3af', 'missions', []],
-        'task_done'      => ['Task done', 'Задача выполнена', '✔', '#16a34a', 'missions', []],
-        'finish_mission' => ['Finish mission', 'Завершить миссию', '🏁', '#16a34a', 'missions', []],
+        'todo'           => ['To-do', 'Задача', 'check', '#6b7280', 'missions,crm', []],
+        'call'           => ['Call', 'Звонок', 'phone', '#2563eb', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон']]],
+        'email'          => ['Email', 'Письмо', 'mail', '#7c3aed', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['to', 'email', 'To (email)', 'Кому (email)'], ['subject', 'text', 'Subject', 'Тема'], ['body', 'textarea', 'Message', 'Текст письма']]],
+        'meeting'        => ['Meeting', 'Встреча', 'users', '#059669', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон'], ['place', 'text', 'Place name', 'Название места'], ['address', 'text', 'Address', 'Адрес'], ['link', 'url', 'Link', 'Ссылка']]],
+        'deadline'       => ['Deadline', 'Дедлайн', 'clock', '#dc2626', 'missions,crm', []],
+        'visit_url'      => ['Visit URL', 'Открыть ссылку', 'link', '#0891b2', 'missions,crm', [['url', 'url', 'Address (https://…)', 'Адрес (https://…)']]],
+        'note'           => ['Note', 'Заметка', 'note', '#ca8a04', 'missions,crm', [['note', 'textarea', 'Note', 'Заметка']]],
+        'buy_product'    => ['Buy product', 'Купить товар', 'cart', '#ea580c', 'missions,crm', [['url', 'shop', 'Basebase shop link', 'Ссылка на магазин Basebase']]],
+        'go_to_task'     => ['Go to task', 'Перейти к задаче', 'arrow', '#4f46e5', 'missions', [['target', 'task', 'Go to', 'Перейти к']]],
+        'no_action'      => ['No action', 'Без действия', 'circle', '#9ca3af', 'missions', []],
+        'task_done'      => ['Task done', 'Задача выполнена', 'checkcircle', '#16a34a', 'missions', []],
+        'finish_mission' => ['Finish mission', 'Завершить миссию', 'flag', '#16a34a', 'missions', []],
     ];
 
     /** names used by older versions and by Tactify exports => code */

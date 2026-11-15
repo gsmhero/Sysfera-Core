@@ -58,7 +58,7 @@ $shopLinkList = array_slice(array_values(array_filter($shopLinks, fn($x) => is_a
   <h3><?= e($formTask ? $sf->t('edit_task') : $sf->t('add_task')) ?><?= $formParent ? ' — ' . e($sf->t('after', ['t' => $byId[$formParent]['title'], 'r' => $sf->t('br_' . $formBranch)])) : '' ?></h3>
   <div class="cols">
     <label class="fld"><span><?= e($sf->t('f_title')) ?> *</span><input name="title" required maxlength="255" value="<?= e($val('title')) ?>"></label>
-    <label class="fld"><span><?= e($sf->t('f_type')) ?></span><select name="type" id="ttype"><?php foreach ($choices as $code => $ty): ?><option value="<?= e($code) ?>" <?= $curType === $code ? 'selected' : '' ?>><?= e(trim($ty['icon'] . ' ' . TaskTypes::label($ty, $lang))) ?></option><?php endforeach; ?></select></label>
+    <label class="fld"><span><?= e($sf->t('f_type')) ?></span><select name="type" id="ttype"><?php foreach ($choices as $code => $ty): ?><option value="<?= e($code) ?>" <?= $curType === $code ? 'selected' : '' ?>><?= e(TaskTypes::label($ty, $lang)) ?></option><?php endforeach; ?></select></label>
     <label class="fld"><span><?= e($sf->t('cost')) ?></span><input name="cost" inputmode="decimal" value="<?= e($val('cost', '0')) ?>"></label></div>
   <?php foreach ($choices as $code => $ty): if (!$ty['fields']) continue; $on = $curType === $code; ?>
   <div class="cols mtype" data-t="<?= e($code) ?>" <?= $on ? '' : 'hidden' ?>>
@@ -106,7 +106,7 @@ $render = function (int $parent, string $branch) use (&$render, $tree, $lucky, $
         $defs = []; foreach ($ty['fields'] as $f) $defs[$f['key']] = $f; $fl = $files[$id] ?? [];
         $addr = trim((string)($d['address'] ?? '')) !== '' ? (string)$d['address'] : (string)($d['place'] ?? ''); ?>
   <div class="mtask <?= $t['completed'] ? 'mtdone' : '' ?> <?= in_array($id, $lucky, true) ? 'mlucky' : '' ?>" id="t<?= $id ?>">
-    <div class="row between"><div class="chips"><span class="chip id">T-<?= $id ?></span><span class="chip" style="border-color:<?= e($ty['color']) ?>"><?= e(trim($ty['icon'] . ' ' . \Sysfera\TaskTypes::label($ty, $lang))) ?></span>
+    <div class="row between"><div class="chips"><span class="chip id">T-<?= $id ?></span><span class="chip" style="border-color:<?= e($ty['color']) ?>"><?= \Sysfera\TaskTypes::svg($ty['icon'], 14) ?> <?= e(\Sysfera\TaskTypes::label($ty, $lang)) ?></span>
       <?php if ((float)$t['cost'] > 0): ?><span class="chip cost">$<?= e(number_format((float)$t['cost'], 2, '.', ' ')) ?></span><?php endif; ?>
       <?php if ($t['scheduled_at']): ?><span class="chip">📅 <?= e(substr((string)$t['scheduled_at'], 0, 16)) ?><?= $t['reminder'] ? ' ⏰' : '' ?></span><?php endif; ?></div>
       <?php if ($own): ?><div class="row"><a class="ibtn" href="<?= e($self . '?edit=' . $id) ?>" title="<?= e($sf->t('edit')) ?>">✎</a>

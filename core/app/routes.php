@@ -201,7 +201,7 @@ return function (App $app): void {
             $do = (string)($_POST['do'] ?? ''); $code = \Sysfera\TaskTypes::code((string)($_POST['code'] ?? ''));
             $apps = implode(',', array_values(array_intersect(\Sysfera\TaskTypes::APPS, (array)($_POST['apps'] ?? [])))) ;
             $name = mb_substr(trim((string)($_POST['name'] ?? '')), 0, 80);
-            $vals = fn() => [$name, mb_substr(trim((string)($_POST['name_ru'] ?? '')), 0, 80), mb_substr(trim((string)($_POST['icon'] ?? '')), 0, 8), preg_match('/^#[0-9a-fA-F]{6}$/', (string)($_POST['color'] ?? '')) ? $_POST['color'] : '#6b7280',
+            $vals = fn() => [$name, mb_substr(trim((string)($_POST['name_ru'] ?? '')), 0, 80), \Sysfera\TaskTypes::iconName((string)($_POST['icon'] ?? '')), preg_match('/^#[0-9a-fA-F]{6}$/', (string)($_POST['color'] ?? '')) ? $_POST['color'] : '#6b7280',
                 $apps, json_encode(\Sysfera\TaskTypes::fieldsFromPost($_POST), JSON_UNESCAPED_UNICODE), (int)($_POST['sort'] ?? 0), !empty($_POST['active']) ? 1 : 0];
             if ($do === 'add') {
                 if ($code === '' || $name === '' || $db->val('SELECT 1 FROM {p}task_types WHERE code = ?', [$code])) flash(t('tasktypes.err_add'), 'bad');

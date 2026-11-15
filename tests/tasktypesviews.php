@@ -14,7 +14,7 @@ $fail = 0;
 foreach (['en', 'ru'] as $l) {
     \Sysfera\I18n::setLang($l);
     ob_start(); try { require $root . '/core/views/tasktypes.php'; $h = (string)ob_get_clean(); } catch (Throwable $e) { ob_end_clean(); echo "  FAIL $l: " . $e->getMessage() . "\n"; $fail++; continue; }
-    $ok = str_contains($h, 'name="apps[]"') && str_contains($h, 'name="f_key[]"');
+    $ok = str_contains($h, 'name="apps[]"') && str_contains($h, 'name="f_key[]"') && str_contains($h, 'name="icon" value="phone"') && str_contains($h, '<svg') && !preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', $h);
     echo ($ok ? '  ok   ' : '  FAIL ') . "$l: task types view renders\n"; if (!$ok) $fail++;
 }
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";

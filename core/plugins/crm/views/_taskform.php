@@ -5,7 +5,7 @@ $dealId = $dealId ?? null; $contactId = $contactId ?? null; $lang = \Sysfera\I18
   <?php if ($dealId): ?><input type="hidden" name="deal_id" value="<?= (int)$dealId ?>"><?php endif; ?>
   <?php if ($contactId): ?><input type="hidden" name="contact_id" value="<?= (int)$contactId ?>"><?php endif; ?>
   <div class="cols">
-    <label class="fld"><span><?= e($sf->t('f_type')) ?></span><select name="type" class="crm-ttype"><?php foreach (crm_task_types($sf) as $code => $ty): ?><option value="<?= e($code) ?>"><?= e(trim($ty['icon'] . ' ' . \Sysfera\TaskTypes::label($ty, $lang))) ?></option><?php endforeach; ?></select></label>
+    <label class="fld"><span><?= e($sf->t('f_type')) ?></span><select name="type" class="crm-ttype"><?php foreach (crm_task_types($sf) as $code => $ty): ?><option value="<?= e($code) ?>"><?= e(\Sysfera\TaskTypes::label($ty, $lang)) ?></option><?php endforeach; ?></select></label>
     <label class="fld" style="grid-column:span 2"><span><?= e($sf->t('f_title')) ?> *</span><input name="title" maxlength="190" required></label>
     <label class="fld"><span><?= e($sf->t('f_due')) ?></span><input type="date" name="due_date" value="<?= e(date('Y-m-d')) ?>"></label>
     <label class="fld"><span><?= e($sf->t('f_time')) ?></span><input type="time" name="due_time"></label>
