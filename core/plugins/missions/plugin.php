@@ -431,7 +431,8 @@ return function (\Sysfera\Plugin $sf): void {
             elseif ($do === 'refresh') { @unlink(SF_ROOT . '/storage/missions-setup.json'); @unlink(SF_ROOT . '/storage/missions-setup.json.try'); flash($sf->t('setup_refreshed')); }
             else {
                 foreach ($setupKeys as $k) {
-                    $v = trim((string)($_POST[$k] ?? ''));
+                    if (!array_key_exists($k, $_POST)) continue;   // a form that does not carry the field (the Tactify key form) must not wipe it
+                    $v = trim((string)$_POST[$k]);
                     if ($k === 'tactify_url' && $v !== '' && !preg_match('~^https://[^\s<>"\']+$~i', $v)) continue;       // only a https address
                     if ($k !== 'tactify_url' && !preg_match('/^[A-Za-z0-9._\-]{0,300}$/', $v)) continue;                   // keys: letters, digits . _ -
                     $sf->setSetting(($isHub() ? 'hub_' : 'local_') . $k, $v);

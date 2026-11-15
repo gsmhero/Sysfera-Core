@@ -1,6 +1,6 @@
 {
   "slug": "missions",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "name": { "en": "Missions", "ru": "Миссии" },
   "description": {
     "en": "Mission manager: chains of tasks (call, email, meeting, visit, buy…) with three possible results per task, reminders by email, a shared library of public missions, JSON import/export. Ported from Tactify Mission Manager.",
