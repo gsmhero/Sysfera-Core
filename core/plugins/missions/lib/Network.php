@@ -103,18 +103,20 @@ final class Network
         if ($code !== 200 || empty($list['ok'])) { $res['error'] = ($code === 0 ? 'network (no answer from ' . $base . ')' : 'http_' . $code . (isset($list['error']) ? ' ' . self::s($list['error'], 60) : ' (not the Tactify API answer: check the address)')); return $res; }
         // 1. pull
         $have = []; foreach ($db->rows("SELECT ext_id, src_updated FROM {p}mis_net WHERE source = 'tactify'") as $r) $have[$r['ext_id']] = (string)$r['src_updated'];
-        $seen = [];
-        foreach ((array)($list['missions'] ?? []) as $m) {
+        $seen = []; $listed = 0; $why = '';
+        foreach ((array)($list['missions'] ?? []) as $m) { $listed++;
             $id = (string)($m['id'] ?? ''); if (!preg_match('/^M-\d{1,10}$/', $id)) continue; $seen[$id] = 1;
             $upd = preg_match('/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/', (string)($m['updated_at'] ?? '')) ? $m['updated_at'] : null;
             if (isset($have[$id]) && $upd !== null && $have[$id] >= $upd) continue;
             if (time() > $end) break;
             [$c2, $one] = self::tactify($base, $secret, 'GET', ['id' => $id]);
-            if ($c2 !== 200 || empty($one['mission'])) continue;
-            $mm = $one['mission']; $clean = self::sanitize($mm); if (!$clean) continue;
+            if ($c2 !== 200 || empty($one['mission'])) { $why = $why ?: "$id: http_$c2 " . self::s($one['error'] ?? '', 40); continue; }
+            $mm = $one['mission']; $clean = self::sanitize($mm); if (!$clean) { $why = $why ?: "$id: rejected (empty title or too large)"; continue; }
             self::store($db, 'tactify', $id, '', $clean, self::s($mm['author'] ?? '', 100), self::s($mm['category'] ?? '', 100), self::s($mm['category_ru'] ?? '', 100), $upd);
             $res['pulled']++;
         }
+        if ($listed === 0) $res['error'] = 'Tactify lists 0 public missions';
+        elseif ($why !== '' && $res['pulled'] === 0) $res['error'] = "$listed listed, none stored: $why";
         if (time() <= $end) foreach ($have as $id => $_) if (!isset($seen[$id])) $db->q("DELETE FROM {p}mis_net WHERE source = 'tactify' AND ext_id = ?", [$id]);   // withdrawn on Tactify
         // 2. push what sites published and Tactify does not have (or has older)
         $onT = []; foreach ((array)($list['hub'] ?? []) as $h) if (isset($h['external_id'])) $onT[(string)$h['external_id']] = 1;
