@@ -26,7 +26,9 @@ $form = function (array $x, bool $new) use ($apps, $fieldRows, $tk): void { $hav
   <div class="row"><span class="muted sm"><?= e(t('tasktypes.apps')) ?>:</span>
     <?php foreach ($apps as $a): ?><label class="chk"><input type="checkbox" name="apps[]" value="<?= e($a) ?>" <?= in_array($a, $have, true) ? 'checked' : '' ?>> <?= e($tk('app_', $a)) ?></label><?php endforeach; ?>
     <label class="chk"><input type="checkbox" name="active" value="1" <?= $x['active'] ? 'checked' : '' ?>> <?= e(t('tasktypes.active')) ?></label></div>
-  <div class="muted sm"><?= e(t('tasktypes.fields')) ?></div><?php $fieldRows($x['fields']);
+  <div class="muted sm"><?= e(t('tasktypes.fields')) ?> <span class="tt-count"></span></div>
+  <div class="col tt-fields" data-max="<?= (int)\Sysfera\TaskTypes::MAX_FIELDS ?>"><?php $fieldRows($x['fields']); ?></div>
+  <div><button type="button" class="btn tt-addfield">+ <?= e(t('tasktypes.add_field')) ?></button></div><?php
 };
 ?>
 <div class="page-h"><h1><?= e(t('nav.tasktypes')) ?></h1></div>
@@ -44,4 +46,19 @@ $form = function (array $x, bool $new) use ($apps, $fieldRows, $tk): void { $hav
   <?php $form(['code' => '', 'name' => '', 'name_ru' => '', 'icon' => 'tag', 'color' => '#6b7280', 'apps' => 'missions,crm', 'fields' => [], 'sort' => 500, 'active' => 1], true); ?>
   <div class="row"><button class="btn primary" name="do" value="add"><?= e(t('tasktypes.add')) ?></button></div>
 </form>
+<script>
+(function () {   // "+ Add field": one more empty row (up to the maximum); empty rows are ignored when saving
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.tt-addfield'); if (!b) return;
+    var box = b.closest('form').querySelector('.tt-fields'), rows = box.querySelectorAll('.cols'), max = parseInt(box.dataset.max, 10) || 8;
+    if (rows.length >= max) return;
+    var n = rows[rows.length - 1].cloneNode(true);
+    n.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+    n.querySelectorAll('select').forEach(function (s) { s.selectedIndex = 0; });
+    box.appendChild(n); n.querySelector('input').focus();
+    if (rows.length + 1 >= max) b.disabled = true;
+  });
+  document.querySelectorAll('.tt-fields').forEach(function (box) { var b = box.closest('form').querySelector('.tt-addfield'); if (b && box.querySelectorAll('.cols').length >= (parseInt(box.dataset.max, 10) || 8)) b.disabled = true; });
+})();
+</script>
 <form method="post" class="row"><?= csrf_field() ?><button class="btn" name="do" value="restore" data-confirm="<?= e(t('tasktypes.confirm_restore')) ?>"><?= e(t('tasktypes.restore')) ?></button></form>

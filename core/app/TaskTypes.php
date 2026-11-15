@@ -12,6 +12,8 @@ final class TaskTypes
     /** field kinds; the component draws the input, clean() validates the value */
     public const KINDS = ['text', 'textarea', 'email', 'phone', 'url', 'shop', 'task', 'contact'];
     public const APPS = ['missions', 'crm'];
+    /** most extra fields one type can have */
+    public const MAX_FIELDS = 12;
 
     /** One monochrome line-icon set (24x24, stroke = currentColor). A type stores the icon NAME, never an emoji (emoji broke on databases without utf8mb4). */
     public const ICONS = [
@@ -91,7 +93,7 @@ final class TaskTypes
             $kind = in_array($f['kind'] ?? '', self::KINDS, true) ? $f['kind'] : 'text';
             $seen[$key] = 1;
             $out[] = ['key' => $key, 'kind' => $kind, 'label' => mb_substr(trim((string)($f['label'] ?? '')), 0, 60) ?: $key, 'label_ru' => mb_substr(trim((string)($f['label_ru'] ?? '')), 0, 60)];
-            if (count($out) >= 8) break;
+            if (count($out) >= self::MAX_FIELDS) break;
         }
         return $out;
     }
