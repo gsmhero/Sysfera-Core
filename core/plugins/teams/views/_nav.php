@@ -3,7 +3,7 @@ use SysferaTeams\Tm;
 $cid = (int)($c['id'] ?? 0); $tid = (int)$t['id']; $role = $t['role'];
 $tabs = ['chat' => ['', 'chat'], 'board' => ['/board', 'board'], 'calendar' => ['/calendar', 'calendar'], 'files' => ['/files', 'files'], 'members' => ['/members', 'members']]; ?>
 <link rel="stylesheet" href="<?= e($sf->asset('teams.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
-<div class="tm-head" style="--c:<?= e($t['color']) ?>"><a class="muted sm" href="<?= e($sf->url('/')) ?>">← <?= e($sf->t('menu')) ?></a>
+<div class="tm-head" style="--c:<?= e($t['color']) ?>"><a class="tm-back" href="<?= e($sf->url('/')) ?>">‹ <?= e($sf->t('menu')) ?></a>
   <h1><span class="tm-dot"></span><?= e($t['name']) ?> <?php if ($t['privacy'] === 'private'): ?><small class="muted" title="<?= e($sf->t('private')) ?>">🔒</small><?php endif; ?></h1>
   <?php if ($t['descr']): ?><p class="muted" style="margin:0"><?= e($t['descr']) ?></p><?php endif; ?></div>
 <nav class="tm-tabs"><?php foreach ($tabs as $k => [$path, $l]): ?><a href="<?= e($sf->url('/t/' . $tid . $path)) ?>" class="<?= $tab === $k ? 'on' : '' ?>"><?= e($sf->t($l)) ?></a><?php endforeach; ?></nav>

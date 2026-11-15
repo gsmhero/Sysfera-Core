@@ -60,8 +60,8 @@
       if (m.body) { var b = el('div', 'tm-body'); richText(b, m.body); c.appendChild(b); }
       if (m.file) {
         var fw = el('div', 'tm-file');
-        if (m.file.img) { var a = el('a'); a.href = cfg.file + m.file.id; var im = document.createElement('img'); im.src = cfg.file + m.file.id + '?inline=1'; im.alt = m.file.name; im.loading = 'lazy'; a.appendChild(im); fw.appendChild(a); }
-        var l = el('a', null, '📄 ' + m.file.name + ' (' + size(m.file.size) + ')'); l.href = cfg.file + m.file.id; fw.appendChild(l); c.appendChild(fw);
+        if (m.file.img) { var a = el('a', 'tm-imga'); a.href = cfg.file + m.file.id + '?inline=1'; a.setAttribute('data-lb', '1'); var im = document.createElement('img'); im.src = cfg.file + m.file.id + '?inline=1'; im.alt = m.file.name; im.loading = 'lazy'; a.appendChild(im); fw.appendChild(a); }
+        var l = el('a', 'tm-dl', '⬇ ' + T.download + ' ' + m.file.name + ' (' + size(m.file.size) + ')'); l.href = cfg.file + m.file.id; l.setAttribute('download', m.file.name); fw.appendChild(l); c.appendChild(fw);
       }
       var rx = el('div', 'tm-rx');
       m.react.forEach(function (r) { var bt = el('button', 'tm-r' + (r.me ? ' me' : ''), r.e + ' ' + r.n); bt.type = 'button'; bt.onclick = function () { act(m.id, 'react', { emoji: r.e }); }; rx.appendChild(bt); });
@@ -75,6 +75,32 @@
     }
     row.appendChild(c); return row;
   }
+  /* lightbox for the images of the channel: arrows / swipe / Esc */
+  (function () {
+    var lb, lim, lcnt, list = [], at = 0;
+    function build() {
+      lb = el('div', 'lbx'); lb.hidden = true;
+      lb.innerHTML = '<button type="button" class="lb-x" aria-label="Close">×</button><button type="button" class="lb-p" aria-label="Previous">‹</button><img alt=""><button type="button" class="lb-n" aria-label="Next">›</button><div class="lb-c"></div><a class="lb-d" download></a>';
+      document.body.appendChild(lb); lim = lb.querySelector('img'); lcnt = lb.querySelector('.lb-c');
+      lb.querySelector('.lb-x').onclick = close; lb.querySelector('.lb-p').onclick = function () { go(-1); }; lb.querySelector('.lb-n').onclick = function () { go(1); };
+      lb.addEventListener('click', function (e) { if (e.target === lb) close(); });
+      var x0 = null; lb.addEventListener('touchstart', function (e) { x0 = e.touches[0].clientX; }, { passive: true });
+      lb.addEventListener('touchend', function (e) { if (x0 === null) return; var d = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(d) > 40) go(d < 0 ? 1 : -1); });
+    }
+    function showImg() {
+      var a = list[at], im = a.querySelector('img'), d = lb.querySelector('.lb-d'), dl = a.parentNode.querySelector('.tm-dl');
+      lim.src = a.href; lim.alt = im ? im.alt : ''; lcnt.textContent = (at + 1) + ' / ' + list.length; lb.classList.toggle('one', list.length < 2);
+      if (dl) { d.href = dl.href; d.textContent = '⬇ ' + T.download + ' ' + (im ? im.alt : ''); d.hidden = false; } else d.hidden = true;
+    }
+    function go(d) { if (list.length < 2) return; at = (at + d + list.length) % list.length; showImg(); }
+    function close() { lb.hidden = true; lim.removeAttribute('src'); document.documentElement.classList.remove('lb-open'); }
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest ? e.target.closest('a[data-lb]') : null; if (!a || e.ctrlKey || e.metaKey || e.shiftKey) return; e.preventDefault();
+      if (!lb) build(); list = [].slice.call(box.querySelectorAll('a[data-lb]')); at = list.indexOf(a); if (at < 0) return;
+      lb.hidden = false; document.documentElement.classList.add('lb-open'); showImg();
+    });
+    document.addEventListener('keydown', function (e) { if (!lb || lb.hidden) return; if (e.key === 'Escape') close(); else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'ArrowRight') go(1); });
+  })();
   function tool(sym, title, fn) { var b = el('button', 'tm-tool', sym); b.type = 'button'; b.title = title; b.onclick = fn; return b; }
   function editMsg(m, row) {
     var bd = row.querySelector('.tm-body') || row.querySelector('.tm-mc'), ta = el('textarea'); ta.value = m.body || ''; ta.rows = 3;
