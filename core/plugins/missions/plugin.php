@@ -226,6 +226,8 @@ return function (\Sysfera\Plugin $sf): void {
         $rows = $db->rows("SELECT m.*, c.name AS cat, c.name_ru AS cat_ru, c.color, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS n, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id AND t.completed = 1) AS done, (SELECT COALESCE(SUM(t.cost), 0) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS total,
             (SELECT COUNT(*) FROM {p}mis_bookmarks b WHERE b.mission_id = m.id AND b.user_id = " . (int)$uid() . ") AS starred
             FROM {p}mis_missions m LEFT JOIN {p}mis_categories c ON c.id = m.category_id$w ORDER BY m.status = 'completed', m.updated_at DESC LIMIT 200", $a);
+        $late = 0;   // missions shared before the network library existed (or while the hub was away) are published now, a few per visit
+        foreach ($rows as $r) if ($r['shared'] && !$r['net_pub'] && $late++ < 3) $netSync((int)$r['id']);
         $withMe = [];
         if ($teamsOn()) {
             try { $withMe = $db->rows('SELECT DISTINCT m.id, m.title, m.status, u.name AS author, (SELECT COUNT(*) FROM {p}mis_bookmarks b WHERE b.mission_id = m.id AND b.user_id = ' . (int)$uid() . ') AS starred

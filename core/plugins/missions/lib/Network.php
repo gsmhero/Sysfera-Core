@@ -124,7 +124,8 @@ final class Network
         foreach ($rows as $r) {
             if (time() > $end) break;
             $clean = json_decode((string)$r['content'], true); if (!is_array($clean)) continue;
-            [$c3] = self::tactify($base, $secret, 'POST', [], self::toTactify($clean, self::extFor($r), (string)$r['author'], (string)$r['category'], (string)$r['category_ru']), 8);
+            [$c3, $pr] = self::tactify($base, $secret, 'POST', [], self::toTactify($clean, self::extFor($r), (string)$r['author'], (string)$r['category'], (string)$r['category_ru']), 8);
+            if ($c3 !== 200 && $c3 !== 201) $res['error'] = $res['error'] ?: 'push of "' . mb_substr((string)$r['title'], 0, 40) . '" failed: ' . ($c3 === 0 ? 'network' : 'http_' . $c3 . ' ' . self::s($pr['error'] ?? '', 60));
             if ($c3 === 200 || $c3 === 201) { $db->q('UPDATE {p}mis_net SET tactify_pushed = ?, updated_at = updated_at WHERE id = ?', [$r['updated_at'], $r['id']]); $res['pushed']++; }
         }
         // 3. remove from Tactify what is gone here (withdrawn, hidden, deleted)
