@@ -1,7 +1,7 @@
 <?php /** @var array<string,array> $types @var string[] $kinds @var string[] $apps */
 $lang = \Sysfera\I18n::lang();
 $tk = fn(string $p, string $k): string => t('tasktypes.' . $p . $k);
-$fieldRows = function (array $fields) use ($kinds): void {
+$fieldRows = function (array $fields) use ($kinds, $tk): void {
     $fields = array_pad($fields, max(count($fields) + 1, 3), ['key' => '', 'kind' => 'text', 'label' => '', 'label_ru' => '']);
     foreach ($fields as $f): ?>
     <div class="cols" style="grid-template-columns:1fr 1fr 1.4fr 1.4fr">
@@ -11,7 +11,7 @@ $fieldRows = function (array $fields) use ($kinds): void {
       <input name="f_label_ru[]" placeholder="<?= e(t('tasktypes.f_label_ru')) ?>" maxlength="60" value="<?= e($f['label_ru']) ?>">
     </div>
 <?php endforeach; };
-$form = function (array $x, bool $new) use ($apps, $fieldRows): void { $have = explode(',', $x['apps']); ?>
+$form = function (array $x, bool $new) use ($apps, $fieldRows, $tk): void { $have = explode(',', $x['apps']); ?>
   <div class="cols">
     <label class="fld"><span><?= e(t('tasktypes.code')) ?></span><input name="code" required maxlength="20" pattern="[a-z0-9_]+" value="<?= e($x['code']) ?>" <?= $new ? '' : 'readonly' ?>></label>
     <label class="fld"><span><?= e(t('tasktypes.name')) ?></span><input name="name" required maxlength="80" value="<?= e($x['name']) ?>"></label>
