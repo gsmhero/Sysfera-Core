@@ -4,7 +4,7 @@ $from = $m['source'] === 'tactify' ? 'tactify.ru' : (string)preg_replace('/^site
 $cn = ($lang === 'ru' && ($m['category_ru'] ?? '') !== '') ? $m['category_ru'] : ($m['category'] ?? '');
 $tasks = (array)($m['content']['tasks'] ?? []); ?>
 <div class="page-h"><h1><?= e($m['title']) ?></h1></div>
-<p class="muted sm"><a href="<?= e($sf->url('/library?src=net')) ?>">← <?= e($sf->t('lib_network')) ?></a> · <?php if ($cn): ?><span class="chip cat"><?= e($cn) ?></span> <?php endif; ?><?= e($m['type']) ?> · <?= e($sf->t('by_author', ['name' => $m['author'] !== '' ? $m['author'] : '—'])) ?> · <?= e($sf->t('net_from', ['site' => $from])) ?></p>
+<div class="metaline muted sm"><a class="backlink" href="<?= e($sf->url('/library?src=net')) ?>">‹ <?= e($sf->t('lib_network')) ?></a><?php if ($cn): ?><span class="chip cat"><?= e($cn) ?></span><?php endif; ?><span><?= e($m['type']) ?></span><span class="dot">·</span><span><?= e($sf->t('by_author', ['name' => $m['author'] !== '' ? $m['author'] : '—'])) ?></span><span class="dot">·</span><span><?= e($sf->t('net_from', ['site' => $from])) ?></span></div>
 <?php if ($m['description']): ?><div class="card"><?= nl2br(e($m['description'])) ?></div><?php endif; ?>
 <section class="card"><h3><?= e($sf->t('tasks_n', ['n' => count($tasks)])) ?></h3>
   <ol class="sm" style="margin:0;padding-left:20px"><?php foreach ($tasks as $t): $ty = \Sysfera\TaskTypes::get($types, (string)($t['type'] ?? 'note')); ?>

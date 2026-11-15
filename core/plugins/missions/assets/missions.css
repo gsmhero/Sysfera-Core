@@ -114,3 +114,8 @@ html.lb-open{overflow:hidden}
 .tmx .seg a{padding:5px 14px;border-radius:9px;font-size:13px;color:var(--t-text2);text-decoration:none;transition:background .12s,color .12s}
 .tmx .seg a:hover{color:var(--t-text)}
 .tmx .seg a.on{background:var(--t-surface);color:var(--t-blue);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+/* network mission header */
+.tmx .metaline{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin:6px 0 16px}
+.tmx .metaline .dot{display:none}
+.tmx .backlink{display:inline-flex;align-items:center;padding:4px 14px 4px 10px;border:1px solid var(--t-border);border-radius:999px;background:var(--t-surface);color:var(--t-text);font-weight:500;text-decoration:none;transition:background .12s,border-color .12s}
+.tmx .backlink:hover{background:var(--t-blue-l);border-color:var(--t-blue-r);color:var(--t-blue)}
