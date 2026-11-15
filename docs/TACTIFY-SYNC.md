@@ -1,43 +1,75 @@
-# Plan: public mission libraries ⇄ tactify.ru
+# Public mission library: sites ⇄ hub ⇄ tactify.ru
 
-## Where we are
-* **Tactify** (tactify.ru, v7.1) is a stand-alone PHP/MySQL app. Its source is only in a local folder (`Sysfera Core/Components/Sysfera Mission`), **not in Git**. Its library = the missions users marked "Public / Share to Library".
-* **Sysfera Missions** (component) has a library per site: missions with `shared = 1`. Both sides already read the same JSON mission format (`format: sysfera-mission`, Tactify exports are imported too).
-* Sites already talk to the hub **core.sysfera.ru** (Messenger connection); the hub can distribute settings (done: Missions → Setup) and relay requests.
+Missions that users share to the library on any Sysfera site, and the public missions of [tactify.ru](https://tactify.ru), are exchanged through the hub (core.sysfera.ru). Built in Missions 0.4.x (Core ≥ 0.1.29) and the Tactify repo [gsmhero/tactify](https://github.com/gsmhero/tactify).
 
-## Target
-A mission published as *Public* on any Sysfera site shows up in the library of every other site and on tactify.ru; a mission published on tactify.ru shows up on the sites. Copying a library mission makes a private copy (as now). Uploaded files are not synchronised (the "remove files from the public version" option).
+```
+ site A ──┐                         ┌── Tactify  (public missions of tactify.ru users)
+ site B ──┼──►  HUB  (mis_net)  ◄──►┤       signed API  /api/v1/library.php
+ hub's own┘     core.sysfera.ru     └──  every 15 min, only the hub talks to Tactify
+```
 
-## Design
-1. **Tactify becomes a library source with a small signed API** (`/api/v1/library`): `GET ?since=<time>` (list of changed public missions: id, title, type, category, description, author, updated_at, tasks), `GET /<id>`, `POST` (publish / update from the hub), `DELETE /<id>` (withdraw). One shared secret between Tactify and the hub (HMAC of the request, timestamp, size and rate limits).
-2. **The hub is the only gate between the sites and Tactify.** Sites never hold the Tactify key: they call hub operations `mis.publish`, `mis.withdraw`, `mis.library`. The hub stores the combined library (table of public missions: source `site:<domain>` or `tactify`, external id, content, updated_at, reports) and pulls Tactify every 15 minutes.
-3. **Sites**: Library tab gets a source filter (this site / other Sysfera sites / Tactify). Publishing or withdrawing a mission pushes it to the hub in the background. Importing = the existing copy.
-4. **No loops**: each mission carries `origin` + `origin_id`; a mission that came from the library is never published again as new, only its owner's own missions are.
-5. **Moderation and safety**: reports hide a mission after N reports (as Activity does); administrators on the hub and on Tactify can remove; all text goes through the same cleaning as import (types, links, e-mails validated); maximum 300 tasks, 1 MB.
+* The **hub** keeps the combined library in `{p}mis_net` (source `site:<domain>` or `tactify`).
+* **Sites never hold the Tactify key.** They only call hub operations. The key (`HUB_API_SECRET`) exists on tactify.ru and on the hub.
+* Uploaded files, reminders and progress are never shared. A copy from the library is always a private copy.
 
-## Steps
-| # | What | Who |
+## What users see
+* **Share a mission** ("Share to the library", or *Public* when creating it): a site that is connected to the hub (Messenger → Settings) publishes it to the network library on save; making it private or deleting it withdraws it. Missions shared before the feature existed are published when their owner opens *My missions* (3 per visit).
+* **Library tabs**: *This site* · *Network* (everything) · *Tactify* · *Other sites*. A network mission can be previewed, copied to *My missions* or **reported**; three different reporters hide it.
+* On tactify.ru the missions that came from Sysfera appear in the normal library with their original author.
+
+## Hub operations (Messenger hub, signed with the site's key)
+| Operation | Who | Does |
 |---|---|---|
-| 0 | **Decide**: repository name and visibility (suggest a private repo `Tactify`), how tactify.ru is deployed (FTP / SSH / hosting panel), one-way or two-way sync | you |
-| 1 | **Secure and version the Tactify folder**: `git init`; `.gitignore` for `config.php`, `uploads/`, logs (`clients/email-debug.log`); remove the real admin password from `README.md`, and the real admin hash, SMTP password and map keys from `install/schema.sql` (they must be **rotated**, they have been in plain files); push to GitHub | me, after step 0 |
-| 2 | **Deploy path**: a script / GitHub Action that uploads the repo to tactify.ru without touching `config.php` and `uploads/` | me + you (access) |
-| 3 | **Tactify API** + migration (`updated_at`, `origin`, `external_id` on missions) + tests | me |
-| 4 | **Hub operations** and the 15-minute pull; hub table of public missions | me |
-| 5 | **Missions component**: source filter, background publish / withdraw, "from Tactify" badge | me |
-| 6 | Staging test with one site, then roll out (hub first, then Core / Missions on the sites) | both |
+| `mis.publish` | signed-in user of a site | store / update the user's mission (cleaned, ≤ 300 tasks, ≤ 900 KB, ≤ 100 per day) |
+| `mis.withdraw` | owner | remove it |
+| `mis.library` | site or user | list (`q`, `cat`, `src`, `page`) or one mission (`id`) |
+| `mis.report` | signed-in user | report; 3 reporters hide the mission |
+| `mis.setup` | site | map keys and Tactify address (see Missions → Setup) |
 
-## What I need from you to start
-1. Confirm the repository name and visibility.
-2. How do you upload to tactify.ru today (FTP, panel file manager, SSH)? I will build the deployment around it; credentials stay with you (GitHub secrets or your own machine), I never need to see them.
-3. Rotate the secrets that were in the Tactify files: admin password, SMTP password, Yandex and Mapbox keys.
+The hub itself has no connection to itself, so its own missions are written to / read from `mis_net` directly.
 
-## Decisions (answered)
-* Repository: **gsmhero/tactify**, private. Local commit `547e885` is ready (secrets removed, `config.php` ignored, `config.sample.php` added, installer creates a random admin password).
-* Deployment: SSH or FTP available. Preferred: a GitHub Action that, on push to `main`, uploads the changed files over **SSH (rsync)** and falls back to **FTP** if SSH is not possible; `config.php` and `uploads/` are excluded, so the live configuration and users' files are never overwritten. Access data live in GitHub *Secrets* (or on your own machine), never in the repository.
-* Synchronisation: **two-way** (sites ⇄ hub ⇄ Tactify), see Design. Conflict rule: the newest `updated_at` wins; a withdrawn mission is removed everywhere; a copy someone made in their own account is never touched.
+## Tactify API (`api/v1/library.php`)
+Used by the hub only; every request is signed.
 
-## Next
-1. You create the empty private repo `gsmhero/tactify` (or run `gh auth login`), I push `547e885`.
-2. Rotate the secrets that were in the files (the database / SMTP / admin password on tactify.ru, the Yandex and Mapbox keys).
-3. I add the deploy workflow and a first safe test deploy (a harmless file) before real changes.
-4. Tactify API, hub operations, Missions library sources (steps 3–5 above).
+| Call | Result |
+|---|---|
+| `GET` | `{missions: [own public missions: id, title, type, author, category, updated_at, task_count], hub: [{external_id, updated_at}]}` |
+| `GET ?id=M-1001` | one public mission with tasks |
+| `POST` | publish / update a mission from the hub (`external_id`, `title`, `type`, `description`, `category`, `author`, `tasks[]`) |
+| `DELETE ?external_id=…` | withdraw a hub mission |
+
+Signature: headers `X-Ts` (unix time, ±5 min) and `X-Sig = hex hmac_sha256(HUB_API_SECRET, X-Ts + "\n" + METHOD + "\n" + SCRIPT_NAME + "?" + QUERY_STRING + "\n" + sha256_hex(body))`. Without `HUB_API_SECRET` (32+ characters in `config.php`) the API answers 503; a bad signature 401.
+Tactify gets three columns on `missions` (`origin`, `external_id`, `origin_author`) automatically on the first request. Hub missions belong to the system user "Sysfera library". Tactify's own missions are never changed or deleted by the API, and the list only returns Tactify's own missions, so nothing loops back.
+
+## Sync rules
+* The hub **pulls** Tactify's list, fetches missions that are new or newer (`updated_at` = latest of the mission and its tasks), and drops the ones withdrawn on Tactify.
+* The hub **pushes** site missions that Tactify does not have or has older, and **removes** from Tactify what was withdrawn, hidden or deleted on the hub.
+* It compares lists instead of trusting events, so a failed push or pull is simply repeated at the next run.
+* It runs when someone opens the network library, from the Missions cron (`/api/missions/remind`) and from **Missions → Setup → Sync with Tactify now**; at most every 15 minutes (the button always runs). Limits per run: ~8 s (25 s from the button), 20 pushes.
+* The last result is shown on the hub's Setup page: `pulled / sent / removed / error` (the error names the HTTP code and reason, or the mission that failed).
+
+## Setting it up
+1. **Tactify**: deploy the repo (GitHub Actions *Deploy to tactify.ru (SSH)* or *(FTP)*, secrets in the repository settings: `SSH_HOST`, `SSH_USER`, `SSH_PASS`, `DEPLOY_PATH`, optional `SSH_PORT`, `SSH_KNOWN_HOSTS`; FTP: `FTP_HOST`, `FTP_USER`, `FTP_PASSWORD`, `FTP_DIR`). `config.php`, `uploads/`, logs and `install/` are never overwritten. Add `define('HUB_API_SECRET', '<64 random characters>');` to the server's `config.php` (`php -r "echo bin2hex(random_bytes(32));"`).
+2. **Hub**: update Core and Missions, open *Missions → Setup*, enter the Tactify address (`https://tactify.ru`, the path is ignored) and the same key, save, press *Sync with Tactify now*.
+3. **Sites**: update Missions; connect the site to the hub (Messenger → Settings). Map keys and the Tactify address reach the sites from the hub within an hour.
+
+## Moderation
+On the hub: *Missions → Setup → network library* lists the latest 40 with *Hide / Show* and *Delete*; a hidden mission disappears from all libraries and from Tactify at the next sync. Remove hub missions there, not in Tactify's admin panel (they would be pushed back).
+
+## Troubleshooting
+| Message | Meaning |
+|---|---|
+| `http_401 unauthorized` | the key on the hub differs from `HUB_API_SECRET` (the hub ignores a key that is not 32–200 letters and digits) |
+| `http_503 disabled` | `HUB_API_SECRET` is not set in Tactify's `config.php` |
+| `network (no answer from …)` | wrong address, firewall or Tactify down |
+| `http_404` / "not the Tactify API answer" | the API is not deployed, or the address points elsewhere |
+| `Tactify lists 0 public missions` | Tactify has no mission that is public and shared to the library |
+| `N listed, none stored: …` | details could not be fetched or a mission was rejected (empty title / too large) |
+| `push of "…" failed` | Tactify refused a mission (the reason follows) |
+| `exception: …` | a code or database error; see `storage/error.log` on the hub |
+| Network tab: "not connected" | the site is not connected to the hub |
+
+## Security notes
+* The Tactify key never leaves the hub and tactify.ru. Map keys are visible to visitors by nature: restrict them by domain in the provider's cabinet.
+* All text from outside is stripped of HTML and cut to size; task data keeps only short scalar values; links in task fields must be `http(s)`.
+* Not done yet: rate limiting of the Tactify API (a failed signature only waits 0.3 s), ending other sessions of a user after a password change on Tactify, moderation from Tactify's own admin panel.

@@ -37,4 +37,11 @@ Map pickers with API keys (Yandex / Mapbox: only plain map links are used), day/
 * Mission status **Private / Public**; for a public mission "remove uploaded files from the public library version" (files of that mission are then visible to the owner only). Duplicate a mission, **Export all** (and import of that file).
 * **Setup** tab (administrators): Yandex Maps key, Mapbox token, address of the public library. Typed once on the hub (core.sysfera.ru) they reach every connected site (refreshed hourly); a site can override them. Tasks with an address show a map (Yandex, or Mapbox, else a plain map link). SMTP is never shared.
 * *Meeting* type: contact, phone, place name, address, link (Core 0.1.27 updates it if it was not changed).
-* Plan for synchronising the public libraries with tactify.ru: [TACTIFY-SYNC.md](TACTIFY-SYNC.md).
+* Synchronising the public libraries with tactify.ru: [TACTIFY-SYNC.md](TACTIFY-SYNC.md) (built in 0.4).
+
+## Version 0.4 — the network library
+* **Library tabs**: This site · Network · Tactify · Other sites. Shared missions of every connected site and the public missions of tactify.ru, with preview, copy to *My missions* and *Report* (3 reporters hide a mission).
+* A mission shared to the library is published to the hub when saved and withdrawn when made private or deleted; older shared missions are published when the owner opens *My missions*. Files, reminders and progress are never shared.
+* **Setup** (hub): the Tactify API key, *Sync with Tactify now*, last result, and moderation of the network library.
+* Task type icons are one monochrome SVG set (0.3.1); the Setup form saves only the fields it posts (0.4.1).
+* How it works, the Tactify API, set-up steps and troubleshooting: [TACTIFY-SYNC.md](TACTIFY-SYNC.md).
