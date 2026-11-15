@@ -100,7 +100,7 @@ final class Network
     {
         $res = ['pulled' => 0, 'pushed' => 0, 'removed' => 0, 'error' => null]; $end = time() + $seconds;
         [$code, $list] = self::tactify($base, $secret, 'GET');
-        if ($code !== 200 || empty($list['ok'])) { $res['error'] = $code === 0 ? 'network' : 'http_' . $code; return $res; }
+        if ($code !== 200 || empty($list['ok'])) { $res['error'] = ($code === 0 ? 'network (no answer from ' . $base . ')' : 'http_' . $code . (isset($list['error']) ? ' ' . self::s($list['error'], 60) : ' (not the Tactify API answer: check the address)')); return $res; }
         // 1. pull
         $have = []; foreach ($db->rows("SELECT ext_id, src_updated FROM {p}mis_net WHERE source = 'tactify'") as $r) $have[$r['ext_id']] = (string)$r['src_updated'];
         $seen = [];

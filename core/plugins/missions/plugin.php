@@ -78,7 +78,7 @@ return function (\Sysfera\Plugin $sf): void {
         if ($base === '' || strlen($secret) < 32) return null;
         if (!$force && time() - (int)$sf->setting('hub_tactify_last', '0') < \SysferaMissions\Network::PULL_EVERY) return null;
         $sf->setSetting('hub_tactify_last', (string)time());
-        try { $r = \SysferaMissions\Network::syncTactify($db, $base, $secret, $force ? 25 : 8); } catch (\Throwable $e) { $r = ['pulled' => 0, 'pushed' => 0, 'removed' => 0, 'error' => 'exception']; App::log('missions tactify sync ' . $e); }
+        try { $r = \SysferaMissions\Network::syncTactify($db, $base, $secret, $force ? 25 : 8); } catch (\Throwable $e) { $r = ['pulled' => 0, 'pushed' => 0, 'removed' => 0, 'error' => 'exception: ' . mb_substr($e->getMessage(), 0, 150)]; App::log('missions tactify sync ' . $e); }
         $sf->setSetting('hub_tactify_status', json_encode($r + ['at' => date('Y-m-d H:i:s')]));
         return $r;
     };
