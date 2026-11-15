@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 use Sysfera\{App, Hooks, I18n, TaskTypes};
-use SysferaMissions\Mission;
+use SysferaMissions\{Mission, Network};
 
 /**
  * Sysfera Missions — chains of tasks with three possible results each (ported from Tactify Mission Manager).
