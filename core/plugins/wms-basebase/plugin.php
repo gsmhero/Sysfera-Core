@@ -45,7 +45,7 @@ return function (\Sysfera\Plugin $sf): void {
     $mine = fn(): Sync => $sync()->forOwner($me());
     $mayManage = fn(): bool => true;
     $deny = function () use ($sf, $go): void { flash($sf->t('not_owner'), 'bad'); $go('orders'); };
-    $sf->menu('menu_connect', '/settings', ['admin' => true, 'order' => 26, 'icon' => 'settings']);   // the Agent's own section: the account that links this site with basebase.ru
+    $sf->on('settings.links', fn(array $l) => array_merge($l, [['label' => $sf->t('menu_connect'), 'hint' => $sf->t('connect_hint'), 'path' => '/p/wms-basebase/settings', 'icon' => 'refresh']]));   // the Agent's own section lives under Settings (administrators only)
     $sf->menu('menu', '/', ['cap' => 'wmsbb.use', 'order' => 25, 'icon' => 'refresh', 'badge' => fn() => (int)$db->val("SELECT COUNT(*) FROM {p}wmsbb_items WHERE owner_id = ? AND status IN ('pending','prepare')", [$me()])]);   // new orders still to be shipped
 
     /* ================= overview ================= */

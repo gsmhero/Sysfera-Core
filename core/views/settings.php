@@ -1,6 +1,7 @@
 <?php /** @var array $caps @var array $langs */
 $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
 <div class="page-h"><h1><?= e(t('nav.settings')) ?></h1></div>
+<?php $links = \Sysfera\Hooks::filter('settings.links', []); if ($links): ?><section class="card setlinks"><?php foreach ($links as $l): ?><a class="setlink" href="<?= e(url($l['path'])) ?>"><b><?= e($l['label']) ?></b><?php if (!empty($l['hint'])): ?><span class="muted sm"><?= e(mb_substr($l['hint'], 0, 140)) ?></span><?php endif; ?><i>›</i></a><?php endforeach; ?></section><?php endif; ?>
 <form class="card" method="post"><?= csrf_field() ?>
   <label class="fld"><span><?= e(t('settings.site_name')) ?></span><input name="site_name" value="<?= e($app->setting('site_name', 'Sysfera')) ?>" maxlength="80"></label>
   <div class="cols">

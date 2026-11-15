@@ -24,7 +24,8 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
     <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo() ?></a>
     <div class="site"><?= e($siteName) ?></div>
     <nav>
-      <?php foreach ($menu as $m):
+      <?php $lastG = null; foreach ($menu as $m):
+          if ($lastG !== null && ($m['group'] ?? 0) !== $lastG): ?><div class="nsep"></div><?php endif; $lastG = $m['group'] ?? 0;
           $lab = !empty($m['slug']) ? t($m['slug'] . '.' . $m['label']) : t($m['label']);
           if ($lab === ($m['slug'] ?? '') . '.' . $m['label'] || $lab === $m['label']) $lab = $m['label'];
           $on = $m['path'] === '/' ? $path === '/' : str_starts_with($path, $m['path']); ?>

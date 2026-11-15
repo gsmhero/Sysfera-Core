@@ -48,3 +48,8 @@
 .lbx .lb-d:hover{background:rgba(255,255,255,.3)}
 .lbx.one .lb-p,.lbx.one .lb-n,.lbx.one .lb-c{display:none}
 html.lb-open{overflow:hidden}
+/* upcoming events */
+.tm-up{padding:12px 0;border-bottom:2px solid var(--line)}.tm-up:first-of-type{padding-top:4px}.tm-up:last-child{border-bottom:0}
+.tm-ut{font-size:18px;font-weight:700;line-height:1.25;color:var(--acc);word-break:break-word}
+.tm-ud{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:4px 0 0;font-size:13px}.tm-ud b{color:var(--ink)}.tm-uh{color:#1d6fd8;font-weight:600}.tm-ue{color:var(--mut)}
+.tm-uc{margin:6px 0 0;font-size:14px;color:var(--mut);line-height:1.45;white-space:pre-line;word-break:break-word}

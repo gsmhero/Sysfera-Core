@@ -21,6 +21,8 @@ if ($dv) $ed = [$dv['date'], $dv['time'], $dv['date_end'], $dv['time_end']]; ?>
     <button class="btn primary"><?= e($sf->t('save')) ?></button>
     <?php if ($e && ((int)$e['created_by'] === $me || $mod)): ?><button class="btn danger" formaction="<?= $act('/event/' . (int)$e['id'] . '/delete') ?>" formnovalidate data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= e($sf->t('delete')) ?></button><?php endif; ?></form><?php endif; ?>
   <section class="card"><h3><?= e($sf->t('upcoming')) ?></h3>
-    <?php foreach ($upcoming as $ev): ?><div class="tm-up"><b><?= e(date('d.m.Y', strtotime($ev['starts']))) ?><?= substr((string)$ev['starts'], 11, 5) !== '00:00' ? ' ' . e(substr((string)$ev['starts'], 11, 5)) : '' ?></b> <?= e($ev['title']) ?><?php if ($ev['descr']): ?><div class="muted sm"><?= e($ev['descr']) ?></div><?php endif; ?></div><?php endforeach; ?>
+    <?php foreach ($upcoming as $ev): $hm = substr((string)$ev['starts'], 11, 5); ?><div class="tm-up"><div class="tm-ut"><?= e($ev['title']) ?></div>
+      <div class="tm-ud"><b><?= e(date('d.m.Y', strtotime($ev['starts']))) ?></b><?php if ($hm !== '00:00'): ?><span class="tm-uh"><?= e($hm) ?></span><?php endif; ?><?php if ($ev['ends']): ?><span class="tm-ue">→ <?= e(date('d.m.Y', strtotime($ev['ends']))) ?><?= substr((string)$ev['ends'], 11, 5) !== '00:00' ? ' ' . e(substr((string)$ev['ends'], 11, 5)) : '' ?></span><?php endif; ?></div>
+      <?php if ($ev['descr']): ?><div class="tm-uc"><?= e($ev['descr']) ?></div><?php endif; ?></div><?php endforeach; ?>
     <?php if (!$upcoming): ?><p class="muted"><?= e($sf->t('no_events')) ?></p><?php endif; ?></section></div>
 <script src="<?= e($sf->asset('teams.js')) ?>?v=<?= e($sf->manifest['version']) ?>"></script>

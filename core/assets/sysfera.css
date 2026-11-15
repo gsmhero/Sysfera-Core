@@ -99,3 +99,14 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 /* colour picker: a readable swatch instead of a thin line (all components) */
 input[type=color]{width:56px;height:38px;padding:3px;border:1px solid var(--line);border-radius:8px;background:var(--card);cursor:pointer;vertical-align:middle}
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:5px}input[type=color]::-moz-color-swatch{border:0;border-radius:5px}
+
+/* sidebar zones */
+.side nav .nsep{flex:none;height:0;margin:clamp(3px,.9vh,8px) 2px;border-top:2px solid #4c3d8f}
+.setlinks{padding:6px}.setlink{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:var(--ink);text-decoration:none}.setlink:hover{background:var(--bg)}.setlink b{white-space:nowrap}.setlink span{flex:1;min-width:0}.setlink i{font-style:normal;color:var(--mut);font-size:20px}
+
+/* date / time fields (see sysfera.js) */
+.dtp{position:relative;display:block}.dtp .dtp-t{padding-right:40px}.dtp-time .dtp-t{padding-right:11px}
+.dtp-b{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;border:0;border-radius:6px;background:none;color:var(--mut);cursor:pointer;display:grid;place-items:center}.dtp-b:hover{background:var(--bg);color:var(--acc)}
+.dtp-n{position:absolute;right:4px;top:100%;width:1px;height:1px;opacity:0;pointer-events:none;padding:0;border:0}
+.dtp .dtp-t:invalid:not(:placeholder-shown){border-color:var(--bad)}
+.row .dtp,.bar .dtp,.news-f .dtp,.fld.inline .dtp{display:inline-block;width:170px;vertical-align:middle}.dtp-datetime .dtp-t{min-width:190px}
