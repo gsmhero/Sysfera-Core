@@ -343,14 +343,18 @@ return function (\Sysfera\Plugin $sf): void {
         $from = $m['weeks'][0][0]['date'] . ' 00:00:00'; $to = end($m['weeks'])[6]['date'] . ' 23:59:59';
         $ev = $db->rows('SELECT e.*, u.name AS uname FROM {p}teams_events e LEFT JOIN {p}users u ON u.id = e.created_by WHERE e.team_id = ? AND e.starts <= ? AND COALESCE(e.ends, e.starts) >= ? ORDER BY e.starts', [$t['id'], $to, $from]);
         $up = $db->rows('SELECT e.*, u.name AS uname FROM {p}teams_events e LEFT JOIN {p}users u ON u.id = e.created_by WHERE e.team_id = ? AND COALESCE(e.ends, e.starts) >= NOW() ORDER BY e.starts LIMIT 8', [$t['id']]);
-        $page('calendar', $layout($t, 'calendar', ['m' => $m, 'by' => Tm::byDay($ev), 'upcoming' => $up, 'edit' => ($id = $int($_GET['edit'] ?? '')) ? $db->row('SELECT * FROM {p}teams_events WHERE id = ? AND team_id = ?', [$id, $t['id']]) : null]), $sf->t('calendar'));
+        $draft = $_SESSION['teams_ev_draft'] ?? null; unset($_SESSION['teams_ev_draft']);
+        $page('calendar', $layout($t, 'calendar', ['draft' => $draft, 'm' => $m, 'by' => Tm::byDay($ev), 'upcoming' => $up, 'edit' => ($id = $int($_GET['edit'] ?? '')) ? $db->row('SELECT * FROM {p}teams_events WHERE id = ? AND team_id = ?', [$id, $t['id']]) : null]), $sf->t('calendar'));
     });
 
     $route('POST', '/t/{id}/event/save', function (array $p) use ($open, $db, $txt, $uid, $int, $sf, $self) {
         $t = $open($p, 'event'); $id = $int($_POST['id'] ?? ''); $title = $txt('title');
         $start = Tm::when((string)($_POST['date'] ?? ''), (string)($_POST['time'] ?? ''));
         $end = ($_POST['date_end'] ?? '') !== '' ? Tm::when((string)$_POST['date_end'], (string)($_POST['time_end'] ?? '')) : null;
-        if ($title === '' || !$start || ($end && $end < $start)) { flash($sf->t('e_event'), 'bad'); redirect($self('t/' . $t['id'] . '/calendar')); }
+        if ($title === '' || !$start || ($end && $end < $start)) {   // keep what was typed: the form is shown again with the same values
+            $_SESSION['teams_ev_draft'] = ['id' => $id, 'title' => $title !== '' ? $title : trim((string)($_POST['title'] ?? '')), 'descr' => trim((string)($_POST['descr'] ?? '')), 'date' => (string)($_POST['date'] ?? ''), 'time' => (string)($_POST['time'] ?? ''), 'date_end' => (string)($_POST['date_end'] ?? ''), 'time_end' => (string)($_POST['time_end'] ?? '')];
+            flash($sf->t('e_event'), 'bad'); redirect($self('t/' . $t['id'] . '/calendar' . ($id ? '?edit=' . $id : '')));
+        }
         $old = $id ? $db->row('SELECT * FROM {p}teams_events WHERE id = ? AND team_id = ?', [$id, $t['id']]) : null;
         if ($old) { if ((int)$old['created_by'] === $uid() || Tm::can($t['role'], 'moderate')) $db->q('UPDATE {p}teams_events SET title = ?, descr = ?, starts = ?, ends = ? WHERE id = ?', [$title, $txt('descr', 2000) ?: null, $start, $end, $id]); }
         else $db->q('INSERT INTO {p}teams_events (team_id, title, descr, starts, ends, created_by) VALUES (?,?,?,?,?,?)', [$t['id'], $title, $txt('descr', 2000) ?: null, $start, $end, $uid()]);
