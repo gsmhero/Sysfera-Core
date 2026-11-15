@@ -26,7 +26,7 @@ $q = $focus ? 't=' . (int)$focus['id'] : '';
 $selfT = $self . ($q ? '?' . $q : '');   // where the buttons of this page post to
 $trail = []; for ($p = $focus; $p && count($trail) < 50; $p = $p['parent_id'] ? ($byId[(int)$p['parent_id']] ?? null) : null) array_unshift($trail, $p);
 $onlyId = 0; ?>
-<div class="crumbs"><a href="<?= e($sf->url($own ? '/' : '/library')) ?>">🏠</a> / <?php if ($focus): ?><a href="<?= e($self) ?>"><?= e($m['title']) ?></a><?php foreach ($trail as $i => $tt): ?> / <?php if ($i < count($trail) - 1): ?><a href="<?= e($self . '?t=' . (int)$tt['id']) ?>"><?= e($tt['title']) ?></a><?php else: ?><b><?= e($tt['title']) ?></b><?php endif; endforeach; else: ?><b><?= e($m['title']) ?></b><?php endif; ?></div>
+<nav class="crumbs" aria-label="breadcrumb"><a class="bc" href="<?= e($sf->url($own ? '/' : '/library')) ?>">🏠</a><span class="bs">›</span><?php if ($focus): ?><a class="bc" href="<?= e($self) ?>"><?= e($m['title']) ?></a><?php foreach ($trail as $i => $tt): ?><span class="bs">›</span><?php if ($i < count($trail) - 1): ?><a class="bc" href="<?= e($self . '?t=' . (int)$tt['id']) ?>"><?= e($tt['title']) ?></a><?php else: ?><span class="bc on"><?= e($tt['title']) ?></span><?php endif; endforeach; else: ?><span class="bc on"><?= e($m['title']) ?></span><?php endif; ?></nav>
 <?php if (!$focus): ?>
 <div class="card">
   <div class="row between"><div class="chips"><span class="chip id">M-<?= (int)$m['id'] ?></span><?php if ($m['type'] !== ''): ?><span class="chip blue"><?= e($m['type']) ?></span><?php endif; ?>

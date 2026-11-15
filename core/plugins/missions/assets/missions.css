@@ -104,3 +104,13 @@
 .lbx .lb-c{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#fff;font-size:14px;opacity:.8}
 .lbx.one .lb-p,.lbx.one .lb-n,.lbx.one .lb-c{display:none}
 html.lb-open{overflow:hidden}
+/* breadcrumbs and library tabs, as on tactify.ru */
+.tmx .crumbs{gap:2px;padding:8px 12px;font-size:13px;overflow-x:auto;white-space:nowrap;flex-wrap:nowrap;border-radius:var(--t-radius,14px);box-shadow:var(--t-shadow-xs,none)}
+.tmx .crumbs .bc{padding:3px 9px;border-radius:8px;color:var(--t-text2);text-decoration:none;transition:background .12s,color .12s}
+.tmx .crumbs a.bc:hover{background:var(--t-bg);color:var(--t-text)}
+.tmx .crumbs .bc.on{background:var(--t-blue-l);color:var(--t-blue);font-weight:500}
+.tmx .crumbs .bs{color:var(--t-border);font-size:12px}
+.tmx .seg{display:inline-flex;gap:2px;padding:3px;margin:0 0 12px;background:var(--t-bg);border:1px solid var(--t-border-l);border-radius:12px;flex-wrap:wrap}
+.tmx .seg a{padding:5px 14px;border-radius:9px;font-size:13px;color:var(--t-text2);text-decoration:none;transition:background .12s,color .12s}
+.tmx .seg a:hover{color:var(--t-text)}
+.tmx .seg a.on{background:var(--t-surface);color:var(--t-blue);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.1)}

@@ -4,7 +4,7 @@ $tab = 'library'; include __DIR__ . '/_nav.php'; $lang = \Sysfera\I18n::lang();
 $srcs = ['' => 'lib_this_site', 'net' => 'lib_network', 'tactify' => 'lib_tactify', 'sites' => 'lib_sites']; ?>
 <div class="page-h"><h1><?= e($sf->t('library')) ?></h1></div>
 <div class="hint"><?= e($sf->t($net === null ? 'library_hint' : 'library_net_hint')) ?></div>
-<div class="row" style="margin:0 0 10px"><?php foreach ($srcs as $k => $lbl): ?><a class="chip <?= $src === $k ? 'on' : '' ?>" href="<?= e($sf->url('/library' . ($k !== '' ? '?src=' . $k : ''))) ?>"><?= e($sf->t($lbl)) ?></a><?php endforeach; ?></div>
+<div class="seg"><?php foreach ($srcs as $k => $lbl): ?><a class="<?= $src === $k ? 'on' : '' ?>" href="<?= e($sf->url('/library' . ($k !== '' ? '?src=' . $k : ''))) ?>"><?= e($sf->t($lbl)) ?></a><?php endforeach; ?></div>
 <form class="card" method="get"><input type="hidden" name="src" value="<?= e($src) ?>"><div class="row">
   <label class="fld inline"><span><?= e($sf->t('search')) ?></span><input name="q" value="<?= e($q) ?>"></label>
   <label class="fld inline"><span><?= e($sf->t('category')) ?></span><select name="cat"><option value="0"><?= e($sf->t('all')) ?></option><?php foreach ($cats as $c): ?><option value="<?= (int)$c['id'] ?>" <?= $cat === (int)$c['id'] ? 'selected' : '' ?>><?= e($lang === 'ru' && $c['name_ru'] !== '' ? $c['name_ru'] : $c['name']) ?></option><?php endforeach; ?></select></label>
