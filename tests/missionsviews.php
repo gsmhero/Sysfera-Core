@@ -48,6 +48,9 @@ foreach (['en', 'ru'] as $l) {
     ok(str_contains($hl, 'class="tcard') && str_contains($hl, '?t=') && str_contains($hl, '?view=tree') && !str_contains($hl, 'class="mpath"'), "$l: mission page lists the first tasks as cards");
     $_GET = ['t' => (string)$tasks[0]['id']]; $hf = render($l, 'mission', $base);
     ok(str_contains($hf, 'class="rpath"') && str_contains($hf, 'class="crumbs"'), "$l: task page shows the result path cards");
+    $_GET = ['t' => (string)$tasks[0]['id']]; $hs = render($l, 'mission', ['add' => $tasks[0]['id'] . ':good'] + $base);
+    ok(strpos($hs, 'id="taskform"') > strpos($hs, 'class="rpath"') && strpos($hs, 'id="taskform"') < strpos($hs, '‹ '), "$l: sub-task form is under the previous task");
+    $_GET = ['view' => 'tree'];
     $_GET = ['view' => 'tree'];
     ok(str_contains($h, 'openstreetmap') === ($l === 'en') && str_contains($h, 'yandex.ru/maps/?text') === ($l === 'ru') && str_contains($h, 'class="tmap"') && str_contains($h, 'api-maps.yandex.ru'), "$l: map block with a link fallback, Yandex loaded when a key is set");
     ok(str_contains($h, '/product/7') && str_contains($h, 'Ann &lt;i&gt;') && str_contains($h, '/file/9') && str_contains($h, 'Sales team'), "$l: shop link, CRM contact, attachment and team are shown");

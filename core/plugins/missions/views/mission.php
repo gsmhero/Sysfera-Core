@@ -61,7 +61,7 @@ $onlyId = 0; ?>
 <?php endif; ?>
 <?php endif; /* !$focus */ ?>
 
-<?php if ($showForm): ?>
+<?php $formHtml = ''; if ($showForm): ob_start(); ?>
 <form class="card mform" method="post" id="taskform"><?= csrf_field() ?><input type="hidden" name="do" value="task_save">
   <input type="hidden" name="task_id" value="<?= $formTask ? (int)$formTask['id'] : 0 ?>"><input type="hidden" name="parent_id" value="<?= (int)$formParent ?>"><input type="hidden" name="branch" value="<?= e($formBranch) ?>">
   <h3><?= e($formTask ? $sf->t('edit_task') : $sf->t('add_task')) ?><?= $formParent ? ' — ' . e($sf->t('after', ['t' => $byId[$formParent]['title'], 'r' => $sf->t('br_' . $formBranch)])) : '' ?></h3>
@@ -105,11 +105,13 @@ document.querySelectorAll(".mcontact").forEach(function(w){var q=w.querySelector
    if(rows.length)sel.value=rows[0].id;sel.dispatchEvent(new Event("change"))}).catch(function(){})},250)});
  sel.addEventListener("change",function(){var o=sel.options[sel.selectedIndex];if(!o||!o.value)return;fill("phone",o.dataset.phone);fill("to",o.dataset.email)})});
 })();</script>
-<?php endif; ?>
+<?php $formHtml = (string)ob_get_clean(); endif;
+// the task form is printed under the task it belongs to (edited task / parent of the new one); a new first task goes under the list
+$formAt = $formTask ? (int)$formTask['id'] : (int)$formParent; ?>
 
 <?php
 $mapLink = fn(string $place) => Mission::mapUrl($place, $lang);
-$render = function (int $parent, string $branch) use (&$render, &$onlyId, $tree, $lucky, $own, $sf, $self, $selfT, $q, $data, $m, $types, $lang, $tname, $files, $contactName, $mapLink, $setup): void {
+$render = function (int $parent, string $branch) use (&$render, &$onlyId, &$formHtml, $formAt, $tree, $lucky, $own, $sf, $self, $selfT, $q, $data, $m, $types, $lang, $tname, $files, $contactName, $mapLink, $setup): void {
     foreach ($tree[$parent][$branch] ?? [] as $t):
         if ($onlyId && (int)$t['id'] !== $onlyId) continue;   // the task page shows one task
         $d = $data($t); $id = (int)$t['id']; $kids = $tree[$id] ?? []; $code = \Sysfera\TaskTypes::normalize((string)$t['type']); $ty = \Sysfera\TaskTypes::get($types, $code);
@@ -152,13 +154,15 @@ $render = function (int $parent, string $branch) use (&$render, &$onlyId, $tree,
         <div class="mkids"><?php $render($id, $br); ?></div></div>
     <?php endforeach; ?></div><?php endif; ?>
   </div>
+<?php if ($formHtml !== '' && $formAt === $id) { echo $formHtml; $formHtml = ''; } ?>
 <?php endforeach; };
 if (!$tasks): ?><div class="card muted" style="text-align:center"><?= e($sf->t('no_tasks')) ?></div><?php endif;
 if ($focus):
     $onlyId = (int)$focus['id']; $render((int)($focus['parent_id'] ?? 0), $focus['parent_id'] ? (string)$focus['branch'] : '');
     $backTo = $focus['parent_id'] ? $self . '?t=' . (int)$focus['parent_id'] : $self; ?>
+<?= $formHtml ?>
 <p><a class="btn" href="<?= e($backTo) ?>">‹ <?= e($sf->t('back')) ?></a></p>
-<?php elseif ($treeView): $render(0, ''); ?>
+<?php elseif ($treeView): $render(0, ''); echo $formHtml; ?>
 <p class="row"><?php if ($own): ?><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a><?php endif; ?><a class="btn" href="<?= e($self) ?>"><?= e($sf->t('view_list')) ?></a></p>
 <?php else: foreach ($tree[0][''] ?? [] as $t): $ty = \Sysfera\TaskTypes::get($types, \Sysfera\TaskTypes::normalize((string)$t['type'])); ?>
 <a class="tcard <?= $t['completed'] ? 'mtdone' : '' ?> <?= in_array((int)$t['id'], $lucky, true) ? 'mlucky' : '' ?>" href="<?= e($self . '?t=' . (int)$t['id']) ?>">
@@ -166,7 +170,7 @@ if ($focus):
   <?php if ((float)$t['cost'] > 0): ?><span class="chip cost">$<?= e(number_format((float)$t['cost'], 2, '.', ' ')) ?></span><?php endif; ?><?php if ($t['completed']): ?><span class="chip">✓</span><?php endif; ?></span>
   <span class="tt"><?= e($t['title']) ?></span>
   <?php if ($t['description']): ?><span class="td"><?= e(mb_substr((string)$t['description'], 0, 220)) ?></span><?php endif; ?></a>
-<?php endforeach; ?>
+<?php endforeach; echo $formHtml; ?>
 <p class="row"><?php if ($own): ?><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a><?php endif; ?><?php if ($tasks): ?><a class="btn" href="<?= e($self . '?view=tree') ?>"><?= e($sf->t('view_tree')) ?></a><?php endif; ?></p>
 <?php endif; ?>
 <?php $mapKeyY = (string)($setup['yandex_maps_key'] ?? ''); $mapKeyM = (string)($setup['mapbox_key'] ?? ''); if (($mapKeyY !== '' || $mapKeyM !== '')): ?>
