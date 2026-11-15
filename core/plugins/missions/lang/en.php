@@ -27,4 +27,12 @@ return [
     'announce' => 'Announce completion in Activity', 'announce_hint' => 'When the mission is completed, a short post (title and text) goes to the public Activity feed.', 'announce_prefix' => 'Mission completed:', 'announce_body' => 'All done: {n} tasks.',
     'attach' => 'Attach', 'uploaded' => 'File added.', 'e_file' => 'This file cannot be added (allowed: images, PDF, text, Office files; up to 5 MB).', 'e_files_max' => 'No more than {n} files per task.', 'e_storage' => 'The file could not be saved.',
     'open_shop' => 'Open shop', 'on_map' => 'on the map', 'contact_find' => 'Find a CRM contact…',
+    'export_all' => 'Export all', 'imported_n' => 'Missions imported: {n}.', 'copy' => 'copy', 'vis_public' => 'Public', 'vis_private' => 'Private', 'type_ph' => 'Project, Research…', 'none_cat' => 'none', 'lang_default' => 'site default',
+    'notify_lang_hint' => 'Language for reminder email templates of this mission.', 'mission_status' => 'Mission status',
+    'files_note_h' => 'Uploaded files in this mission', 'files_note' => 'The mission may contain uploaded images and attachments. Keep them in the public version or remove them before publishing?', 'hide_files' => 'Remove all uploaded files from the public library version',
+    'gallery' => 'Gallery', 'no_images' => 'No images', 'click_to_add' => 'click to add',
+    'setup' => 'Setup', 'setup_hint_hub' => 'These values are kept once here on the hub and reach every Sysfera site that is connected to it (the sites refresh them every hour). They are browser keys: Yandex and Mapbox show them to every visitor, so restrict them in the provider’s cabinet.',
+    'setup_hint_site' => 'Map keys and the library address normally come from the hub (core.sysfera.ru). You can type your own here: they win over the hub’s.', 'setup_current' => 'In use on this site', 'setup_from_hub' => 'Received from the hub {min} min ago.', 'setup_no_hub' => 'Nothing received from the hub (not connected, or nothing set there).',
+    'setup_refresh' => 'Ask the hub again', 'setup_refreshed' => 'The values will be fetched again on the next page.', 'setup_hub_h' => 'Values for all sites', 'setup_local_h' => 'Own values for this site (optional)',
+    'setup_yandex_maps_key' => 'Yandex Maps API key', 'setup_mapbox_key' => 'Mapbox access token', 'setup_tactify_url' => 'Address of the public library (Tactify)', 'setup_note' => 'Mail (SMTP) is never shared: every site sends its own e-mail (Core → Settings → Mail).',
 ];

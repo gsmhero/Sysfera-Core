@@ -10,3 +10,4 @@ $tab = 'notes'; include __DIR__ . '/_nav.php'; ?>
     <?php if (!$n['read_at']): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$n['id'] ?>"><button class="btn" name="do" value="read">✓</button></form><?php endif; ?>
   </div>
 <?php endforeach; ?></div>
+</div>

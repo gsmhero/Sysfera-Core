@@ -29,6 +29,32 @@ return function (\Sysfera\Plugin $sf): void {
 
     $sf->menu('menu', '/', ['cap' => 'missions.use', 'order' => 35, 'icon' => 'puzzle']);
 
+    /* ---------- setup values for every installation: map keys etc. are kept once on the hub (core.sysfera.ru) ---------- */
+    $setupKeys = ['yandex_maps_key', 'mapbox_key', 'tactify_url'];
+    $mdir = dirname($sf->dir) . '/messenger/lib/';
+    foreach (['Util', 'Hub', 'Client'] as $lf) if (is_file($mdir . "$lf.php")) require_once $mdir . "$lf.php";
+    if (class_exists(\SysferaMsg\HubServer::class)) {
+        // the hub answers installations (user 0) with the values the administrator typed on the hub
+        \SysferaMsg\HubServer::register('mis.setup', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) use ($sf, $setupKeys) { $o = []; foreach ($setupKeys as $k) $o[$k] = $sf->setting('hub_' . $k, ''); return $o; }, true);
+    }
+    $isHub = fn(): bool => Hooks::filter('messenger.hub', null) !== null;
+    /** the values in use: what the administrator typed on this site, else what the hub sent (cached for an hour) */
+    $setup = function () use ($sf, $isHub, $setupKeys): array {
+        $own = []; foreach ($setupKeys as $k) $own[$k] = $isHub() ? $sf->setting('hub_' . $k, '') : $sf->setting('local_' . $k, '');
+        $file = SF_ROOT . '/storage/missions-setup.json';
+        $cached = is_file($file) ? (json_decode((string)@file_get_contents($file), true) ?: []) : [];
+        $age = is_file($file) ? time() - (int)filemtime($file) : PHP_INT_MAX;
+        if (!$isHub() && $age >= 3600 && !(is_file($file . '.try') && time() - (int)filemtime($file . '.try') < 300)) {
+            @file_put_contents($file . '.try', (string)time());
+            $c = Hooks::filter('messenger.client', null);
+            if ($c && method_exists($c, 'ready') && $c->ready()) {
+                try { $r = $c->call('GET', 'mis.setup', [], null, null, 4, '0'); if ($r['ok']) { $cached = array_intersect_key((array)$r['data'], array_flip($setupKeys)); @file_put_contents($file, json_encode($cached)); } } catch (\Throwable) {}
+            }
+        }
+        $out = []; foreach ($setupKeys as $k) $out[$k] = $own[$k] !== '' ? $own[$k] : (string)($cached[$k] ?? '');
+        return $out + ['_from_hub' => $cached ? 1 : 0, '_age' => is_file($file) ? $age : -1];
+    };
+
     /* ---------- access ---------- */
     $mine = fn(int $id): ?array => $db->row('SELECT * FROM {p}mis_missions WHERE id = ? AND user_id = ?', [$id, $uid()]);
     /** the teams the user belongs to (only when Teams is installed) */
@@ -97,8 +123,9 @@ return function (\Sysfera\Plugin $sf): void {
                 $title = mb_substr(trim((string)($_POST['title'] ?? '')), 0, 255);
                 if ($title === '') { flash($sf->t('err_title'), 'bad'); redirect($path()); }
                 $cat = (int)($_POST['category_id'] ?? 0) ?: null;
-                $db->q('INSERT INTO {p}mis_missions (user_id, title, type, category_id, description, due_date) VALUES (?,?,?,?,?,?)', [$uid(), $title, mb_substr(trim((string)($_POST['type'] ?? '')), 0, 100), $cat,
-                    mb_substr(trim((string)($_POST['description'] ?? '')), 0, 5000) ?: null, preg_match('/^\d{4}-\d\d-\d\d$/', (string)($_POST['due_date'] ?? '')) ? $_POST['due_date'] : null]);
+                $db->q('INSERT INTO {p}mis_missions (user_id, title, type, category_id, description, due_date, lang, shared, hide_files) VALUES (?,?,?,?,?,?,?,?,?)', [$uid(), $title, mb_substr(trim((string)($_POST['type'] ?? '')), 0, 100), $cat,
+                    mb_substr(trim((string)($_POST['description'] ?? '')), 0, 5000) ?: null, preg_match('/^\d{4}-\d\d-\d\d$/', (string)($_POST['due_date'] ?? '')) ? $_POST['due_date'] : null,
+                    isset(I18n::languages()[(string)($_POST['lang'] ?? '')]) ? (string)$_POST['lang'] : '', ($_POST['vis'] ?? '') === 'public' ? 1 : 0, !empty($_POST['hide_files']) ? 1 : 0]);
                 $mid = $db->insertId();
                 $db->q("INSERT INTO {p}mis_tasks (mission_id, user_id, title, type) VALUES (?,?,?, 'note')", [$mid, $uid(), $sf->t('start_task')]);
                 $sf->log('mission.created', ['id' => $mid]); redirect($path("m/$mid"));
@@ -107,7 +134,11 @@ return function (\Sysfera\Plugin $sf): void {
                 $f = $_FILES['file'] ?? null;
                 $raw = ($f && ($f['error'] ?? 1) === UPLOAD_ERR_OK && ($f['size'] ?? 0) <= 1048576) ? (string)file_get_contents($f['tmp_name']) : '';
                 $d = json_decode($raw, true);
-                try { if (!is_array($d)) throw new RuntimeException('bad_file'); $mid = Mission::import($db, $d, $uid(), $types()); flash($sf->t('imported')); redirect($path("m/$mid")); }
+                try {
+                    if (!is_array($d)) throw new RuntimeException('bad_file');
+                    if (isset($d['missions']) && is_array($d['missions'])) { $n = 0; foreach (array_slice($d['missions'], 0, 100) as $one) if (is_array($one)) { try { Mission::import($db, $one, $uid(), $types()); $n++; } catch (RuntimeException) {} } if (!$n) throw new RuntimeException('bad_file'); flash($sf->t('imported_n', ['n' => $n])); redirect($path()); }
+                    $mid = Mission::import($db, $d, $uid(), $types()); flash($sf->t('imported')); redirect($path("m/$mid"));
+                }
                 catch (RuntimeException $e) { flash($sf->t('err_file'), 'bad'); redirect($path()); }
             }
             if ($do === 'bookmark' && $id && $access($id)) {   // a star: own missions and the ones shared with the user's teams
@@ -123,6 +154,7 @@ return function (\Sysfera\Plugin $sf): void {
                 }
                 elseif ($do === 'complete') $finish($id);
                 elseif ($do === 'uncomplete') $db->q("UPDATE {p}mis_missions SET status = 'active' WHERE id = ?", [$id]);
+                elseif ($do === 'duplicate') { $new = Mission::copy($db, $id, $uid()); $db->q('UPDATE {p}mis_missions SET title = ? WHERE id = ?', [mb_substr($m['title'], 0, 240) . ' (' . $sf->t('copy') . ')', $new]); flash($sf->t('imported')); redirect($path("m/$new")); }
             }
             redirect($path());
         }
@@ -132,7 +164,7 @@ return function (\Sysfera\Plugin $sf): void {
         if ($cat) { $w .= ' AND m.category_id = ?'; $a[] = $cat; }
         if ($bm) { $w .= ' AND EXISTS (SELECT 1 FROM {p}mis_bookmarks b WHERE b.mission_id = m.id AND b.user_id = ?)'; $a[] = $uid(); }
         if ($q !== '') { $w .= ' AND (m.title LIKE ? OR m.type LIKE ?)'; $a[] = "%$q%"; $a[] = "%$q%"; }
-        $rows = $db->rows("SELECT m.*, c.name AS cat, c.name_ru AS cat_ru, c.color, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS n, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id AND t.completed = 1) AS done,
+        $rows = $db->rows("SELECT m.*, c.name AS cat, c.name_ru AS cat_ru, c.color, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS n, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id AND t.completed = 1) AS done, (SELECT COALESCE(SUM(t.cost), 0) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS total,
             (SELECT COUNT(*) FROM {p}mis_bookmarks b WHERE b.mission_id = m.id AND b.user_id = " . (int)$uid() . ") AS starred
             FROM {p}mis_missions m LEFT JOIN {p}mis_categories c ON c.id = m.category_id$w ORDER BY m.status = 'completed', m.updated_at DESC LIMIT 200", $a);
         $withMe = [];
@@ -141,21 +173,21 @@ return function (\Sysfera\Plugin $sf): void {
                 FROM {p}mis_shares s JOIN {p}teams_members tm ON tm.team_id = s.team_id AND tm.user_id = ? JOIN {p}teams_teams t ON t.id = s.team_id AND t.archived = 0 JOIN {p}mis_missions m ON m.id = s.mission_id AND m.user_id <> ? LEFT JOIN {p}users u ON u.id = m.user_id
                 ORDER BY m.updated_at DESC LIMIT 50', [$uid(), $uid()]); } catch (\Throwable) {}
         }
-        $sf->render('index', ['rows' => $rows, 'withMe' => $withMe, 'cats' => $cats(), 'st' => $st, 'q' => $q, 'cat' => $cat, 'bm' => $bm, 'cronUrl' => $isAdmin() ? 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . \Sysfera\App::basePath() . '/api/missions/remind?token=' . $cron() : ''], $sf->t('title'));
+        $sf->render('index', ['rows' => $rows, 'withMe' => $withMe, 'cats' => $cats(), 'st' => $st, 'q' => $q, 'cat' => $cat, 'bm' => $bm, 'langs' => I18n::languages(), 'cronUrl' => $isAdmin() ? 'https://' . ($_SERVER['HTTP_HOST'] ?? '') . \Sysfera\App::basePath() . '/api/missions/remind?token=' . $cron() : ''], $sf->t('title'));
     }, ['cap' => 'missions.use']);
 
     /* ================= one mission ================= */
-    $showMission = function (array $m, bool $own) use ($sf, $db, $cats, $uid, $types, $offered, $myTeams, $crmOn, $shopLinks, $on, $isAdmin): void {
+    $showMission = function (array $m, bool $own) use ($sf, $db, $cats, $uid, $types, $offered, $myTeams, $crmOn, $shopLinks, $on, $isAdmin, $setup): void {
         $tasks = $db->rows('SELECT * FROM {p}mis_tasks WHERE mission_id = ? ORDER BY id', [$m['id']]);
         $author = $own ? null : $db->val('SELECT name FROM {p}users WHERE id = ?', [$m['user_id']]);
-        $files = []; foreach ($db->rows('SELECT id, task_id, name, ext, size FROM {p}mis_files WHERE mission_id = ? ORDER BY id', [$m['id']]) as $f) $files[(int)$f['task_id']][] = $f;
+        $files = []; if ($own || !$m['hide_files']) foreach ($db->rows('SELECT id, task_id, name, ext, size FROM {p}mis_files WHERE mission_id = ? ORDER BY id', [$m['id']]) as $f) $files[(int)$f['task_id']][] = $f;
         $shared = $own ? array_map('intval', array_column($db->rows('SELECT team_id FROM {p}mis_shares WHERE mission_id = ?', [$m['id']]), 'team_id')) : [];
         $contactName = [];   // names of the CRM contacts used in tasks (only for users who work with CRM)
         if ($crmOn()) foreach ($tasks as $t) { $d = json_decode((string)$t['type_data'], true) ?: []; if (!empty($d['contact_id'])) { $c = $sf->contacts()->find((int)$d['contact_id']); if ($c && ($c['owner_id'] === null || (int)$c['owner_id'] === $uid() || $isAdmin())) $contactName[(int)$d['contact_id']] = (string)$c['name']; } }
         $sf->render('mission', ['m' => $m, 'tasks' => $tasks, 'tree' => Mission::tree($tasks), 'lucky' => array_map('intval', (array)(json_decode((string)$m['lucky_way'], true) ?: [])), 'own' => $own, 'author' => $author,
             'cats' => $cats(), 'edit' => $own ? (int)($_GET['edit'] ?? 0) : 0, 'add' => $own ? (string)($_GET['add'] ?? '') : '', 'types' => $types(), 'offered' => $offered(), 'files' => $files, 'teams' => $own ? $myTeams() : [], 'sharedTeams' => $shared,
             'crm' => $crmOn(), 'contactName' => $contactName, 'shopLinks' => $own ? $shopLinks() : [], 'starred' => (bool)$db->val('SELECT 1 FROM {p}mis_bookmarks WHERE user_id = ? AND mission_id = ?', [$uid(), $m['id']]),
-            'announceOn' => $own && $on('activity'), 'langs' => I18n::languages()], $m['title']);
+            'announceOn' => $own && $on('activity'), 'langs' => I18n::languages(), 'setup' => $setup()], $m['title']);
     };
     $sf->route('GET', '/m/{id}', function (array $a) use ($sf, $access, $showMission) {
         $x = $access((int)$a['id']); if (!$x) { http_response_code(404); echo e($sf->t('not_found')); return; }
@@ -170,8 +202,8 @@ return function (\Sysfera\Plugin $sf): void {
             $title = mb_substr(trim((string)($_POST['title'] ?? '')), 0, 255);
             if ($title === '') { flash($sf->t('err_title'), 'bad'); redirect($back); }
             $lang = (string)($_POST['lang'] ?? ''); if (!isset(I18n::languages()[$lang])) $lang = '';
-            $db->q('UPDATE {p}mis_missions SET title = ?, type = ?, category_id = ?, description = ?, due_date = ?, shared = ?, lang = ?, announce = ? WHERE id = ?', [$title, mb_substr(trim((string)($_POST['type'] ?? '')), 0, 100), (int)($_POST['category_id'] ?? 0) ?: null,
-                mb_substr(trim((string)($_POST['description'] ?? '')), 0, 5000) ?: null, preg_match('/^\d{4}-\d\d-\d\d$/', (string)($_POST['due_date'] ?? '')) ? $_POST['due_date'] : null, !empty($_POST['shared']) ? 1 : 0, $lang, !empty($_POST['announce']) ? 1 : 0, $id]);
+            $db->q('UPDATE {p}mis_missions SET title = ?, type = ?, category_id = ?, description = ?, due_date = ?, shared = ?, lang = ?, announce = ?, hide_files = ? WHERE id = ?', [$title, mb_substr(trim((string)($_POST['type'] ?? '')), 0, 100), (int)($_POST['category_id'] ?? 0) ?: null,
+                mb_substr(trim((string)($_POST['description'] ?? '')), 0, 5000) ?: null, preg_match('/^\d{4}-\d\d-\d\d$/', (string)($_POST['due_date'] ?? '')) ? $_POST['due_date'] : null, ($_POST['vis'] ?? (!empty($_POST['shared']) ? 'public' : 'private')) === 'public' ? 1 : 0, $lang, !empty($_POST['announce']) ? 1 : 0, !empty($_POST['hide_files']) ? 1 : 0, $id]);
             if ($myTeams() || isset($_POST['teams_form'])) {   // only the user's own teams can be chosen
                 $mineIds = array_map('intval', array_column($myTeams(), 'id'));
                 $db->q('DELETE FROM {p}mis_shares WHERE mission_id = ? AND team_id IN (' . ($mineIds ? implode(',', $mineIds) : '0') . ')', [$id]);
@@ -245,7 +277,8 @@ return function (\Sysfera\Plugin $sf): void {
     /* attachments are served through PHP (storage/ is not reachable from the web); only to people who may see the mission */
     $sf->route('GET', '/file/{fid}', function (array $a) use ($sf, $db, $access, $store) {
         $f = $db->row('SELECT * FROM {p}mis_files WHERE id = ?', [(int)$a['fid']]);
-        if (!$f || !$access((int)$f['mission_id']) || !preg_match('/^[a-f0-9]{32}$/', (string)$f['blob_key']) || !is_file("$store/{$f['blob_key']}.bin")) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        $ax = $f ? $access((int)$f['mission_id']) : null;
+        if (!$f || !$ax || (!$ax[1] && $ax[0]['hide_files']) || !preg_match('/^[a-f0-9]{32}$/', (string)$f['blob_key']) || !is_file("$store/{$f['blob_key']}.bin")) { http_response_code(404); echo e($sf->t('not_found')); return; }
         $img = in_array($f['ext'], Mission::INLINE, true);
         header('Content-Type: ' . (Mission::FILES[$f['ext']] ?? 'application/octet-stream')); header('X-Content-Type-Options: nosniff'); header("Content-Security-Policy: sandbox; default-src 'none'; img-src 'self'");
         header('Content-Disposition: ' . ($img ? 'inline' : 'attachment') . '; filename="' . str_replace(['"', "\r", "\n"], '', (string)$f['name']) . '"'); header('Content-Length: ' . (string)filesize("$store/{$f['blob_key']}.bin"));
@@ -293,6 +326,33 @@ return function (\Sysfera\Plugin $sf): void {
         $rows = $db->rows('SELECT * FROM {p}mis_notes WHERE user_id = ? ORDER BY id DESC LIMIT 100', [$uid()]);
         $sf->render('notes', ['rows' => $rows], $sf->t('nav_notes'));
     }, ['cap' => 'missions.use']);
+
+    /* ================= export everything ================= */
+    $sf->route('GET', '/export', function () use ($sf, $db, $uid) {
+        $all = [];
+        foreach ($db->rows('SELECT id FROM {p}mis_missions WHERE user_id = ? ORDER BY id', [$uid()]) as $r) $all[] = Mission::export($db, (int)$r['id']);
+        header('Content-Type: application/json; charset=utf-8'); header('Content-Disposition: attachment; filename="missions.json"');
+        echo json_encode(['format' => 'sysfera-missions', 'version' => 1, 'missions' => $all], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }, ['cap' => 'missions.use']);
+
+    /* ================= setup: map keys, library address ================= */
+    $sf->route('*', '/setup', function () use ($sf, $path, $setup, $isHub, $setupKeys) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            if (($_POST['do'] ?? '') === 'refresh') { @unlink(SF_ROOT . '/storage/missions-setup.json'); @unlink(SF_ROOT . '/storage/missions-setup.json.try'); flash($sf->t('setup_refreshed')); }
+            else {
+                foreach ($setupKeys as $k) {
+                    $v = trim((string)($_POST[$k] ?? ''));
+                    if ($k === 'tactify_url' && $v !== '' && !preg_match('~^https://[^\s<>"\']+$~i', $v)) continue;       // only a https address
+                    if ($k !== 'tactify_url' && !preg_match('/^[A-Za-z0-9._\-]{0,300}$/', $v)) continue;                   // keys: letters, digits . _ -
+                    $sf->setSetting(($isHub() ? 'hub_' : 'local_') . $k, $v);
+                }
+                flash($sf->t('saved'));
+            }
+            redirect($path('setup'));
+        }
+        $own = []; foreach ($setupKeys as $k) $own[$k] = $sf->setting(($isHub() ? 'hub_' : 'local_') . $k, '');
+        $sf->render('setup', ['hub' => $isHub(), 'own' => $own, 'now' => $setup(), 'keys' => $setupKeys], $sf->t('setup'));
+    }, ['admin' => true]);
 
     /* ================= categories (administrator) ================= */
     $sf->route('*', '/categories', function () use ($sf, $db, $path, $cats) {

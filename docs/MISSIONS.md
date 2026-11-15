@@ -30,3 +30,11 @@ Missions and tasks belong to their user (`user_id`); nobody else, administrators
 
 ## Not ported yet (from Tactify)
 Map pickers with API keys (Yandex / Mapbox: only plain map links are used), day/night switch (Sysfera has its own theming). The original app stored API keys and passwords in its `config.php` / `schema.sql`; none of that was carried over — rotate those secrets.
+
+## Version 0.3 — the Tactify look
+* Same visual language as tactify.ru (pill buttons, rounded cards, chips with `M-<id>` / `T-<id>`, category filter chips, Missions / Bookmarks / Library / Notifications tabs, "New mission" dialog, breadcrumbs, "choose result path" cards, gallery block). All styles live under `.tmx`, the rest of the site is unchanged.
+* Categories as on tactify.ru: FAQ, Lifehack, Logistics, Repair, Sales, Marketing, Building, Development, Finance (added by the migration only when a category of that name is missing; edit them in the Categories tab).
+* Mission status **Private / Public**; for a public mission "remove uploaded files from the public library version" (files of that mission are then visible to the owner only). Duplicate a mission, **Export all** (and import of that file).
+* **Setup** tab (administrators): Yandex Maps key, Mapbox token, address of the public library. Typed once on the hub (core.sysfera.ru) they reach every connected site (refreshed hourly); a site can override them. Tasks with an address show a map (Yandex, or Mapbox, else a plain map link). SMTP is never shared.
+* *Meeting* type: contact, phone, place name, address, link (Core 0.1.27 updates it if it was not changed).
+* Plan for synchronising the public libraries with tactify.ru: [TACTIFY-SYNC.md](TACTIFY-SYNC.md).

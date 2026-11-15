@@ -18,7 +18,7 @@ final class TaskTypes
         'todo'           => ['To-do', 'Задача', '☑', '#6b7280', 'missions,crm', []],
         'call'           => ['Call', 'Звонок', '☎', '#2563eb', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон']]],
         'email'          => ['Email', 'Письмо', '✉', '#7c3aed', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['to', 'email', 'To (email)', 'Кому (email)'], ['subject', 'text', 'Subject', 'Тема'], ['body', 'textarea', 'Message', 'Текст письма']]],
-        'meeting'        => ['Meeting', 'Встреча', '👥', '#059669', 'missions,crm', [['place', 'text', 'Place', 'Место'], ['link', 'url', 'Link', 'Ссылка']]],
+        'meeting'        => ['Meeting', 'Встреча', '👥', '#059669', 'missions,crm', [['contact_id', 'contact', 'Contact', 'Контакт'], ['phone', 'phone', 'Phone', 'Телефон'], ['place', 'text', 'Place name', 'Название места'], ['address', 'text', 'Address', 'Адрес'], ['link', 'url', 'Link', 'Ссылка']]],
         'deadline'       => ['Deadline', 'Дедлайн', '⏰', '#dc2626', 'missions,crm', []],
         'visit_url'      => ['Visit URL', 'Открыть ссылку', '🔗', '#0891b2', 'missions,crm', [['url', 'url', 'Address (https://…)', 'Адрес (https://…)']]],
         'note'           => ['Note', 'Заметка', '📝', '#ca8a04', 'missions,crm', [['note', 'textarea', 'Note', 'Заметка']]],

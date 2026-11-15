@@ -32,7 +32,7 @@ function render(string $l, string $view, array $vars): string {
     return (string)ob_get_clean();
 }
 $T = \Sysfera\TaskTypes::all(null, null, true); $O = \Sysfera\TaskTypes::all(null, 'missions');
-$m = ['id' => 1, 'user_id' => 1, 'title' => 'Win <b>client</b>', 'type' => 'sales', 'category_id' => null, 'description' => 'Text', 'due_date' => null, 'status' => 'active', 'shared' => 0, 'lucky_way' => '[1,2]', 'lang' => '', 'announce' => 0];
+$m = ['id' => 1, 'user_id' => 1, 'title' => 'Win <b>client</b>', 'type' => 'sales', 'category_id' => null, 'description' => 'Text', 'due_date' => null, 'status' => 'active', 'shared' => 0, 'lucky_way' => '[1,2]', 'lang' => '', 'announce' => 0, 'hide_files' => 0];
 $task = fn(int $id, ?int $p, ?string $br, string $type, array $d = [], array $x = []) => $x + ['id' => $id, 'mission_id' => 1, 'user_id' => 1, 'parent_id' => $p, 'branch' => $br, 'title' => "Task $id", 'type' => $type, 'cost' => '10.00', 'description' => 'd',
     'result_good' => 'ok', 'result_alt' => '', 'result_bad' => 'no', 'type_data' => $d ? json_encode($d) : null, 'scheduled_at' => '2030-01-01 10:00:00', 'reminder' => 1, 'completed' => 0];
 $tasks = [$task(1, null, null, 'call', ['contact_id' => '5', 'phone' => '+7 900 1']), $task(2, 1, 'good', 'meeting', ['place' => 'Tverskaya 1', 'link' => 'https://x.y']), $task(3, 2, 'good', 'finish_mission'),
@@ -40,19 +40,23 @@ $tasks = [$task(1, null, null, 'call', ['contact_id' => '5', 'phone' => '+7 900 
 $files = [1 => [['id' => 9, 'task_id' => 1, 'name' => 'a.png', 'ext' => 'png', 'size' => 2048], ['id' => 10, 'task_id' => 1, 'name' => 'b.pdf', 'ext' => 'pdf', 'size' => 4096]]];
 $base = ['m' => $m, 'tasks' => $tasks, 'tree' => \SysferaMissions\Mission::tree($tasks), 'lucky' => [1, 2, 3], 'own' => true, 'author' => null, 'cats' => [['id' => 1, 'name' => 'Sales', 'name_ru' => 'Продажи', 'color' => '#111111']], 'edit' => 0, 'add' => '',
     'types' => $T, 'offered' => $O, 'files' => $files, 'teams' => [['id' => 3, 'name' => 'Sales team']], 'sharedTeams' => [3], 'crm' => true, 'contactName' => [5 => 'Ann <i>'], 'shopLinks' => [['url' => 'https://basebase.ru/product/7', 'title' => 'Lamp']],
-    'starred' => true, 'announceOn' => true, 'langs' => ['en' => 'English', 'ru' => 'Русский']];
+    'starred' => true, 'announceOn' => true, 'langs' => ['en' => 'English', 'ru' => 'Русский'], 'setup' => ['yandex_maps_key' => 'k-1', 'mapbox_key' => '', 'tactify_url' => '']];
 foreach (['en', 'ru'] as $l) {
     $h = render($l, 'mission', $base);
     ok(str_contains($h, 'Win &lt;b&gt;client') && !str_contains($h, '<b>client</b>'), "$l: mission page, title escaped");
-    ok(str_contains($h, 'openstreetmap') === ($l === 'en') && str_contains($h, 'yandex.ru/maps') === ($l === 'ru'), "$l: map link for the meeting place");
+    ok(str_contains($h, 'openstreetmap') === ($l === 'en') && str_contains($h, 'yandex.ru/maps/?text') === ($l === 'ru') && str_contains($h, 'class="tmap"') && str_contains($h, 'api-maps.yandex.ru'), "$l: map block with a link fallback, Yandex loaded when a key is set");
     ok(str_contains($h, '/product/7') && str_contains($h, 'Ann &lt;i&gt;') && str_contains($h, '/file/9') && str_contains($h, 'Sales team'), "$l: shop link, CRM contact, attachment and team are shown");
     ok(str_contains(render($l, 'mission', ['edit' => 1] + $base), 'name="td[contact_id]"') && str_contains(render($l, 'mission', ['add' => '1:good'] + $base), 'id="taskform"'), "$l: task form with the contact picker");
     $h = render($l, 'mission', ['own' => false, 'author' => 'Bob', 'teams' => [], 'sharedTeams' => [], 'shopLinks' => [], 'announceOn' => false] + $base);
     ok(!str_contains($h, 'task_delete') && !str_contains($h, 'file_add'), "$l: a shared mission is read-only");
-    $h = render($l, 'index', ['rows' => [$m + ['cat' => null, 'cat_ru' => null, 'color' => null, 'n' => 3, 'done' => 1, 'starred' => 1]], 'withMe' => [['id' => 5, 'title' => 'Team one', 'status' => 'active', 'author' => 'Bob', 'starred' => 0]], 'cats' => [], 'st' => '', 'q' => '', 'cat' => 0, 'bm' => true, 'cronUrl' => 'https://x/api']);
+    $h = render($l, 'index', ['rows' => [$m + ['cat' => null, 'cat_ru' => null, 'color' => null, 'n' => 3, 'done' => 1, 'total' => 50, 'starred' => 1]], 'withMe' => [['id' => 5, 'title' => 'Team one', 'status' => 'active', 'author' => 'Bob', 'starred' => 0]], 'cats' => [], 'st' => '', 'q' => '', 'cat' => 0, 'bm' => true, 'langs' => ['en' => 'English'], 'cronUrl' => 'https://x/api']);
     ok(str_contains($h, 'Team one') && str_contains($h, '★'), "$l: list with bookmarks and missions shared with my teams");
     $h = render($l, 'notes', ['rows' => [['id' => 1, 'kind' => 'reminder', 'body' => 'Rem <x>', 'mission_id' => 1, 'read_at' => null, 'created_at' => '2030-01-01 10:00:00'], ['id' => 2, 'kind' => 'team', 'body' => 'Done', 'mission_id' => null, 'read_at' => '2030-01-01 11:00:00', 'created_at' => '2030-01-01 10:00:00']]]);
     ok(str_contains($h, 'Rem &lt;x&gt;'), "$l: notification list");
+    $h = render($l, 'setup', ['hub' => false, 'own' => ['yandex_maps_key' => '', 'mapbox_key' => '', 'tactify_url' => ''], 'now' => ['yandex_maps_key' => 'abcdefghij', 'mapbox_key' => '', 'tactify_url' => 'https://www.tactify.ru', '_from_hub' => 1, '_age' => 600], 'keys' => ['yandex_maps_key', 'mapbox_key', 'tactify_url']]);
+    ok(str_contains($h, 'abcd…hij') && !str_contains($h, 'abcdefghij'), "$l: setup page masks the keys");
+    $h = render($l, 'setup', ['hub' => true, 'own' => ['yandex_maps_key' => 'K', 'mapbox_key' => '', 'tactify_url' => ''], 'now' => [], 'keys' => ['yandex_maps_key', 'mapbox_key', 'tactify_url']]);
+    ok(str_contains($h, 'name="yandex_maps_key"'), "$l: setup page on the hub");
     $h = render($l, 'library', ['rows' => [], 'cats' => [], 'q' => '', 'cat' => 0]);
     ok($h !== '', "$l: library");
 }

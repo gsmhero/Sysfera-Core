@@ -19,3 +19,4 @@ $tab = 'categories'; include __DIR__ . '/_nav.php'; ?>
   <label class="fld inline"><span><?= e($sf->t('color')) ?></span><input type="color" name="color" value="#6b7280"></label>
   <label class="fld inline"><span>№</span><input name="sort_order" value="0" size="3"></label>
   <button class="btn primary"><?= e($sf->t('add')) ?></button></div></form>
+</div>
