@@ -14,14 +14,14 @@
     <label><?= e(t('news.from')) ?> <input type="date" name="nf" value="<?= e((string)$news['from']) ?>"></label>
     <label><?= e(t('news.to')) ?> <input type="date" name="nt" value="<?= e((string)$news['to']) ?>"></label>
     <button class="btn sm"><?= e(t('news.apply')) ?></button>
-    <?php if ($news['from'] || $news['to']): ?><a class="sm" href="<?= e($q(['nf' => '', 'nt' => '', 'np' => 1])) ?>"><?= e(t('news.reset')) ?></a><?php endif; ?>
+    <?php if ($news['from'] || $news['to']): ?><a class="btn sm" href="<?= e($q(['nf' => '', 'nt' => '', 'np' => 1])) ?>"><?= e(t('news.reset')) ?></a><?php endif; ?>
     <small class="muted"><?= e(t('news.total', ['n' => $news['total']])) ?></small>
   </form>
   <?php if (!$news['items']): ?><p class="muted"><?= e(t('news.none')) ?></p><?php endif; ?>
   <?php foreach ($news['items'] as $n): ?><article class="news-item <?= e($n['type']) ?>">
     <div class="news-h"><span class="badge <?= ['warning' => 'bad', 'update' => 'info', 'news' => 'mute'][$n['type']] ?>"><?= e(t('news.' . $n['type'])) ?></span><b><?= e($n['title']) ?></b><small class="muted"><?= e($n['date']) ?></small></div>
     <?php if ($n['body'] !== ''): ?><p><?= nl2br(e($n['body'])) ?></p><?php endif; ?>
-    <?php if ($n['url'] !== ''): ?><a class="sm" href="<?= e($n['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('news.more')) ?> →</a><?php endif; ?>
+    <?php if ($n['url'] !== ''): ?><a class="btn sm" href="<?= e($n['url']) ?>" target="_blank" rel="noopener noreferrer"><?= e(t('news.more')) ?> →</a><?php endif; ?>
   </article><?php endforeach; ?>
   <?php if ($news['pages'] > 1): ?><nav class="news-pg">
     <?php if ($news['page'] > 1): ?><a class="btn sm" href="<?= e($q(['np' => $news['page'] - 1])) ?>">‹</a><?php endif; ?>
@@ -29,7 +29,7 @@
     <?php if ($news['page'] < $news['pages']): ?><a class="btn sm" href="<?= e($q(['np' => $news['page'] + 1])) ?>">›</a><?php endif; ?>
   </nav><?php endif; ?></section>
 <?php endif; ?>
-<?php foreach ($widgets as $w): ?><section class="card"><?= $w ?></section><?php endforeach; ?>
+<?php foreach ($widgets as $w): ?><section class="card wdg"><?= $w ?></section><?php endforeach; ?>
 <?php if (!$plugins): ?>
   <section class="card hint"><h3><?= e(t('dash.empty_title')) ?></h3><p><?= e(t($isAdmin ? 'dash.empty_admin' : 'dash.empty_user')) ?></p>
     <?php if ($isAdmin): ?><a class="btn primary" href="<?= e(url('/plugins')) ?>"><?= e(t('nav.plugins')) ?></a><?php endif; ?></section>
