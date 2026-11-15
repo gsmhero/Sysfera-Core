@@ -59,6 +59,15 @@ foreach (['en', 'ru'] as $l) {
     ok(str_contains($h, 'name="yandex_maps_key"'), "$l: setup page on the hub");
     $h = render($l, 'library', ['rows' => [], 'cats' => [], 'q' => '', 'cat' => 0]);
     ok($h !== '', "$l: library");
+    $nrow = ['id' => 4, 'source' => 'site:shop.example.ru', 'title' => 'Net <b>one</b>', 'type' => 'Sales', 'category' => 'Sales', 'category_ru' => 'Продажи', 'description' => 'D', 'author' => 'Ann', 'tasks_n' => 3, 'updated_at' => '2030-01-01 10:00:00'];
+    $h = render($l, 'library', ['rows' => [], 'cats' => [], 'q' => '', 'cat' => 0, 'src' => 'net', 'net' => ['rows' => [$nrow, ['source' => 'tactify'] + $nrow], 'total' => 60, 'err' => null, 'page' => 1]]);
+    ok(str_contains($h, '/library/net/4') && str_contains($h, 'Net &lt;b&gt;one') && str_contains($h, 'tactify.ru') && str_contains($h, 'shop.example.ru') && str_contains($h, 'page=3'), "$l: network library list with sources and pages");
+    ok(render($l, "library", ["rows" => [], "cats" => [], "q" => "", "cat" => 0, "src" => "net", "net" => ["rows" => [], "total" => 0, "err" => "not_connected", "page" => 1]]) !== "", "$l: not connected message renders");
+    $h = render($l, 'netmission', ['m' => $nrow + ['content' => ['tasks' => [['title' => 'T <i>1</i>', 'type' => 'call', 'parent' => null, 'branch' => null], ['title' => 'T2', 'type' => 'zzz', 'parent' => 0, 'branch' => 'bad']]]], 'types' => $T, 'id' => 4]);
+    ok(str_contains($h, 'T &lt;i&gt;1') && str_contains($h, 'name="do" value="report"') && str_contains($h, 'name="do" value="import"') && str_contains($h, '<svg'), "$l: network mission preview, import and report");
+    $h = render($l, 'setup', ['hub' => true, 'own' => ['yandex_maps_key' => '', 'mapbox_key' => '', 'tactify_url' => ''], 'now' => [], 'keys' => ['yandex_maps_key', 'mapbox_key', 'tactify_url'],
+        'net' => ['has' => true, 'status' => ['at' => '2030-01-01 10:00:00', 'pulled' => 2, 'pushed' => 1, 'removed' => 0, 'error' => null], 'rows' => [['id' => 4, 'source' => 'tactify', 'title' => 'X <b>y</b>', 'author' => 'Bob', 'hidden' => 1, 'reports' => 2, 'updated_at' => 'x']], 'total' => 1]]);
+    ok(str_contains($h, 'name="tactify_secret"') && str_contains($h, 'value="net_sync"') && str_contains($h, 'X &lt;b&gt;y') && str_contains($h, 'value="net_delete"'), "$l: hub setup shows the Tactify key, sync and moderation");
 }
 ok(!array_diff_key($lang['en'], $lang['ru']) && !array_diff_key($lang['ru'], $lang['en']), 'every translation key exists in en and ru');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";

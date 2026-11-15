@@ -36,8 +36,56 @@ return function (\Sysfera\Plugin $sf): void {
     if (class_exists(\SysferaMsg\HubServer::class)) {
         // the hub answers installations (user 0) with the values the administrator typed on the hub
         \SysferaMsg\HubServer::register('mis.setup', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) use ($sf, $setupKeys) { $o = []; foreach ($setupKeys as $k) $o[$k] = $sf->setting('hub_' . $k, ''); return $o; }, true);
+        require_once __DIR__ . '/lib/Network.php';
+        // the network library (hub): sites publish / withdraw their shared missions, everybody reads, readers can report
+        \SysferaMsg\HubServer::register('mis.publish', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) {
+            $in = $c->in; $local = (int)($in['local_id'] ?? 0); if ($local <= 0) throw new \SysferaMsg\HubError('bad_request', 400);
+            if ((int)$hdb->val("SELECT COUNT(*) FROM {p}mis_net WHERE owner_sid = ? AND updated_at > (NOW() - INTERVAL 1 DAY)", [$c->sid()]) >= Network::PUBLISH_PER_DAY) throw new \SysferaMsg\HubError('post_rate', 429);
+            $clean = Network::sanitize((array)($in['mission'] ?? [])); if (!$clean) throw new \SysferaMsg\HubError('bad_mission', 422);
+            Network::store($hdb, 'site:' . $c->domain, (string)$local, $c->sid(), $clean, Network::s($in['author'] ?? '', 100), Network::s($in['category'] ?? '', 100), Network::s($in['category_ru'] ?? '', 100));
+            return ['ok' => true];
+        });
+        \SysferaMsg\HubServer::register('mis.withdraw', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) {
+            $hdb->q('DELETE FROM {p}mis_net WHERE source = ? AND ext_id = ? AND owner_sid = ?', ['site:' . $c->domain, (string)(int)($c->in['local_id'] ?? 0), $c->sid()]);
+            return ['ok' => true];
+        });
+        \SysferaMsg\HubServer::register('mis.report', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) {
+            $id = (int)($c->in['id'] ?? 0); if (!$hdb->val('SELECT 1 FROM {p}mis_net WHERE id = ?', [$id])) throw new \SysferaMsg\HubError('not_found', 404);
+            $hdb->q('INSERT IGNORE INTO {p}mis_net_reports (net_id, sid) VALUES (?,?)', [$id, $c->sid()]);
+            $n = (int)$hdb->val('SELECT COUNT(*) FROM {p}mis_net_reports WHERE net_id = ?', [$id]);
+            $hdb->q('UPDATE {p}mis_net SET reports = ?, hidden = IF(? >= ?, 1, hidden), updated_at = updated_at WHERE id = ?', [$n, $n, Network::HIDE_AFTER_REPORTS, $id]);
+            return ['ok' => true];
+        });
+        \SysferaMsg\HubServer::register('mis.library', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) use ($sf) {
+            if (function_exists('mis_tactify_tick')) mis_tactify_tick();
+            if (isset($c->q['id'])) {
+                $r = $hdb->row('SELECT id, source, title, type, category, category_ru, description, author, tasks_n, content, updated_at FROM {p}mis_net WHERE id = ? AND hidden = 0', [(int)$c->q['id']]);
+                if (!$r) throw new \SysferaMsg\HubError('not_found', 404);
+                $r['content'] = json_decode((string)$r['content'], true) ?: [];
+                return ['mission' => $r];
+            }
+            $page = max(1, (int)($c->q['page'] ?? 1));
+            [$rows, $total] = Network::search($hdb, mb_substr((string)($c->q['q'] ?? ''), 0, 100), mb_substr((string)($c->q['cat'] ?? ''), 0, 100), (string)($c->q['src'] ?? ''), 24, ($page - 1) * 24);
+            return ['rows' => $rows, 'total' => $total];
+        }, true);
     }
     $isHub = fn(): bool => Hooks::filter('messenger.hub', null) !== null;
+    /** hub: pull from / push to tactify.ru at most every 15 minutes (called when somebody opens the library, by the cron and by the "sync now" button) */
+    $tactifySync = function (bool $force = false) use ($sf, $db, $isHub): ?array {
+        if (!$isHub() || !class_exists(\SysferaMissions\Network::class)) return null;
+        $base = \SysferaMissions\Network::baseUrl($sf->setting('hub_tactify_url', ''));
+        $secret = $sf->setting('hub_tactify_secret', '');
+        if ($base === '' || strlen($secret) < 32) return null;
+        if (!$force && time() - (int)$sf->setting('hub_tactify_last', '0') < \SysferaMissions\Network::PULL_EVERY) return null;
+        $sf->setSetting('hub_tactify_last', (string)time());
+        try { $r = \SysferaMissions\Network::syncTactify($db, $base, $secret, $force ? 25 : 8); } catch (\Throwable $e) { $r = ['pulled' => 0, 'pushed' => 0, 'removed' => 0, 'error' => 'exception']; App::log('missions tactify sync ' . $e); }
+        $sf->setSetting('hub_tactify_status', json_encode($r + ['at' => date('Y-m-d H:i:s')]));
+        return $r;
+    };
+    $GLOBALS['mis_tactify_tick'] = $tactifySync;
+    if (!function_exists('mis_tactify_tick')) { function mis_tactify_tick(): void { if (isset($GLOBALS['mis_tactify_tick'])) ($GLOBALS['mis_tactify_tick'])(false); } }
+    /** a site: the connection to the hub (null when this site is not connected) */
+    $netClient = function () { $c = Hooks::filter('messenger.client', null); return $c && method_exists($c, 'ready') && $c->ready() ? $c : null; };
     /** the values in use: what the administrator typed on this site, else what the hub sent (cached for an hour) */
     $setup = function () use ($sf, $isHub, $setupKeys): array {
         $own = []; foreach ($setupKeys as $k) $own[$k] = $isHub() ? $sf->setting('hub_' . $k, '') : $sf->setting('local_' . $k, '');
@@ -57,6 +105,16 @@ return function (\Sysfera\Plugin $sf): void {
 
     /* ---------- access ---------- */
     $mine = fn(int $id): ?array => $db->row('SELECT * FROM {p}mis_missions WHERE id = ? AND user_id = ?', [$id, $uid()]);
+    /** a mission shared to the library goes to the network library on the hub (and comes back when it is made private or deleted); never blocks the page */
+    $netSync = function (int $id, bool $drop = false) use ($db, $uid, $netClient, $sf): void {
+        $c = $netClient(); if (!$c) return;
+        $m = $db->row('SELECT m.*, c.name AS cat, c.name_ru AS cat_ru, u.name AS author FROM {p}mis_missions m LEFT JOIN {p}mis_categories c ON c.id = m.category_id LEFT JOIN {p}users u ON u.id = m.user_id WHERE m.id = ? AND m.user_id = ?', [$id, $uid()]);
+        if (!$m) return;
+        try {
+            if ($m['shared'] && !$drop) { $r = $c->call('POST', 'mis.publish', [], ['local_id' => $id, 'mission' => Mission::export($db, $id), 'category' => (string)$m['cat'], 'category_ru' => (string)$m['cat_ru'], 'author' => (string)$m['author']], null, null, 5); if ($r['ok']) $db->q('UPDATE {p}mis_missions SET net_pub = 1 WHERE id = ?', [$id]); }
+            elseif ($m['net_pub']) { $r = $c->call('POST', 'mis.withdraw', [], ['local_id' => $id], null, null, 5); if ($r['ok']) $db->q('UPDATE {p}mis_missions SET net_pub = 0 WHERE id = ?', [$id]); }
+        } catch (\Throwable $e) { App::log('missions network ' . $e->getMessage()); }
+    };
     /** the teams the user belongs to (only when Teams is installed) */
     $myTeams = function () use ($db, $uid, $teamsOn): array {
         if (!$teamsOn()) return [];
@@ -116,7 +174,7 @@ return function (\Sysfera\Plugin $sf): void {
     $shopLinks = fn(): array => (array)Hooks::filter('tasktypes.shoplinks', [], $uid());
 
     /* ================= my missions ================= */
-    $sf->route('*', '/', function () use ($sf, $db, $uid, $mine, $access, $cats, $path, $cron, $isAdmin, $finish, $dropFiles, $teamsOn, $types) {
+    $sf->route('*', '/', function () use ($sf, $db, $uid, $mine, $access, $cats, $path, $cron, $isAdmin, $finish, $dropFiles, $teamsOn, $types, $netSync) {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = (string)($_POST['do'] ?? ''); $id = (int)($_POST['id'] ?? 0);
             if ($do === 'create') {
@@ -128,7 +186,7 @@ return function (\Sysfera\Plugin $sf): void {
                     isset(I18n::languages()[(string)($_POST['lang'] ?? '')]) ? (string)$_POST['lang'] : '', ($_POST['vis'] ?? '') === 'public' ? 1 : 0, !empty($_POST['hide_files']) ? 1 : 0]);
                 $mid = $db->insertId();
                 $db->q("INSERT INTO {p}mis_tasks (mission_id, user_id, title, type) VALUES (?,?,?, 'note')", [$mid, $uid(), $sf->t('start_task')]);
-                $sf->log('mission.created', ['id' => $mid]); redirect($path("m/$mid"));
+                $sf->log('mission.created', ['id' => $mid]); $netSync($mid); redirect($path("m/$mid"));
             }
             if ($do === 'import') {
                 $f = $_FILES['file'] ?? null;
@@ -148,6 +206,7 @@ return function (\Sysfera\Plugin $sf): void {
             }
             if ($id && ($m = $mine($id))) {
                 if ($do === 'delete') {
+                    $netSync($id, true);
                     $tids = array_map(fn($r) => (int)$r['id'], $db->rows('SELECT id FROM {p}mis_tasks WHERE mission_id = ?', [$id])); $dropFiles($tids);
                     foreach (['mis_tasks', 'mis_shares', 'mis_bookmarks', 'mis_notes'] as $t) $db->q("DELETE FROM {p}$t WHERE mission_id = ?", [$id]);
                     $db->q('DELETE FROM {p}mis_missions WHERE id = ?', [$id]); flash($sf->t('deleted'));
@@ -194,7 +253,7 @@ return function (\Sysfera\Plugin $sf): void {
         $showMission($x[0], $x[1]);
     }, ['cap' => 'missions.use']);
 
-    $sf->route('POST', '/m/{id}', function (array $a) use ($sf, $db, $uid, $mine, $path, $subtree, $finish, $types, $dropFiles, $store, $myTeams, $crmOn) {
+    $sf->route('POST', '/m/{id}', function (array $a) use ($sf, $db, $uid, $mine, $path, $subtree, $finish, $types, $dropFiles, $store, $myTeams, $crmOn, $netSync) {
         $id = (int)$a['id']; $m = $mine($id); if (!$m) redirect($path());
         $do = (string)($_POST['do'] ?? ''); $back = $path("m/$id");
         $touch = fn() => $db->q('UPDATE {p}mis_missions SET updated_at = NOW() WHERE id = ?', [$id]);
@@ -271,6 +330,7 @@ return function (\Sysfera\Plugin $sf): void {
             redirect($back . ($f ? '#t' . (int)$f['task_id'] : ''));
         } elseif ($do === 'complete') { $finish($id); flash($sf->t('mission_done')); }
         elseif ($do === 'uncomplete') { $db->q("UPDATE {p}mis_missions SET status = 'active' WHERE id = ?", [$id]); }
+        if (in_array($do, ['update', 'task_save', 'task_delete'], true)) $netSync($id);
         redirect($back);
     }, ['cap' => 'missions.use']);
 
@@ -294,14 +354,40 @@ return function (\Sysfera\Plugin $sf): void {
     }, ['cap' => 'missions.use']);
 
     /* ================= library of shared missions ================= */
-    $sf->route('GET', '/library', function () use ($sf, $db, $cats) {
-        $q = trim((string)($_GET['q'] ?? '')); $cat = (int)($_GET['cat'] ?? 0);
+    $sf->route('GET', '/library', function () use ($sf, $db, $cats, $netClient) {
+        $q = trim((string)($_GET['q'] ?? '')); $cat = (int)($_GET['cat'] ?? 0); $src = (string)($_GET['src'] ?? ''); $net = null;
+        if (in_array($src, ['net', 'tactify', 'sites'], true)) {   // the network library kept on the hub
+            $net = ['rows' => [], 'total' => 0, 'err' => null, 'page' => max(1, (int)($_GET['page'] ?? 1))];
+            $c = $netClient();
+            if (!$c) $net['err'] = 'not_connected';
+            else {
+                $catName = $cat ? (string)$db->val('SELECT name FROM {p}mis_categories WHERE id = ?', [$cat]) : '';
+                $r = $c->call('GET', 'mis.library', ['q' => $q, 'cat' => $catName, 'src' => $src === 'net' ? '' : $src, 'page' => $net['page']], null, null, 6, '0');
+                if ($r['ok']) { $net['rows'] = (array)($r['data']['rows'] ?? []); $net['total'] = (int)($r['data']['total'] ?? 0); } else $net['err'] = (string)$r['error'];
+            }
+            $sf->render('library', ['rows' => [], 'cats' => $cats(), 'q' => $q, 'cat' => $cat, 'src' => $src, 'net' => $net], $sf->t('library'));
+            return;
+        }
         $w = ' WHERE m.shared = 1'; $a = [];
         if ($cat) { $w .= ' AND m.category_id = ?'; $a[] = $cat; }
         if ($q !== '') { $w .= ' AND (m.title LIKE ? OR m.type LIKE ? OR m.description LIKE ?)'; array_push($a, "%$q%", "%$q%", "%$q%"); }
         $rows = $db->rows("SELECT m.id, m.user_id, m.title, m.type, m.description, m.updated_at, c.name AS cat, c.name_ru AS cat_ru, c.color, u.name AS author, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS n
             FROM {p}mis_missions m LEFT JOIN {p}mis_categories c ON c.id = m.category_id LEFT JOIN {p}users u ON u.id = m.user_id$w ORDER BY m.updated_at DESC LIMIT 100", $a);
-        $sf->render('library', ['rows' => $rows, 'cats' => $cats(), 'q' => $q, 'cat' => $cat], $sf->t('library'));
+        $sf->render('library', ['rows' => $rows, 'cats' => $cats(), 'q' => $q, 'cat' => $cat, 'src' => '', 'net' => null], $sf->t('library'));
+    }, ['cap' => 'missions.use']);
+    /** a mission of the network library: preview, copy to my missions, report */
+    $sf->route('*', '/library/net/{id}', function (array $a) use ($sf, $db, $uid, $path, $netClient, $types) {
+        $c = $netClient(); $id = (int)$a['id']; $m = null;
+        if ($c) { $r = $c->call('GET', 'mis.library', ['id' => $id], null, null, 6, '0'); if ($r['ok']) $m = $r['data']['mission'] ?? null; }
+        if (!$m) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            $do = (string)($_POST['do'] ?? '');
+            if ($do === 'import') {
+                try { $new = Mission::import($db, (array)$m['content'], $uid(), $types()); flash($sf->t('imported')); redirect($path("m/$new")); } catch (\RuntimeException) { flash($sf->t('e_file'), 'bad'); }
+            } elseif ($do === 'report') { $c->call('POST', 'mis.report', [], ['id' => $id], null, null, 5); flash($sf->t('net_reported')); }
+            redirect($path("library/net/$id"));
+        }
+        $sf->render('netmission', ['m' => $m, 'types' => $types(), 'id' => $id], (string)$m['title']);
     }, ['cap' => 'missions.use']);
     $sf->route('GET', '/library/{id}', function (array $a) use ($sf, $access, $showMission) {
         $x = $access((int)$a['id']);
@@ -336,9 +422,13 @@ return function (\Sysfera\Plugin $sf): void {
     }, ['cap' => 'missions.use']);
 
     /* ================= setup: map keys, library address ================= */
-    $sf->route('*', '/setup', function () use ($sf, $path, $setup, $isHub, $setupKeys) {
+    $sf->route('*', '/setup', function () use ($sf, $db, $path, $setup, $isHub, $setupKeys, $tactifySync) {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-            if (($_POST['do'] ?? '') === 'refresh') { @unlink(SF_ROOT . '/storage/missions-setup.json'); @unlink(SF_ROOT . '/storage/missions-setup.json.try'); flash($sf->t('setup_refreshed')); }
+            $do = (string)($_POST['do'] ?? '');
+            if ($isHub() && $do === 'net_sync') { $r = $tactifySync(true); flash($r === null ? $sf->t('net_sync_off') : ($r['error'] ? $sf->t('net_sync_err', ['e' => $r['error']]) : $sf->t('net_synced', ['a' => $r['pulled'], 'b' => $r['pushed'], 'c' => $r['removed']])), $r && !$r['error'] ? 'ok' : 'bad'); }
+            elseif ($isHub() && $do === 'net_hide') $db->q('UPDATE {p}mis_net SET hidden = 1 - hidden, updated_at = updated_at WHERE id = ?', [(int)($_POST['id'] ?? 0)]);
+            elseif ($isHub() && $do === 'net_delete') $db->q('DELETE FROM {p}mis_net WHERE id = ?', [(int)($_POST['id'] ?? 0)]);
+            elseif ($do === 'refresh') { @unlink(SF_ROOT . '/storage/missions-setup.json'); @unlink(SF_ROOT . '/storage/missions-setup.json.try'); flash($sf->t('setup_refreshed')); }
             else {
                 foreach ($setupKeys as $k) {
                     $v = trim((string)($_POST[$k] ?? ''));
@@ -346,12 +436,16 @@ return function (\Sysfera\Plugin $sf): void {
                     if ($k !== 'tactify_url' && !preg_match('/^[A-Za-z0-9._\-]{0,300}$/', $v)) continue;                   // keys: letters, digits . _ -
                     $sf->setSetting(($isHub() ? 'hub_' : 'local_') . $k, $v);
                 }
+                $sec = trim((string)($_POST['tactify_secret'] ?? ''));   // the key of the Tactify API: kept on the hub only, never sent to sites
+                if ($isHub() && $sec !== '' && preg_match('/^[A-Za-z0-9]{32,200}$/', $sec)) $sf->setSetting('hub_tactify_secret', $sec);
                 flash($sf->t('saved'));
             }
             redirect($path('setup'));
         }
         $own = []; foreach ($setupKeys as $k) $own[$k] = $sf->setting(($isHub() ? 'hub_' : 'local_') . $k, '');
-        $sf->render('setup', ['hub' => $isHub(), 'own' => $own, 'now' => $setup(), 'keys' => $setupKeys], $sf->t('setup'));
+        $net = $isHub() ? ['has' => strlen($sf->setting('hub_tactify_secret', '')) >= 32, 'status' => json_decode($sf->setting('hub_tactify_status', ''), true) ?: null,
+            'rows' => $db->rows('SELECT id, source, title, author, hidden, reports, updated_at FROM {p}mis_net ORDER BY updated_at DESC LIMIT 40'), 'total' => (int)$db->val('SELECT COUNT(*) FROM {p}mis_net')] : null;
+        $sf->render('setup', ['hub' => $isHub(), 'own' => $own, 'now' => $setup(), 'keys' => $setupKeys, 'net' => $net], $sf->t('setup'));
     }, ['admin' => true]);
 
     /* ================= categories (administrator) ================= */
@@ -369,10 +463,11 @@ return function (\Sysfera\Plugin $sf): void {
 
     /* ================= reminders (cron) ================= */
     // hosting cron, every minute:  curl -s "https://<site>/api/missions/remind?token=<token shown on the Missions page for administrators>"
-    $sf->api('GET', 'missions/remind', function () use ($sf, $db, $finish, $note, $inLang) {
+    $sf->api('GET', 'missions/remind', function () use ($sf, $db, $finish, $note, $inLang, $tactifySync) {
         header('Content-Type: application/json; charset=utf-8');
         $tok = $sf->setting('cron_token', '');
         if ($tok === '' || !hash_equals($tok, (string)($_GET['token'] ?? ''))) { http_response_code(401); echo '{"error":"unauthorized"}'; return; }
+        $tactifySync();
         $due = $db->rows('SELECT t.*, m.title AS mtitle, m.lang AS mlang, u.email AS owner_email, u.lang AS ulang FROM {p}mis_tasks t JOIN {p}mis_missions m ON m.id = t.mission_id JOIN {p}users u ON u.id = t.user_id
             WHERE t.reminder = 1 AND t.reminder_sent = 0 AND t.completed = 0 AND t.scheduled_at IS NOT NULL AND t.scheduled_at <= NOW() ORDER BY t.scheduled_at LIMIT 100');
         $sent = 0; $types = TaskTypes::all($db, null, true);
