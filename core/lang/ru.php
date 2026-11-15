@@ -22,11 +22,18 @@ return [
     'land.s3' => 'Начните работать', 'land.s3d' => 'Склад и заказы, чат с коллегами и новости — в одном аккаунте.',
     '_name' => 'Русский',
 
-    'common.save' => 'Сохранить', 'common.delete' => 'Удалить', 'common.cancel' => 'Отмена',
+    'common.save' => 'Сохранить', 'common.delete' => 'Удалить', 'common.cancel' => 'Отмена', 'common.saved' => 'Сохранено.', 'common.deleted' => 'Удалено.',
 
     'time.now' => 'только что', 'time.min' => '{n} мин назад', 'time.hour' => '{n} ч назад', 'time.day' => '{n} дн назад',
 
     'nav.dashboard' => 'Главная', 'nav.plugins' => 'Компоненты', 'nav.users' => 'Пользователи', 'nav.settings' => 'Настройки',
+    'nav.tasktypes' => 'Типы задач',
+    'tasktypes.hint' => 'Единый список типов задач для Миссий и CRM. У каждого типа свои дополнительные поля; отметьте, где он доступен. Встроенные типы можно переименовать и выключить, но не удалить.',
+    'tasktypes.err_add' => 'Укажите код типа (латиницей) и название; код должен быть новым.', 'tasktypes.err_builtin' => 'Встроенные типы удалить нельзя — выключите их.', 'tasktypes.restored' => 'Встроенные типы восстановлены.',
+    'tasktypes.code' => 'Код', 'tasktypes.name' => 'Название', 'tasktypes.name_ru' => 'Название (русское)', 'tasktypes.icon' => 'Значок', 'tasktypes.color' => 'Цвет', 'tasktypes.apps' => 'Доступен в', 'tasktypes.fields' => 'Поля задачи', 'tasktypes.sort' => 'Порядок', 'tasktypes.active' => 'Вкл.',
+    'tasktypes.f_key' => 'Ключ', 'tasktypes.f_kind' => 'Вид', 'tasktypes.f_label' => 'Подпись', 'tasktypes.f_label_ru' => 'Подпись (русская)', 'tasktypes.add' => 'Добавить тип', 'tasktypes.restore' => 'Восстановить встроенные типы', 'tasktypes.confirm_restore' => 'Вернуть все встроенные типы к исходным настройкам?',
+    'tasktypes.app_missions' => 'Миссии', 'tasktypes.app_crm' => 'CRM',
+    'tasktypes.kind_text' => 'Текст', 'tasktypes.kind_textarea' => 'Длинный текст', 'tasktypes.kind_email' => 'E-mail', 'tasktypes.kind_phone' => 'Телефон', 'tasktypes.kind_url' => 'Ссылка', 'tasktypes.kind_shop' => 'Ссылка на магазин Basebase', 'tasktypes.kind_task' => 'Задача миссии', 'tasktypes.kind_contact' => 'Контакт CRM',
     'nav.updates' => 'Обновления', 'nav.profile' => 'Профиль',
 
     'role.admin' => 'Администратор', 'role.user' => 'Пользователь',

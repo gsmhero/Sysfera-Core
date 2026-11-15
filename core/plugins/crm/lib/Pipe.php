@@ -6,7 +6,6 @@ namespace SysferaCrm;
 final class Pipe
 {
     public const KINDS = ['open', 'won', 'lost'];
-    public const TASK_TYPES = ['todo', 'call', 'meeting', 'email', 'deadline'];
 
     /**
      * Totals for a list of deals.

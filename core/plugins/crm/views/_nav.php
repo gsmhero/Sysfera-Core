@@ -3,6 +3,8 @@ if (!function_exists('crm_money')) {
     function crm_money($v, string $cur = ''): string { return number_format((float)$v, 2, '.', ' ') . ($cur !== '' ? ' ' . $cur : ''); }
     function crm_date(?string $d): string { return $d ? date('d.m.Y', strtotime($d)) : ''; }
     function crm_dt(?string $d): string { return $d ? (substr($d, 11, 5) === '00:00' ? date('d.m.Y', strtotime($d)) : date('d.m.Y H:i', strtotime($d))) : ''; }
+    /** the task types offered in CRM (shared registry), cached per request */
+    function crm_task_types($sf, bool $all = false): array { static $c = []; return $c[(int)$all] ??= \Sysfera\TaskTypes::all($sf->db(), $all ? null : 'crm', $all); }
     function crm_initials(?string $n): string { return mb_strtoupper(mb_substr(trim((string)$n) ?: '?', 0, 1)); }
 }
 $tabs = ['dashboard' => ['/', 'menu'], 'deals' => ['/deals', 'deals'], 'contacts' => ['/contacts', 'contacts'], 'tasks' => ['/tasks', 'tasks'], 'reports' => ['/reports', 'reports']];

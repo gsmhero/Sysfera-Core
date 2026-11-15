@@ -172,7 +172,8 @@ final class Sync
         $body = Bb::product($p, $map, $avail, $parts);
         $r = $this->sreq('PUT', $this->base($map['external_id']), $body, empty($body['images']) ? 10 : 60, true);   // Basebase downloads the photos while answering
         if ($r['error'] !== null) return $this->fail($pid, $r['error']);
-        $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL WHERE product_id = ?', [$body['stock'], $pid]);
+        $url = (string)($r['data']['url'] ?? '');   // where the product lives on Basebase
+        $this->db->q('UPDATE {p}wmsbb_products SET synced_at = NOW(), last_stock = ?, dirty = 0, last_error = NULL, bb_url = COALESCE(?, bb_url) WHERE product_id = ?', [$body['stock'], preg_match('~^https?://[^\s<>"\']+$~i', $url) ? $url : null, $pid]);
         return null;
     }
 

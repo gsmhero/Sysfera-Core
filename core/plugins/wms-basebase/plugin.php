@@ -208,6 +208,11 @@ return function (\Sysfera\Plugin $sf): void {
     /* ================= demo mode ================= */
     // visitors of a public demo must not push demo data to a real Basebase account; the owner's connection settings survive a reset
     $sf->on('demo.reset', function () use ($db) { foreach (['wmsbb_products', 'wmsbb_items', 'wmsbb_events', 'wmsbb_sellers'] as $t) $db->q("DELETE FROM {p}$t"); });
+    // the user's own products on Basebase, for the "Buy product" task of the Missions component
+    $sf->on('tasktypes.shoplinks', function (array $list, int $user) use ($db): array {
+        foreach ($db->rows('SELECT p.name, m.bb_url FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id WHERE p.owner_id = ? AND m.published = 1 AND p.archived = 0 AND m.bb_url IS NOT NULL ORDER BY p.name LIMIT 200', [$user]) as $r) $list[] = ['url' => $r['bb_url'], 'title' => $r['name']];
+        return $list;
+    });
     \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['wmsbb.use', 'wmsbb.admin'])));
 
     /* ================= fields on the WMS product card ================= */

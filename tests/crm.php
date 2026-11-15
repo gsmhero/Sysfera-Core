@@ -83,7 +83,7 @@ foreach (array_merge([$dir . '/plugin.php'], glob($dir . '/views/*.php')) as $f)
 }
 $missing = array_filter($used, fn($f, $k) => !isset($en[$k]), ARRAY_FILTER_USE_BOTH);
 ok(!$missing, 'every translation key used exists in en.php' . ($missing ? ' (missing: ' . implode(', ', array_keys($missing)) . ')' : ''));
-$dyn = ['tt_' => Pipe::TASK_TYPES, 'ft_' => Fields::TYPES, 'perm_' => Pipe::PERMS, 's_' => Pipe::KINDS, 'ent_' => Fields::ENTITIES, 'tl_' => ['note', 'stage', 'created', 'edit', 'task', 'task_done'],
+$dyn = ['ft_' => Fields::TYPES, 'perm_' => Pipe::PERMS, 's_' => Pipe::KINDS, 'ent_' => Fields::ENTITIES, 'tl_' => ['note', 'stage', 'created', 'edit', 'task', 'task_done'],
         'g_' => ['overdue', 'today', 'upcoming', 'none', 'done'], 'tf_' => ['mine', 'all', 'done'], 'scope_' => ['own', 'all'], 'prof_' => ['manager', 'team_lead', 'observer']];
 $gaps = []; foreach ($dyn as $pre => $keys) foreach ($keys as $k) if (!isset($en[$pre . $k])) $gaps[] = $pre . $k;
 ok(!$gaps, 'dynamic translation keys exist' . ($gaps ? ' (missing: ' . implode(', ', $gaps) . ')' : ''));

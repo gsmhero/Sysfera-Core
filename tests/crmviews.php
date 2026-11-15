@@ -10,6 +10,7 @@ if (!function_exists('csrf_token')) { function csrf_token(): string { return 'x'
 if (!function_exists('url')) { function url(string $p = '/'): string { return '/' . ltrim($p, '/'); } }
 
 $dir = dirname(__DIR__) . '/core/plugins/crm';
+require dirname(__DIR__) . '/core/app/TaskTypes.php'; require dirname(__DIR__) . '/core/app/I18n.php';
 require $dir . '/lib/Fields.php'; require $dir . '/lib/Pipe.php';
 $en = require $dir . '/lang/en.php';
 
@@ -23,6 +24,7 @@ final class FakeSf {
     public function asset(string $f): string { return '/assets/p/crm/' . $f; }
     public function auth(): FakeAuth { return new FakeAuth(); }
     public function can(string $c): bool { return true; }
+    public function db() { return null; }   // the task types fall back to the built-in list
     public function setting(string $k, string $d = ''): string { return $d; }
 }
 

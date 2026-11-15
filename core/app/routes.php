@@ -12,6 +12,7 @@ return function (App $app): void {
     $app->addMenu(['label' => 'nav.dashboard', 'path' => '/', 'order' => 0, 'icon' => 'home']);
     $app->addMenu(['label' => 'nav.plugins', 'path' => '/plugins', 'cap' => '__admin__', 'order' => 90, 'icon' => 'puzzle']);
     $app->addMenu(['label' => 'nav.users', 'path' => '/users', 'cap' => '__admin__', 'order' => 91, 'icon' => 'users']);
+    $app->addMenu(['label' => 'nav.tasktypes', 'path' => '/task-types', 'cap' => '__admin__', 'order' => 91.5, 'icon' => 'cog']);
     $app->addMenu(['label' => 'nav.settings', 'path' => '/settings', 'cap' => '__admin__', 'order' => 92, 'icon' => 'cog']);
     $app->addMenu(['label' => 'nav.updates', 'path' => '/upgrade', 'cap' => '__admin__', 'order' => 93, 'icon' => 'refresh']);
 
@@ -192,6 +193,31 @@ return function (App $app): void {
             flash(t('settings.saved')); redirect('/settings');
         }
         View::render('settings', ['caps' => $app->plugins()->capabilities(), 'langs' => I18n::languages()], t('nav.settings'));
+    }, ['admin' => true]);
+
+    /* ---------- task types shared by Missions, CRM ... ---------- */
+    $r->add('*', '/task-types', function () use ($db) {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+            $do = (string)($_POST['do'] ?? ''); $code = \Sysfera\TaskTypes::code((string)($_POST['code'] ?? ''));
+            $apps = implode(',', array_values(array_intersect(\Sysfera\TaskTypes::APPS, (array)($_POST['apps'] ?? [])))) ;
+            $name = mb_substr(trim((string)($_POST['name'] ?? '')), 0, 80);
+            $vals = fn() => [$name, mb_substr(trim((string)($_POST['name_ru'] ?? '')), 0, 80), mb_substr(trim((string)($_POST['icon'] ?? '')), 0, 8), preg_match('/^#[0-9a-fA-F]{6}$/', (string)($_POST['color'] ?? '')) ? $_POST['color'] : '#6b7280',
+                $apps, json_encode(\Sysfera\TaskTypes::fieldsFromPost($_POST), JSON_UNESCAPED_UNICODE), (int)($_POST['sort'] ?? 0), !empty($_POST['active']) ? 1 : 0];
+            if ($do === 'add') {
+                if ($code === '' || $name === '' || $db->val('SELECT 1 FROM {p}task_types WHERE code = ?', [$code])) flash(t('tasktypes.err_add'), 'bad');
+                else { $db->q('INSERT INTO {p}task_types (name, name_ru, icon, color, apps, fields, sort, active, code) VALUES (?,?,?,?,?,?,?,?,?)', [...$vals(), $code]); flash(t('common.saved')); }
+            } elseif ($do === 'save' && $code !== '' && $name !== '') { $db->q('UPDATE {p}task_types SET name=?, name_ru=?, icon=?, color=?, apps=?, fields=?, sort=?, active=? WHERE code = ?', [...$vals(), $code]); flash(t('common.saved')); }
+            elseif ($do === 'delete' && $code !== '') {
+                $row = $db->row('SELECT builtin FROM {p}task_types WHERE code = ?', [$code]);
+                if ($row && !$row['builtin']) { $db->q('DELETE FROM {p}task_types WHERE code = ?', [$code]); flash(t('common.deleted')); } else flash(t('tasktypes.err_builtin'), 'bad');
+            } elseif ($do === 'restore') {   // the built-in types back to their original names, fields and settings (your own types stay)
+                foreach (\Sysfera\TaskTypes::defaults() as $d) $db->q('INSERT INTO {p}task_types (code, name, name_ru, icon, color, apps, fields, sort, active, builtin) VALUES (?,?,?,?,?,?,?,?,1,1) ON DUPLICATE KEY UPDATE name=VALUES(name), name_ru=VALUES(name_ru), icon=VALUES(icon), color=VALUES(color), apps=VALUES(apps), fields=VALUES(fields), sort=VALUES(sort), active=1',
+                    [$d['code'], $d['name'], $d['name_ru'], $d['icon'], $d['color'], $d['apps'], json_encode($d['fields'], JSON_UNESCAPED_UNICODE), $d['sort']]);
+                flash(t('tasktypes.restored'));
+            }
+            redirect('/task-types');
+        }
+        View::render('tasktypes', ['types' => \Sysfera\TaskTypes::all($db, null, true), 'kinds' => \Sysfera\TaskTypes::KINDS, 'apps' => \Sysfera\TaskTypes::APPS], t('nav.tasktypes'));
     }, ['admin' => true]);
 
     /* ---------- updates ---------- */

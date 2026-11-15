@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+use Sysfera\TaskTypes;
 use SysferaCrm\{Fields, Pipe};
 
 /** Sysfera CRM — clients, deals (kanban), tasks, reports; pipelines, fields and permission profiles are configurable. */
@@ -270,7 +271,7 @@ return function (\Sysfera\Plugin $sf): void {
     $route('GET', '/contacts/find', function () use ($contactList) {
         header('Content-Type: application/json; charset=utf-8');
         [$rows] = $contactList(['q' => trim((string)($_GET['q'] ?? ''))], 10);
-        echo json_encode(array_map(fn($r) => ['id' => (int)$r['id'], 'name' => $r['name'], 'company' => $r['company'], 'email' => $r['email']], $rows), JSON_UNESCAPED_UNICODE);
+        echo json_encode(array_map(fn($r) => ['id' => (int)$r['id'], 'name' => $r['name'], 'company' => $r['company'], 'email' => $r['email'], 'phone' => $r['phone']], $rows), JSON_UNESCAPED_UNICODE);
     });
 
     /* =============================== tasks =============================== */
@@ -287,18 +288,27 @@ return function (\Sysfera\Plugin $sf): void {
         $page('tasks', ['rows' => $rows, 'show' => $show, 'users' => $users(), 'prof' => $profile(), 'nowTs' => time(), 'assignee' => $as ?? 0], $sf->t('tasks'), 'tasks');
     });
 
-    $route('POST', '/task/save', function () use ($db, $sf, $need, $int, $txt, $uid, $profile, $log, $self, $back, $getDeal) {
+    $route('POST', '/task/save', function () use ($db, $sf, $need, $int, $txt, $uid, $profile, $log, $self, $back, $getDeal, $json) {
         $need('create');
-        $title = $txt('title'); $type = in_array($_POST['type'] ?? '', Pipe::TASK_TYPES, true) ? $_POST['type'] : 'todo';
+        $title = $txt('title'); $all = TaskTypes::all($db); $offered = TaskTypes::all($db, 'crm'); $type = TaskTypes::normalize((string)($_POST['type'] ?? '')); if (!isset($offered[$type])) $type = isset($offered['todo']) ? 'todo' : (string)array_key_first($offered);
+        $data = TaskTypes::clean(TaskTypes::get($all, $type), (array)($_POST['td'] ?? []));
         $due = null; $d = (string)($_POST['due_date'] ?? ''); $tm = (string)($_POST['due_time'] ?? '');
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $due = $d . ' ' . (preg_match('/^\d{2}:\d{2}$/', $tm) ? $tm . ':00' : '00:00:00');
         $deal = $int($_POST['deal_id'] ?? ''); $contact = $int($_POST['contact_id'] ?? '');
         if ($deal && !$getDeal($deal)) $deal = null;
+        foreach (TaskTypes::get($all, $type)['fields'] as $fd) if ($fd['kind'] === 'contact' && !empty($data[$fd['key']])) { if (!$contact) $contact = (int)$data[$fd['key']]; unset($data[$fd['key']]); }   // the contact is the task's own client column
+        $cRow = $contact ? $sf->contacts()->find($contact) : null;
+        if ($cRow && !Pipe::visible($profile(), $cRow['owner_id'] === null ? null : (int)$cRow['owner_id'], $uid())) { $cRow = null; $contact = null; }   // only a client this user may see
+        if ($cRow) foreach (TaskTypes::get($all, $type)['fields'] as $fd) {   // phone / e-mail of the client when the form left them empty
+            if ($fd['kind'] === 'phone' && empty($data[$fd['key']]) && (string)$cRow['phone'] !== '') $data += [$fd['key'] => TaskTypes::clean(['fields' => [$fd]], [$fd['key'] => $cRow['phone']])[$fd['key']] ?? ''];
+            if ($fd['kind'] === 'email' && empty($data[$fd['key']]) && (string)$cRow['email'] !== '') $data += [$fd['key'] => TaskTypes::clean(['fields' => [$fd]], [$fd['key'] => $cRow['email']])[$fd['key']] ?? ''];
+        }
+        $data = array_filter($data, fn($v) => $v !== '');
         $as = $int($_POST['assignee_id'] ?? '');
         if (!$as || !$profile()['reassign']) $as = $uid();
         if ($title === '') { flash($sf->t('e_title'), 'bad'); $back($self('tasks')); }
-        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by) VALUES (?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid()]);
-        if ($deal || $contact) $log($deal, $contact, 'task', $sf->t('tt_' . $type) . ': ' . $title);
+        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by, type_data) VALUES (?,?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid(), $data ? $json($data) : null]);
+        if ($deal || $contact) $log($deal, $contact, 'task', TaskTypes::label(TaskTypes::get($all, $type), \Sysfera\I18n::lang()) . ': ' . $title);
         flash($sf->t('task_created')); $back($self('tasks'));
     });
 
