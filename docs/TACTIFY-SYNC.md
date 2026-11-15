@@ -30,3 +30,14 @@ A mission published as *Public* on any Sysfera site shows up in the library of e
 1. Confirm the repository name and visibility.
 2. How do you upload to tactify.ru today (FTP, panel file manager, SSH)? I will build the deployment around it; credentials stay with you (GitHub secrets or your own machine), I never need to see them.
 3. Rotate the secrets that were in the Tactify files: admin password, SMTP password, Yandex and Mapbox keys.
+
+## Decisions (answered)
+* Repository: **gsmhero/tactify**, private. Local commit `547e885` is ready (secrets removed, `config.php` ignored, `config.sample.php` added, installer creates a random admin password).
+* Deployment: SSH or FTP available. Preferred: a GitHub Action that, on push to `main`, uploads the changed files over **SSH (rsync)** and falls back to **FTP** if SSH is not possible; `config.php` and `uploads/` are excluded, so the live configuration and users' files are never overwritten. Access data live in GitHub *Secrets* (or on your own machine), never in the repository.
+* Synchronisation: **two-way** (sites ⇄ hub ⇄ Tactify), see Design. Conflict rule: the newest `updated_at` wins; a withdrawn mission is removed everywhere; a copy someone made in their own account is never touched.
+
+## Next
+1. You create the empty private repo `gsmhero/tactify` (or run `gh auth login`), I push `547e885`.
+2. Rotate the secrets that were in the files (the database / SMTP / admin password on tactify.ru, the Yandex and Mapbox keys).
+3. I add the deploy workflow and a first safe test deploy (a harmless file) before real changes.
+4. Tactify API, hub operations, Missions library sources (steps 3–5 above).
