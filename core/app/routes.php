@@ -223,8 +223,19 @@ return function (App $app): void {
             try {
                 if ($do === 'check') { $up->manifest(true) === null ? flash(t('upd.unreachable'), 'warn') : flash(t('upd.checked')); }
                 elseif ($do === 'core') { flash(t('upd.done', ['v' => $up->applyCore()])); }
+                elseif ($do === 'all') {   // the core first; the new core code must be running before the components are updated, so they follow in the next request
+                    @set_time_limit(300);
+                    if ($up->coreUpdate($up->manifest(true))) { flash(t('upd.done', ['v' => $up->applyCore()])); $_SESSION['upd_all'] = 1; }
+                    else $_SESSION['upd_all'] = 1;
+                }
                 elseif ($do === 'plugin') { flash(t('upd.done', ['v' => $up->applyPlugin((string)($_POST['slug'] ?? ''))])); }
             } catch (Throwable $e) { flash($e->getMessage(), 'bad'); }
+            redirect('/upgrade');
+        }
+        if (!empty($_SESSION['upd_all'])) {   // second half of "Update all"
+            unset($_SESSION['upd_all']);
+            try { $res = $up->applyAllPlugins(); if ($res['done']) flash(t('upd.all_done', ['list' => implode(', ', $res['done'])])); elseif (!$res['failed']) flash(t('upd.up_to_date'));
+                foreach ($res['failed'] as $sl => $why) flash($sl . ': ' . $why, 'bad'); } catch (Throwable $e) { flash($e->getMessage(), 'bad'); }
             redirect('/upgrade');
         }
         $m = $up->manifest();

@@ -103,6 +103,29 @@ final class Updater
         return (string)$c['version'];
     }
 
+    /** Updates every component that has a newer version, dependencies first (a component that another one requires goes before it). A failure skips the components that depend on it.
+     *  @return array{done: list<string>, failed: array<string,string>} */
+    public function applyAllPlugins(): array
+    {
+        @set_time_limit(300);
+        $m = $this->manifest(true); $todo = $this->pluginUpdates($m); $done = []; $failed = [];
+        $deps = fn(string $slug): array => array_keys((array)(($todo[$slug]['requires']['plugins'] ?? $this->app->plugins()->available()[$slug]['requires']['plugins'] ?? [])));
+        $order = []; $visit = function (string $slug) use (&$visit, &$order, $todo, $deps): void {
+            if (in_array($slug, $order, true) || !isset($todo[$slug])) return;
+            $order[] = $slug;   // marked first, so a cycle cannot loop
+            foreach ($deps($slug) as $d) $visit($d);
+            $order = array_values(array_diff($order, [$slug])); $order[] = $slug;
+        };
+        foreach (array_keys($todo) as $slug) $visit($slug);
+        foreach ($order as $slug) {
+            $bad = array_intersect($deps($slug), array_keys($failed));
+            if ($bad) { $failed[$slug] = t('upd.skipped', ['name' => implode(', ', $bad)]); continue; }
+            try { $this->applyPlugin($slug); $done[] = $slug . ' ' . (string)$todo[$slug]['version']; }
+            catch (\Throwable $e) { $failed[$slug] = $e->getMessage(); }
+        }
+        return ['done' => $done, 'failed' => $failed];
+    }
+
     public function applyPlugin(string $slug): string
     {
         $m = $this->manifest(true);

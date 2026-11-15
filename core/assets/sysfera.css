@@ -120,3 +120,5 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .side{position:static;height:auto;min-height:100vh;align-self:stretch}
 .side nav{flex:1 0 auto;overflow:visible}
 .side-foot{margin-top:auto}
+
+.upd-all{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px}

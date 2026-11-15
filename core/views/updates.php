@@ -2,6 +2,7 @@
 $lang = \Sysfera\I18n::lang(); ?>
 <div class="page-h"><h1><?= e(t('nav.updates')) ?></h1></div>
 <div class="hint"><?= e(t('upd.hint')) ?></div>
+<?php $nUpd = ($core ? 1 : 0) + count($plugins); if ($nUpd): ?><form method="post" class="upd-all" data-confirm="<?= e(t('upd.all_confirm', ['n' => $nUpd])) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="all"><button class="btn primary" <?= $zip ? '' : 'disabled' ?>>⟳ <?= e(t('upd.all')) ?> (<?= $nUpd ?>)</button> <span class="muted sm"><?= e(t('upd.all_hint')) ?></span></form><?php endif; ?>
 <?php if (!$zip): ?><div class="flash warn"><?= e(t('upd.need_zip')) ?></div><?php endif; ?>
 <section class="card">
   <div class="row between"><div><h3><?= e(t('upd.core')) ?></h3><p class="muted">Sysfera <b><?= e(SF_VERSION) ?></b> · <?= e(t('upd.last_check')) ?>: <?= $checked ? e(date('Y-m-d H:i', $checked)) : '—' ?></p></div>

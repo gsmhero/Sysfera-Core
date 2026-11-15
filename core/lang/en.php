@@ -114,6 +114,7 @@ return [
     'upd.confirm' => 'Make a backup and install this update?', 'upd.plugins' => 'Component updates',
     'upd.backups' => 'Backups', 'upd.no_backups' => 'No backups yet.',
     'upd.backups_hint' => 'Each folder holds the replaced files (files.zip) and a full database dump (database.sql). To roll back, restore them with FTP / phpMyAdmin.',
+    'upd.all' => 'Update all', 'upd.all_hint' => 'Core first, then the components (dependencies first).', 'upd.all_confirm' => 'Install {n} update(s): the core first, then the components? A backup is made before each.', 'upd.all_done' => 'Components updated: {list}.', 'upd.skipped' => 'skipped, needs {name}',
     'upd.done' => 'Updated to {v}.', 'upd.none' => 'No update available.',
     'upd.need_zip' => 'The PHP "zip" extension is required for updates. Ask your hosting to enable it.',
     'upd.https_only' => 'Update downloads must use HTTPS.', 'upd.download_failed' => 'Download failed.',
