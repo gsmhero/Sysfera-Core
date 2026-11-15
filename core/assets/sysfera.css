@@ -89,3 +89,9 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 .wdg a:not(.btn):not(.tile){display:inline-block;padding:3px 11px;margin:2px 0;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-size:13px;line-height:1.4;text-decoration:none;transition:background .12s,border-color .12s,color .12s}
 .wdg a:not(.btn):not(.tile):hover{border-color:var(--acc);color:var(--acc)}
 .newsbox .btn.sm{padding:4px 12px;font-size:13px}
+
+/* links in tables and lists: no underline, accent on hover (action links are .btn.sm in the views) */
+.main table a:not(.btn),.main .rows a:not(.btn):not(.tile){text-decoration:none;color:var(--ink)}
+.main table a:not(.btn):hover,.main .rows a:not(.btn):not(.tile):hover{color:var(--acc)}
+.main .hint a.btn,.main .warnbox a.btn{margin-left:6px;vertical-align:middle}
+.btn.sm{padding:4px 12px;font-size:13px}

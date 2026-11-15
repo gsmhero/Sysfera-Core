@@ -4,7 +4,7 @@ include __DIR__ . '/_nav.php'; ?>
 <div class="page-h"><h1><?= e($sf->t('nav_catalog')) ?> <small class="muted"><?= (int)$total ?></small></h1>
   <?php if ($sync->ready()): ?><form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="sync_all"><button class="btn">↻ <?= e($sf->t('sync_all')) ?></button></form><?php endif; ?></div>
 <div class="hint"><?= e($sf->t('catalog_hint')) ?></div>
-<?php if (!$sync->ready()): ?><div class="card warnbox"><?= e($sf->t('not_connected_note')) ?> <a href="<?= e($sf->url('/settings')) ?>"><?= e($sf->t('open_settings')) ?></a></div><?php endif; ?>
+<?php if (!$sync->ready()): ?><div class="card warnbox"><?= e($sf->t('not_connected_note')) ?> <a class="btn sm" href="<?= e($sf->url('/settings')) ?>"><?= e($sf->t('open_settings')) ?></a></div><?php endif; ?>
 
 <form class="bar" method="get">
   <div class="seg"><a class="<?= $only === '' ? 'on' : '' ?>" href="<?= e($sf->url('/catalog')) ?>"><?= e($sf->t('all')) ?></a><a class="<?= $only === 'pub' ? 'on' : '' ?>" href="<?= e($sf->url('/catalog?only=pub')) ?>"><?= e($sf->t('only_published')) ?></a></div>

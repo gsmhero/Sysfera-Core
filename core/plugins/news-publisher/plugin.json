@@ -1,6 +1,6 @@
 {
   "slug": "news-publisher",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "name": { "en": "Core News publisher", "ru": "Издатель новостей Core" },
   "description": {
     "en": "For the Sysfera team: write the news, update notes and warnings that appear in the Core News box on every installation's dashboard. Install it only on the site that serves the update catalog.",

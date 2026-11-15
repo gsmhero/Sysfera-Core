@@ -6,7 +6,7 @@ $tab = 'dashboard'; require __DIR__ . '/_nav.php'; $cur = $sf->setting('currency
   <div><small><?= e($sf->t('k_won_month')) ?></small><b><?= e(crm_money($wonMonth, $cur)) ?></b></div>
   <div><small><?= e($sf->t('k_winrate')) ?></small><b><?= $sum['win_rate'] === null ? '—' : e((string)$sum['win_rate']) . '%' ?></b></div></div>
 <div class="crm-two"><div>
-  <section class="card"><h3><?= e($sf->t('my_tasks')) ?></h3><?php $rows = $tasks; require __DIR__ . '/_tasklist.php'; ?><a href="<?= e($sf->url('/tasks')) ?>"><?= e($sf->t('all_tasks')) ?> →</a></section>
+  <section class="card"><h3><?= e($sf->t('my_tasks')) ?></h3><?php $rows = $tasks; require __DIR__ . '/_tasklist.php'; ?><a class="btn sm" href="<?= e($sf->url('/tasks')) ?>"><?= e($sf->t('all_tasks')) ?> →</a></section>
   <section class="card"><h3><?= e($sf->t('recent_activity')) ?></h3>
     <?php foreach ($feed as $r): ?><div class="crm-tl-i <?= e($r['kind']) ?>"><i></i><div><small class="muted"><?= e($r['user_name'] ?: $sf->t('system')) ?> · <?= e(crm_dt($r['created_at'])) ?><?php if ($r['deal_title']): ?> · <a href="<?= e($sf->url('/deal/' . (int)$r['deal_id'])) ?>"><?= e($r['deal_title']) ?></a><?php endif; ?></small><div><?= e(mb_strimwidth((string)$r['body'], 0, 140, '…')) ?></div></div></div><?php endforeach; ?>
     <?php if (!$feed): ?><p class="muted"><?= e($sf->t('no_history')) ?></p><?php endif; ?></section>

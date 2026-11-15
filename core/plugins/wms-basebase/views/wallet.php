@@ -8,7 +8,7 @@ $d = $w['data'] ?? []; $err = $w['error'] ?? null; ?>
 <?php if (!empty($agent['error'])): ?><p class="muted"><?= e($sf->t('agent_fee_na')) ?></p>
 <?php else: ?><div class="bigno"><?= e($fmt($ad['balance'] ?? 0)) ?> ₽</div><p class="muted sm"><?= e($sf->t('agent_fee_hint')) ?></p><?php endif; ?></section>
 <?php endif; ?>
-<?php if (!$shop): ?><div class="hint warn"><?= e($sf->t('no_shop_yet')) ?> <a href="<?= e($sf->url('/shop')) ?>"><?= e($sf->t('nav_shop')) ?></a></div>
+<?php if (!$shop): ?><div class="hint warn"><?= e($sf->t('no_shop_yet')) ?> <a class="btn sm" href="<?= e($sf->url('/shop')) ?>"><?= e($sf->t('nav_shop')) ?></a></div>
 <?php elseif ($err): ?><div class="hint warn"><?= e($sf->t('wd_fail', ['e' => preg_match('/^[a-z_]+$/', (string)$err) ? $sf->t((string)$err) : $err])) ?></div>
 <?php else: ?>
 <div class="cols">
@@ -16,7 +16,7 @@ $d = $w['data'] ?? []; $err = $w['error'] ?? null; ?>
   <form class="card" method="post"><?= csrf_field() ?><h3><?= e($sf->t('wd_h')) ?></h3>
     <label class="fld"><span><?= e($sf->t('wd_amount')) ?></span><input name="amount" inputmode="decimal" required placeholder="100"></label>
     <button class="btn primary" data-confirm="<?= e($sf->t('wd_confirm')) ?>"><?= e($sf->t('wd_btn')) ?></button>
-    <p class="muted sm"><?= e($sf->t('wd_profile_note')) ?> <a href="<?= e($sf->url('/profile')) ?>"><?= e($sf->t('nav_profile')) ?></a></p></form>
+    <p class="muted sm"><?= e($sf->t('wd_profile_note')) ?> <a class="btn sm" href="<?= e($sf->url('/profile')) ?>"><?= e($sf->t('nav_profile')) ?></a></p></form>
 </div>
 <section class="card"><h3><?= e($sf->t('wd_history')) ?></h3>
 <?php $tx = (array)($d['transactions'] ?? []); if (!$tx): ?><p class="muted"><?= e($sf->t('wd_none')) ?></p><?php else: ?>

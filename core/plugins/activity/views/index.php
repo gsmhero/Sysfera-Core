@@ -15,7 +15,7 @@ $q = fn(array $o) => $sf->url('/?' . http_build_query(array_filter(array_merge([
   <label><?= e($sf->t('from')) ?> <input type="date" name="from" value="<?= e($from) ?>"></label>
   <label><?= e($sf->t('to')) ?> <input type="date" name="to" value="<?= e($to) ?>"></label>
   <button class="btn"><?= e($sf->t('apply')) ?></button>
-  <?php if ($from !== '' || $to !== ''): ?><a href="<?= e($q(['from' => '', 'to' => '', 'page' => 1])) ?>"><?= e($sf->t('reset')) ?></a><?php endif; ?>
+  <?php if ($from !== '' || $to !== ''): ?><a class="btn sm" href="<?= e($q(['from' => '', 'to' => '', 'page' => 1])) ?>"><?= e($sf->t('reset')) ?></a><?php endif; ?>
   <small class="muted"><?= e($sf->t('total', ['n' => $d['total']])) ?></small></form>
 
 <?php if (!$d['items']): ?><div class="card empty"><h3><?= e($sf->t('none')) ?></h3><p class="muted"><?= e($sf->t('none_hint')) ?></p></div><?php endif; ?>

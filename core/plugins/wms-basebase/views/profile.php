@@ -3,7 +3,7 @@ include __DIR__ . '/_nav.php';
 $d = $p['data'] ?? []; $err = $p['error'] ?? null; $cur = (string)($d['payout_type'] ?? ''); $types = (array)($d['types'] ?? []); $vals = (array)($d['values'] ?? []);
 if ($cur === '' || !isset($types[$cur])) $cur = (string)array_key_first($types); ?>
 <div class="page-h"><h1><?= e($sf->t('nav_profile')) ?></h1></div>
-<?php if (!$shop): ?><div class="hint warn"><?= e($sf->t('no_shop_yet')) ?> <a href="<?= e($sf->url('/shop')) ?>"><?= e($sf->t('nav_shop')) ?></a></div>
+<?php if (!$shop): ?><div class="hint warn"><?= e($sf->t('no_shop_yet')) ?> <a class="btn sm" href="<?= e($sf->url('/shop')) ?>"><?= e($sf->t('nav_shop')) ?></a></div>
 <?php elseif ($err): ?><div class="hint warn"><?= e($sf->t('wd_fail', ['e' => preg_match('/^[a-z_]+$/', (string)$err) ? $sf->t((string)$err) : $err])) ?></div>
 <?php else: ?>
 <div class="hint"><?= e($sf->t('pr_hint')) ?></div>

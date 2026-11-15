@@ -9,7 +9,7 @@ $badge = ['warning' => 'bad', 'update' => 'info', 'news' => 'mute']; ?>
   <label><?= e($sf->t('from')) ?> <input type="date" name="from" value="<?= e($from) ?>"></label>
   <label><?= e($sf->t('to')) ?> <input type="date" name="to" value="<?= e($to) ?>"></label>
   <button class="btn"><?= e($sf->t('apply')) ?></button>
-  <?php if ($from !== '' || $to !== ''): ?><a href="<?= e($q(['from' => '', 'to' => '', 'page' => 1])) ?>"><?= e($sf->t('reset')) ?></a><?php endif; ?>
+  <?php if ($from !== '' || $to !== ''): ?><a class="btn sm" href="<?= e($q(['from' => '', 'to' => '', 'page' => 1])) ?>"><?= e($sf->t('reset')) ?></a><?php endif; ?>
 </form>
 <?php if (!$rows): ?><div class="card empty"><h3><?= e($sf->t('none')) ?></h3><p><?= e($sf->t('none_hint')) ?></p></div>
 <?php else: ?>
