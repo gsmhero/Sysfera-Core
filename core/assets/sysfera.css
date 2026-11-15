@@ -115,3 +115,8 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .stats .stat-w{display:flex;flex-direction:column;justify-content:center;margin:0;min-width:240px}.stats .stat-w a{margin-left:8px}
 .dash-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:6px}.dash-main,.dash-side{display:flex;flex-direction:column;gap:12px;min-width:0}.dash-cols .card{margin:0}
 @media(max-width:900px){.dash-cols{grid-template-columns:1fr}}
+
+/* sidebar: every item is always visible; when the menu is taller than the window the whole page scrolls */
+.side{position:static;height:auto;min-height:100vh;align-self:stretch}
+.side nav{flex:1 0 auto;overflow:visible}
+.side-foot{margin-top:auto}
