@@ -76,3 +76,11 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:9px 10px
 
 .chk input[type=checkbox]{flex:none;width:16px;height:16px;margin:0}
 .caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px 18px}.caps>span{grid-column:1/-1;margin:0}.caps .chk{margin:0;align-items:flex-start}.caps .chk input{margin-top:3px}
+
+/* sidebar: the menu shrinks with the window height instead of showing a scrollbar (still scrolls on very small screens) */
+.side nav{min-height:0;scrollbar-width:none;-ms-overflow-style:none;display:flex;flex-direction:column;gap:clamp(0px,.3vh,3px)}
+.side nav::-webkit-scrollbar{display:none}
+.side nav a{padding:clamp(4px,1.25vh,9px) 10px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.side nav a span{overflow:hidden;text-overflow:ellipsis}
+@media (max-height:760px){.side{padding-top:10px;padding-bottom:10px}.side .site{padding-bottom:6px}.side-foot{padding-top:8px}}
+@media (max-width:760px){.side nav{flex-direction:row}.side nav a{padding:9px 10px}}
