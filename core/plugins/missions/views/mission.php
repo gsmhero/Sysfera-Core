@@ -139,7 +139,7 @@ $render = function (int $parent, string $branch) use (&$render, &$onlyId, &$form
     <?php if ($addr !== ''): ?><div class="tmap" data-address="<?= e($addr) ?>" data-fallback="<?= e($mapLink($addr)) ?>"><a class="btn sm" style="margin:10px" href="<?= e($mapLink($addr)) ?>" target="_blank" rel="noopener noreferrer">🗺 <?= e($sf->t('on_map')) ?></a></div><?php endif; ?>
     <?php if ($fl || $own): ?><div class="tdet"><div class="k">🖼 <?= e($sf->t('gallery')) ?></div>
       <?php if ($fl): ?><div class="mfiles"><?php foreach ($fl as $f): $img = in_array($f['ext'], Mission::INLINE, true); $fu = $sf->url('/file/' . (int)$f['id']); ?>
-        <span class="mfile"><?php if ($img): ?><a href="<?= e($fu) ?>" target="_blank" rel="noopener"><img src="<?= e($fu) ?>" alt="<?= e($f['name']) ?>" loading="lazy"></a><?php else: ?><a href="<?= e($fu) ?>">📎 <?= e($f['name']) ?></a> <small class="muted"><?= e(number_format($f['size'] / 1024, 0)) ?> KB</small><?php endif; ?>
+        <span class="mfile"><?php if ($img): ?><a href="<?= e($fu) ?>" target="_blank" rel="noopener" data-lb="g<?= $id ?>"><img src="<?= e($fu) ?>" alt="<?= e($f['name']) ?>" loading="lazy"></a><?php else: ?><a href="<?= e($fu) ?>">📎 <?= e($f['name']) ?></a> <small class="muted"><?= e(number_format($f['size'] / 1024, 0)) ?> KB</small><?php endif; ?>
           <?php if ($own): ?><form method="post" action="<?= e($selfT) ?>" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_del"><input type="hidden" name="file_id" value="<?= (int)$f['id'] ?>"><button class="linkbtn bad-t" title="<?= e($sf->t('delete')) ?>" data-confirm="<?= e($sf->t('delete')) ?>?">×</button></form><?php endif; ?></span><?php endforeach; ?></div>
       <?php else: ?><div class="muted sm"><?= e($sf->t('no_images')) ?></div><?php endif; ?>
       <?php if ($own): ?><form method="post" action="<?= e($selfT) ?>" enctype="multipart/form-data" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_add"><input type="hidden" name="task_id" value="<?= $id ?>"><label class="btn sm">📎 <?= e($sf->t('attach')) ?><input type="file" name="file" hidden onchange="this.form.submit()"></label></form><?php endif; ?></div><?php endif; ?>
@@ -173,6 +173,23 @@ if ($focus):
 <?php endforeach; echo $formHtml; ?>
 <p class="row"><?php if ($own): ?><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a><?php endif; ?><?php if ($tasks): ?><a class="btn" href="<?= e($self . '?view=tree') ?>"><?= e($sf->t('view_tree')) ?></a><?php endif; ?></p>
 <?php endif; ?>
+<script>(function(){   // lightbox for task images: arrows / swipe / Esc
+var box,img,cnt,list=[],i=0;
+function build(){box=document.createElement("div");box.className="lbx";box.hidden=true;
+ box.innerHTML='<button type="button" class="lb-x" aria-label="Close">×</button><button type="button" class="lb-p" aria-label="Previous">‹</button><img alt=""><button type="button" class="lb-n" aria-label="Next">›</button><div class="lb-c"></div>';
+ document.body.appendChild(box);img=box.querySelector("img");cnt=box.querySelector(".lb-c");
+ box.querySelector(".lb-x").onclick=close;box.querySelector(".lb-p").onclick=function(){go(-1)};box.querySelector(".lb-n").onclick=function(){go(1)};
+ box.addEventListener("click",function(e){if(e.target===box)close()});
+ var x0=null;box.addEventListener("touchstart",function(e){x0=e.touches[0].clientX},{passive:true});
+ box.addEventListener("touchend",function(e){if(x0===null)return;var d=e.changedTouches[0].clientX-x0;x0=null;if(Math.abs(d)>40)go(d<0?1:-1)});}
+function show(){var a=list[i];img.src=a.href;img.alt=(a.querySelector("img")||{}).alt||"";cnt.textContent=(i+1)+" / "+list.length;
+ box.classList.toggle("one",list.length<2);}
+function go(d){if(list.length<2)return;i=(i+d+list.length)%list.length;show()}
+function close(){box.hidden=true;img.removeAttribute("src");document.documentElement.classList.remove("lb-open")}
+document.addEventListener("click",function(e){var a=e.target.closest("a[data-lb]");if(!a||e.ctrlKey||e.metaKey||e.shiftKey)return;e.preventDefault();
+ if(!box)build();list=[].slice.call(document.querySelectorAll('a[data-lb="'+a.getAttribute("data-lb")+'"]'));i=list.indexOf(a);box.hidden=false;document.documentElement.classList.add("lb-open");show();});
+document.addEventListener("keydown",function(e){if(!box||box.hidden)return;if(e.key==="Escape")close();else if(e.key==="ArrowLeft")go(-1);else if(e.key==="ArrowRight")go(1);});
+})();</script>
 <?php $mapKeyY = (string)($setup['yandex_maps_key'] ?? ''); $mapKeyM = (string)($setup['mapbox_key'] ?? ''); if (($mapKeyY !== '' || $mapKeyM !== '')): ?>
 <script>(function(){var els=document.querySelectorAll(".tmap[data-address]");if(!els.length)return;var ru=<?= json_encode($lang === 'ru') ?>;
 function yandex(){els.forEach(function(el){ymaps.ready(function(){var a=el.getAttribute("data-address");el.innerHTML="";var map=new ymaps.Map(el,{center:[55.7558,37.6173],zoom:13,controls:["zoomControl"]});

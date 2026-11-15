@@ -92,3 +92,15 @@
 .tmx .radd{font-size:13px;color:var(--t-text2);text-decoration:none}.tmx a.radd::after{content:'';position:absolute;inset:0;border-radius:14px}
 .tmx .radd.off{opacity:.5}
 .tmx .mbranch .radd{position:static;display:inline-block;margin-top:2px}.tmx .mbranch a.radd::after{content:none}.tmx .mbranch a.radd:hover{color:var(--t-blue)}
+
+/* image lightbox */
+.tmx .mfile a[data-lb]{cursor:zoom-in}
+.lbx{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center}
+.lbx[hidden]{display:none}
+.lbx img{max-width:92vw;max-height:88vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,.5);background:#111}
+.lbx button{position:absolute;border:0;background:rgba(255,255,255,.14);color:#fff;font-size:30px;line-height:1;width:48px;height:48px;border-radius:50%;cursor:pointer}
+.lbx button:hover{background:rgba(255,255,255,.28)}
+.lbx .lb-x{top:16px;right:16px}.lbx .lb-p{left:16px;top:50%;margin-top:-24px}.lbx .lb-n{right:16px;top:50%;margin-top:-24px}
+.lbx .lb-c{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#fff;font-size:14px;opacity:.8}
+.lbx.one .lb-p,.lbx.one .lb-n,.lbx.one .lb-c{display:none}
+html.lb-open{overflow:hidden}
