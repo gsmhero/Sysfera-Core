@@ -379,7 +379,7 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->on('dashboard.widgets', function (array $w) use ($sf, $stock) {
         if (!$sf->can('wms.use')) return $w;
         $t = $stock->totals();
-        $w[] = '<b>' . e($sf->t('title')) . '</b>: ' . e(W::qty($t['qty'])) . ' · ' . e(W::money($t['value'])) . ($t['low'] ? ' · <span class="bad-t">' . e($sf->t('low_n', ['n' => $t['low']])) . '</span>' : '') . ' — <a href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a>';
+        $w['wms'] = '<b>' . e($sf->t('title')) . '</b>: ' . e(W::qty($t['qty'])) . ' · ' . e(W::money($t['value'])) . ($t['low'] ? ' · <span class="bad-t">' . e($sf->t('low_n', ['n' => $t['low']])) . '</span>' : '') . ' — <a href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a>';
         return $w;
     });
 };

@@ -110,3 +110,8 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .dtp-n{position:absolute;right:4px;top:100%;width:1px;height:1px;opacity:0;pointer-events:none;padding:0;border:0}
 .dtp .dtp-t:invalid:not(:placeholder-shown){border-color:var(--bad)}
 .row .dtp,.bar .dtp,.news-f .dtp,.fld.inline .dtp{display:inline-block;width:170px;vertical-align:middle}.dtp-datetime .dtp-t{min-width:190px}
+
+/* dashboard layout */
+.stats .stat-w{display:flex;flex-direction:column;justify-content:center;margin:0;min-width:240px}.stats .stat-w a{margin-left:8px}
+.dash-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;margin-top:6px}.dash-main,.dash-side{display:flex;flex-direction:column;gap:12px;min-width:0}.dash-cols .card{margin:0}
+@media(max-width:900px){.dash-cols{grid-template-columns:1fr}}

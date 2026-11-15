@@ -20,3 +20,4 @@ $lang = \Sysfera\I18n::lang(); ?>
 <div class="hint"><?= e(t('upd.backups_hint')) ?></div>
 <?php if (!$backups): ?><div class="card empty"><p><?= e(t('upd.no_backups')) ?></p></div><?php endif; ?>
 <div class="list"><?php foreach ($backups as $b): ?><div class="card item"><div class="grow"><code>storage/backups/<?= e($b['name']) ?></code></div><small class="muted"><?= e(human_size($b['size'])) ?></small></div><?php endforeach; ?></div>
+<?php if (!empty($news['all'])) require __DIR__ . '/_news.php'; ?>

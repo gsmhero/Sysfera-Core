@@ -120,7 +120,7 @@ return function (\Sysfera\Plugin $sf): void {
         if (\Sysfera\Demo::on() || $sf->setting('widget', '1') !== '1') return $w;
         $c = \Sysfera\Hooks::filter('messenger.client', null);
         if (!$c || !$c->ready()) return $w;
-        $w[] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'items' => $latest(8)]);
+        $w['activity'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'items' => $latest(8)]);
         return $w;
     });
 
