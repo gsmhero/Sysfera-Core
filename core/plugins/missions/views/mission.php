@@ -18,8 +18,16 @@ $val = fn(string $k, $d = '') => $formTask ? ($formTask[$k] ?? $d) : $d;
 $curType = $formTask ? TaskTypes::normalize((string)$formTask['type']) : 'note';
 $choices = $offered; if (!isset($choices[$curType]) && isset($types[$curType])) $choices[$curType] = $types[$curType];   // an old task keeps its type even if it was switched off
 $tname = fn(string $code) => TaskTypes::label(TaskTypes::get($types, $code), $lang);
-$shopLinkList = array_slice(array_values(array_filter($shopLinks, fn($x) => is_array($x) && !empty($x['url']))), 0, 200); ?>
-<div class="crumbs"><a href="<?= e($sf->url($own ? '/' : '/library')) ?>">🏠</a> / <b><?= e($m['title']) ?></b></div>
+$shopLinkList = array_slice(array_values(array_filter($shopLinks, fn($x) => is_array($x) && !empty($x['url']))), 0, 200);
+// navigation as on tactify.ru: the mission shows its first tasks; a task is opened on its own page (?t=) with its three result paths; ?view=tree keeps the whole tree on one page
+$focus = isset($_GET['t']) && isset($byId[(int)$_GET['t']]) ? $byId[(int)$_GET['t']] : null;
+$treeView = !$focus && ($_GET['view'] ?? '') === 'tree';
+$q = $focus ? 't=' . (int)$focus['id'] : '';
+$selfT = $self . ($q ? '?' . $q : '');   // where the buttons of this page post to
+$trail = []; for ($p = $focus; $p && count($trail) < 50; $p = $p['parent_id'] ? ($byId[(int)$p['parent_id']] ?? null) : null) array_unshift($trail, $p);
+$onlyId = 0; ?>
+<div class="crumbs"><a href="<?= e($sf->url($own ? '/' : '/library')) ?>">🏠</a> / <?php if ($focus): ?><a href="<?= e($self) ?>"><?= e($m['title']) ?></a><?php foreach ($trail as $i => $tt): ?> / <?php if ($i < count($trail) - 1): ?><a href="<?= e($self . '?t=' . (int)$tt['id']) ?>"><?= e($tt['title']) ?></a><?php else: ?><b><?= e($tt['title']) ?></b><?php endif; endforeach; else: ?><b><?= e($m['title']) ?></b><?php endif; ?></div>
+<?php if (!$focus): ?>
 <div class="card">
   <div class="row between"><div class="chips"><span class="chip id">M-<?= (int)$m['id'] ?></span><?php if ($m['type'] !== ''): ?><span class="chip blue"><?= e($m['type']) ?></span><?php endif; ?>
     <span class="chip"><?= $m['shared'] ? '🌐 ' . e($sf->t('vis_public')) : '🔒 ' . e($sf->t('vis_private')) ?></span><span class="chip <?= $m['status'] === 'completed' ? '' : 'blue' ?>"><?= $m['status'] === 'completed' ? '✓ ' . e($sf->t('st_completed')) : '▶ ' . e($sf->t('st_active')) ?></span></div>
@@ -51,6 +59,7 @@ $shopLinkList = array_slice(array_values(array_filter($shopLinks, fn($x) => is_a
 <form method="post" class="row"><?= csrf_field() ?><?php if ($m['status'] === 'completed'): ?><button class="btn" name="do" value="uncomplete"><?= e($sf->t('uncomplete')) ?></button><?php else: ?><button class="btn" name="do" value="complete"><?= e($sf->t('complete')) ?></button><?php endif; ?></form>
 </details>
 <?php endif; ?>
+<?php endif; /* !$focus */ ?>
 
 <?php if ($showForm): ?>
 <form class="card mform" method="post" id="taskform"><?= csrf_field() ?><input type="hidden" name="do" value="task_save">
@@ -83,7 +92,7 @@ $shopLinkList = array_slice(array_values(array_filter($shopLinks, fn($x) => is_a
   <div class="cols">
     <label class="fld"><span><?= e($sf->t('scheduled')) ?></span><input type="datetime-local" name="scheduled_at" value="<?= e($formTask && $formTask['scheduled_at'] ? str_replace(' ', 'T', substr((string)$formTask['scheduled_at'], 0, 16)) : '') ?>"></label>
     <label class="chk"><input type="checkbox" name="reminder" value="1" <?= $val('reminder') ? 'checked' : '' ?>> <?= e($sf->t('remind_me')) ?></label></div>
-  <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button><a class="btn" href="<?= e($self) ?>"><?= e($sf->t('cancel')) ?></a></div>
+  <div class="row"><button class="btn primary"><?= e($sf->t('save')) ?></button><a class="btn" href="<?= e($selfT) ?>"><?= e($sf->t('cancel')) ?></a></div>
 </form>
 <script>(function(){var s=document.getElementById("ttype");if(!s)return;
 function a(){document.querySelectorAll(".mtype").forEach(function(d){var on=d.getAttribute("data-t")===s.value;d.hidden=!on;d.querySelectorAll("input,select,textarea").forEach(function(i){i.disabled=!on})})}
@@ -100,18 +109,19 @@ document.querySelectorAll(".mcontact").forEach(function(w){var q=w.querySelector
 
 <?php
 $mapLink = fn(string $place) => Mission::mapUrl($place, $lang);
-$render = function (int $parent, string $branch) use (&$render, $tree, $lucky, $own, $sf, $self, $data, $m, $types, $lang, $tname, $files, $contactName, $mapLink, $setup): void {
+$render = function (int $parent, string $branch) use (&$render, &$onlyId, $tree, $lucky, $own, $sf, $self, $selfT, $q, $data, $m, $types, $lang, $tname, $files, $contactName, $mapLink, $setup): void {
     foreach ($tree[$parent][$branch] ?? [] as $t):
+        if ($onlyId && (int)$t['id'] !== $onlyId) continue;   // the task page shows one task
         $d = $data($t); $id = (int)$t['id']; $kids = $tree[$id] ?? []; $code = \Sysfera\TaskTypes::normalize((string)$t['type']); $ty = \Sysfera\TaskTypes::get($types, $code);
         $defs = []; foreach ($ty['fields'] as $f) $defs[$f['key']] = $f; $fl = $files[$id] ?? [];
         $addr = trim((string)($d['address'] ?? '')) !== '' ? (string)$d['address'] : (string)($d['place'] ?? ''); ?>
   <div class="mtask <?= $t['completed'] ? 'mtdone' : '' ?> <?= in_array($id, $lucky, true) ? 'mlucky' : '' ?>" id="t<?= $id ?>">
-    <div class="row between"><div class="chips"><span class="chip id">T-<?= $id ?></span><span class="chip" style="border-color:<?= e($ty['color']) ?>"><?= \Sysfera\TaskTypes::svg($ty['icon'], 14) ?> <?= e(\Sysfera\TaskTypes::label($ty, $lang)) ?></span>
+    <div class="row between"><div class="chips"><span class="chip id">T-<?= $id ?></span><span class="chip type"><?= \Sysfera\TaskTypes::svg($ty['icon'], 13) ?> <?= e(\Sysfera\TaskTypes::label($ty, $lang)) ?></span>
       <?php if ((float)$t['cost'] > 0): ?><span class="chip cost">$<?= e(number_format((float)$t['cost'], 2, '.', ' ')) ?></span><?php endif; ?>
       <?php if ($t['scheduled_at']): ?><span class="chip">📅 <?= e(substr((string)$t['scheduled_at'], 0, 16)) ?><?= $t['reminder'] ? ' ⏰' : '' ?></span><?php endif; ?></div>
-      <?php if ($own): ?><div class="row"><a class="ibtn" href="<?= e($self . '?edit=' . $id) ?>" title="<?= e($sf->t('edit')) ?>">✎</a>
-        <form method="post" action="<?= e($self) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="task_done"><input type="hidden" name="task_id" value="<?= $id ?>"><button class="btn sm <?= $t['completed'] ? '' : 'primary' ?>"><?= e($t['completed'] ? $sf->t('undo') : $sf->t('done_' . ($code === 'email' && !empty($d['to']) ? 'email' : ($code === 'finish_mission' ? 'finish' : 'plain')))) ?></button></form>
-        <form method="post" action="<?= e($self) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="task_delete"><input type="hidden" name="task_id" value="<?= $id ?>"><button class="ibtn" title="<?= e($sf->t('delete')) ?>" data-confirm="<?= e($sf->t('confirm_task_delete')) ?>">🗑</button></form></div><?php endif; ?></div>
+      <?php if ($own): ?><div class="row"><a class="ibtn" href="<?= e($self . '?edit=' . $id . ($q ? '&' . $q : '')) ?>" title="<?= e($sf->t('edit')) ?>">✎</a>
+        <form method="post" action="<?= e($selfT) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="task_done"><input type="hidden" name="task_id" value="<?= $id ?>"><button class="btn sm <?= $t['completed'] ? '' : 'primary' ?>"><?= e($t['completed'] ? $sf->t('undo') : $sf->t('done_' . ($code === 'email' && !empty($d['to']) ? 'email' : ($code === 'finish_mission' ? 'finish' : 'plain')))) ?></button></form>
+        <form method="post" action="<?= e($selfT) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="task_delete"><input type="hidden" name="task_id" value="<?= $id ?>"><button class="ibtn" title="<?= e($sf->t('delete')) ?>" data-confirm="<?= e($sf->t('confirm_task_delete')) ?>">🗑</button></form></div><?php endif; ?></div>
     <h4><?= e($t['title']) ?></h4>
     <?php if ($t['description']): ?><div class="muted sm"><?= nl2br(e($t['description'])) ?></div><?php endif; ?>
     <?php if ($d): ?><div class="tdet"><?php foreach ($d as $k => $v): if ($v === '') continue; $f = $defs[$k] ?? ['kind' => 'text', 'label' => $k, 'label_ru' => '']; $label = \Sysfera\TaskTypes::fieldLabel($f, $lang); ?>
@@ -128,19 +138,37 @@ $render = function (int $parent, string $branch) use (&$render, $tree, $lucky, $
     <?php if ($fl || $own): ?><div class="tdet"><div class="k">🖼 <?= e($sf->t('gallery')) ?></div>
       <?php if ($fl): ?><div class="mfiles"><?php foreach ($fl as $f): $img = in_array($f['ext'], Mission::INLINE, true); $fu = $sf->url('/file/' . (int)$f['id']); ?>
         <span class="mfile"><?php if ($img): ?><a href="<?= e($fu) ?>" target="_blank" rel="noopener"><img src="<?= e($fu) ?>" alt="<?= e($f['name']) ?>" loading="lazy"></a><?php else: ?><a href="<?= e($fu) ?>">📎 <?= e($f['name']) ?></a> <small class="muted"><?= e(number_format($f['size'] / 1024, 0)) ?> KB</small><?php endif; ?>
-          <?php if ($own): ?><form method="post" action="<?= e($self) ?>" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_del"><input type="hidden" name="file_id" value="<?= (int)$f['id'] ?>"><button class="linkbtn bad-t" title="<?= e($sf->t('delete')) ?>" data-confirm="<?= e($sf->t('delete')) ?>?">×</button></form><?php endif; ?></span><?php endforeach; ?></div>
+          <?php if ($own): ?><form method="post" action="<?= e($selfT) ?>" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_del"><input type="hidden" name="file_id" value="<?= (int)$f['id'] ?>"><button class="linkbtn bad-t" title="<?= e($sf->t('delete')) ?>" data-confirm="<?= e($sf->t('delete')) ?>?">×</button></form><?php endif; ?></span><?php endforeach; ?></div>
       <?php else: ?><div class="muted sm"><?= e($sf->t('no_images')) ?></div><?php endif; ?>
-      <?php if ($own): ?><form method="post" action="<?= e($self) ?>" enctype="multipart/form-data" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_add"><input type="hidden" name="task_id" value="<?= $id ?>"><label class="btn sm">📎 <?= e($sf->t('attach')) ?><input type="file" name="file" hidden onchange="this.form.submit()"></label></form><?php endif; ?></div><?php endif; ?>
-    <?php if ($code !== 'finish_mission'): ?><div class="mpath"><?php foreach (Mission::BRANCHES as $br): $label = (string)$t['result_' . $br]; $kidsB = $kids[$br] ?? []; if (!$own && !$kidsB) continue; ?>
+      <?php if ($own): ?><form method="post" action="<?= e($selfT) ?>" enctype="multipart/form-data" class="inl"><?= csrf_field() ?><input type="hidden" name="do" value="file_add"><input type="hidden" name="task_id" value="<?= $id ?>"><label class="btn sm">📎 <?= e($sf->t('attach')) ?><input type="file" name="file" hidden onchange="this.form.submit()"></label></form><?php endif; ?></div><?php endif; ?>
+    <?php if ($code !== 'finish_mission' && $onlyId): ?><div class="rhead"><?= e($sf->t('choose_path')) ?></div><div class="rpath"><?php foreach (Mission::BRANCHES as $br): $label = (string)$t['result_' . $br]; $kidsB = $kids[$br] ?? []; ?>
+      <div class="rcard rc-<?= $br ?> <?= $kidsB ? 'has' : '' ?>"><div class="rl"><?= e($sf->t('br_' . $br)) ?></div><div class="rt"><?= e($label !== '' ? $label : $sf->t('br_' . $br)) ?></div>
+        <?php foreach ($kidsB as $k): ?><a class="rgo" href="<?= e($self . '?t=' . (int)$k['id']) ?>">→ <?= e($k['title']) ?></a><?php endforeach; ?>
+        <?php if (!$kidsB && $own): ?><a class="radd" href="<?= e($self . '?add=' . $id . ':' . $br . '&t=' . $id . '#taskform') ?>"><?= e($sf->t('click_to_add')) ?></a><?php elseif (!$kidsB): ?><span class="radd off">—</span><?php endif; ?></div>
+    <?php endforeach; ?></div>
+    <?php elseif ($code !== 'finish_mission'): ?><div class="mpath"><?php foreach (Mission::BRANCHES as $br): $label = (string)$t['result_' . $br]; $kidsB = $kids[$br] ?? []; if (!$own && !$kidsB) continue; ?>
       <div class="mbranch mb-<?= $br ?>"><div class="mbh"><b><?= e($sf->t('br_' . $br)) ?></b></div><?php if ($label !== ''): ?><div class="mbt"><?= e($label) ?></div><?php endif; ?>
-        <?php if ($own): ?><a class="sm" href="<?= e($self . '?add=' . $id . ':' . $br . '#taskform') ?>">＋ <?= e($sf->t('click_to_add')) ?></a><?php endif; ?>
+        <?php if ($own): ?><a class="radd" href="<?= e($self . '?add=' . $id . ':' . $br . ($q ? '&' . $q : '') . '#taskform') ?>"><?= e($sf->t('click_to_add')) ?></a><?php endif; ?>
         <div class="mkids"><?php $render($id, $br); ?></div></div>
     <?php endforeach; ?></div><?php endif; ?>
   </div>
 <?php endforeach; };
 if (!$tasks): ?><div class="card muted" style="text-align:center"><?= e($sf->t('no_tasks')) ?></div><?php endif;
-$render(0, ''); ?>
-<?php if ($own): ?><p><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a></p><?php endif; ?>
+if ($focus):
+    $onlyId = (int)$focus['id']; $render((int)($focus['parent_id'] ?? 0), $focus['parent_id'] ? (string)$focus['branch'] : '');
+    $backTo = $focus['parent_id'] ? $self . '?t=' . (int)$focus['parent_id'] : $self; ?>
+<p><a class="btn" href="<?= e($backTo) ?>">‹ <?= e($sf->t('back')) ?></a></p>
+<?php elseif ($treeView): $render(0, ''); ?>
+<p class="row"><?php if ($own): ?><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a><?php endif; ?><a class="btn" href="<?= e($self) ?>"><?= e($sf->t('view_list')) ?></a></p>
+<?php else: foreach ($tree[0][''] ?? [] as $t): $ty = \Sysfera\TaskTypes::get($types, \Sysfera\TaskTypes::normalize((string)$t['type'])); ?>
+<a class="tcard <?= $t['completed'] ? 'mtdone' : '' ?> <?= in_array((int)$t['id'], $lucky, true) ? 'mlucky' : '' ?>" href="<?= e($self . '?t=' . (int)$t['id']) ?>">
+  <span class="chips"><span class="chip id">T-<?= (int)$t['id'] ?></span><span class="chip type"><?= \Sysfera\TaskTypes::svg($ty['icon'], 13) ?> <?= e(\Sysfera\TaskTypes::label($ty, $lang)) ?></span>
+  <?php if ((float)$t['cost'] > 0): ?><span class="chip cost">$<?= e(number_format((float)$t['cost'], 2, '.', ' ')) ?></span><?php endif; ?><?php if ($t['completed']): ?><span class="chip">✓</span><?php endif; ?></span>
+  <span class="tt"><?= e($t['title']) ?></span>
+  <?php if ($t['description']): ?><span class="td"><?= e(mb_substr((string)$t['description'], 0, 220)) ?></span><?php endif; ?></a>
+<?php endforeach; ?>
+<p class="row"><?php if ($own): ?><a class="btn primary" href="<?= e($self . '?add=root#taskform') ?>">＋ <?= e($sf->t('add_root')) ?></a><?php endif; ?><?php if ($tasks): ?><a class="btn" href="<?= e($self . '?view=tree') ?>"><?= e($sf->t('view_tree')) ?></a><?php endif; ?></p>
+<?php endif; ?>
 <?php $mapKeyY = (string)($setup['yandex_maps_key'] ?? ''); $mapKeyM = (string)($setup['mapbox_key'] ?? ''); if (($mapKeyY !== '' || $mapKeyM !== '')): ?>
 <script>(function(){var els=document.querySelectorAll(".tmap[data-address]");if(!els.length)return;var ru=<?= json_encode($lang === 'ru') ?>;
 function yandex(){els.forEach(function(el){ymaps.ready(function(){var a=el.getAttribute("data-address");el.innerHTML="";var map=new ymaps.Map(el,{center:[55.7558,37.6173],zoom:13,controls:["zoomControl"]});

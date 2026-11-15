@@ -262,7 +262,9 @@ return function (\Sysfera\Plugin $sf): void {
 
     $sf->route('POST', '/m/{id}', function (array $a) use ($sf, $db, $uid, $mine, $path, $subtree, $finish, $types, $dropFiles, $store, $myTeams, $crmOn, $netSync) {
         $id = (int)$a['id']; $m = $mine($id); if (!$m) redirect($path());
-        $do = (string)($_POST['do'] ?? ''); $back = $path("m/$id");
+        $do = (string)($_POST['do'] ?? ''); $ft = (int)($_GET['t'] ?? 0);   // the task page the user came from
+        $ftParent = $ft ? (int)$db->val('SELECT parent_id FROM {p}mis_tasks WHERE id = ? AND mission_id = ?', [$ft, $id]) : 0;
+        $back = $path("m/$id") . ($ft ? "?t=$ft" : '');
         $touch = fn() => $db->q('UPDATE {p}mis_missions SET updated_at = NOW() WHERE id = ?', [$id]);
         if ($do === 'update') {
             $title = mb_substr(trim((string)($_POST['title'] ?? '')), 0, 255);
@@ -314,7 +316,7 @@ return function (\Sysfera\Plugin $sf): void {
                 if ($now) {
                     if ($code === 'email' && !empty($d['to'])) { $e = $sf->mail($d['to'], (string)($d['subject'] ?? $t['title']), (string)($d['body'] ?? '')); flash($e === null ? $sf->t('mail_sent', ['to' => $d['to']]) : $sf->t('mail_fail', ['e' => $e]), $e === null ? 'ok' : 'bad'); }
                     elseif ($code === 'finish_mission') { $finish($id); flash($sf->t('mission_done')); }
-                    elseif ($code === 'go_to_task' && !empty($d['target'])) redirect($back . '#t' . (int)$d['target']);
+                    elseif ($code === 'go_to_task' && !empty($d['target'])) redirect($ft ? $path("m/$id") . '?t=' . (int)$d['target'] : $back . '#t' . (int)$d['target']);
                 }
                 redirect($back . '#t' . $tid);
             }
@@ -338,6 +340,7 @@ return function (\Sysfera\Plugin $sf): void {
         } elseif ($do === 'complete') { $finish($id); flash($sf->t('mission_done')); }
         elseif ($do === 'uncomplete') { $db->q("UPDATE {p}mis_missions SET status = 'active' WHERE id = ?", [$id]); }
         if (in_array($do, ['update', 'task_save', 'task_delete'], true)) $netSync($id);
+        if ($ft && !$db->val('SELECT 1 FROM {p}mis_tasks WHERE id = ? AND mission_id = ?', [$ft, $id])) $back = $path("m/$id") . ($ftParent ? "?t=$ftParent" : '');   // the task was deleted: go to its parent
         redirect($back);
     }, ['cap' => 'missions.use']);
 

@@ -42,8 +42,13 @@ $base = ['m' => $m, 'tasks' => $tasks, 'tree' => \SysferaMissions\Mission::tree(
     'types' => $T, 'offered' => $O, 'files' => $files, 'teams' => [['id' => 3, 'name' => 'Sales team']], 'sharedTeams' => [3], 'crm' => true, 'contactName' => [5 => 'Ann <i>'], 'shopLinks' => [['url' => 'https://basebase.ru/product/7', 'title' => 'Lamp']],
     'starred' => true, 'announceOn' => true, 'langs' => ['en' => 'English', 'ru' => 'Русский'], 'setup' => ['yandex_maps_key' => 'k-1', 'mapbox_key' => '', 'tactify_url' => '']];
 foreach (['en', 'ru'] as $l) {
-    $h = render($l, 'mission', $base);
+    $_GET = ['view' => 'tree']; $h = render($l, 'mission', $base);
     ok(str_contains($h, 'Win &lt;b&gt;client') && !str_contains($h, '<b>client</b>'), "$l: mission page, title escaped");
+    $_GET = []; $hl = render($l, 'mission', $base);
+    ok(str_contains($hl, 'class="tcard') && str_contains($hl, '?t=') && str_contains($hl, '?view=tree') && !str_contains($hl, 'class="mpath"'), "$l: mission page lists the first tasks as cards");
+    $_GET = ['t' => (string)$tasks[0]['id']]; $hf = render($l, 'mission', $base);
+    ok(str_contains($hf, 'class="rpath"') && str_contains($hf, 'class="crumbs"'), "$l: task page shows the result path cards");
+    $_GET = ['view' => 'tree'];
     ok(str_contains($h, 'openstreetmap') === ($l === 'en') && str_contains($h, 'yandex.ru/maps/?text') === ($l === 'ru') && str_contains($h, 'class="tmap"') && str_contains($h, 'api-maps.yandex.ru'), "$l: map block with a link fallback, Yandex loaded when a key is set");
     ok(str_contains($h, '/product/7') && str_contains($h, 'Ann &lt;i&gt;') && str_contains($h, '/file/9') && str_contains($h, 'Sales team'), "$l: shop link, CRM contact, attachment and team are shown");
     ok(str_contains(render($l, 'mission', ['edit' => 1] + $base), 'name="td[contact_id]"') && str_contains(render($l, 'mission', ['add' => '1:good'] + $base), 'id="taskform"'), "$l: task form with the contact picker");
