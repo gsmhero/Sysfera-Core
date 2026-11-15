@@ -170,12 +170,13 @@ final class Network
     }
 
     /** list for the library tab: [rows, total] */
-    public static function search(Db $db, string $q, string $cat, string $src, int $limit = 60, int $offset = 0): array
+    public static function search(Db $db, string $q, string $cat, string $src, int $limit = 60, int $offset = 0, string $exclude = ''): array
     {
         $w = ' WHERE hidden = 0'; $a = [];
         if ($q !== '') { $w .= ' AND (title LIKE ? OR type LIKE ? OR description LIKE ?)'; array_push($a, "%$q%", "%$q%", "%$q%"); }
         if ($cat !== '') { $w .= ' AND (category = ? OR category_ru = ?)'; array_push($a, $cat, $cat); }
         if ($src === 'tactify') $w .= " AND source = 'tactify'"; elseif ($src === 'sites') $w .= " AND source LIKE 'site:%'";
+        if ($exclude !== '') { $w .= ' AND source <> ?'; $a[] = 'site:' . $exclude; }   // the asking site already sees its own missions under "This site"
         $total = (int)$db->val("SELECT COUNT(*) FROM {p}mis_net$w", $a);
         $rows = $db->rows("SELECT id, source, title, type, category, category_ru, description, author, tasks_n, updated_at FROM {p}mis_net$w ORDER BY updated_at DESC, id DESC LIMIT " . max(1, min(100, $limit)) . ' OFFSET ' . max(0, $offset), $a);
         return [$rows, $total];

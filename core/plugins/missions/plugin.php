@@ -61,7 +61,7 @@ return function (\Sysfera\Plugin $sf): void {
                 return ['mission' => $r];
             }
             $page = max(1, (int)($c->q['page'] ?? 1));
-            [$rows, $total] = Network::search($hdb, mb_substr((string)($c->q['q'] ?? ''), 0, 100), mb_substr((string)($c->q['cat'] ?? ''), 0, 100), (string)($c->q['src'] ?? ''), 24, ($page - 1) * 24);
+            [$rows, $total] = Network::search($hdb, mb_substr((string)($c->q['q'] ?? ''), 0, 100), mb_substr((string)($c->q['cat'] ?? ''), 0, 100), (string)($c->q['src'] ?? ''), 24, ($page - 1) * 24, (string)$c->domain);
             return ['rows' => $rows, 'total' => $total];
         }, true);
     }
@@ -369,7 +369,7 @@ return function (\Sysfera\Plugin $sf): void {
         if (in_array($src, ['net', 'tactify', 'sites'], true)) {   // the network library kept on the hub
             $net = ['rows' => [], 'total' => 0, 'err' => null, 'page' => max(1, (int)($_GET['page'] ?? 1))];
             $c = $netClient(); $catName = $cat ? (string)$db->val('SELECT name FROM {p}mis_categories WHERE id = ?', [$cat]) : '';
-            if ($isHub()) { [$net['rows'], $net['total']] = Network::search($db, mb_substr($q, 0, 100), $catName, $src === 'net' ? '' : $src, 24, ($net['page'] - 1) * 24); }   // the hub reads its own table
+            if ($isHub()) { [$net['rows'], $net['total']] = Network::search($db, mb_substr($q, 0, 100), $catName, $src === 'net' ? '' : $src, 24, ($net['page'] - 1) * 24, (string)preg_replace('/:\d+$/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? '')))); }   // the hub reads its own table
             elseif (!$c) $net['err'] = 'not_connected';
             else {
                 $r = $c->call('GET', 'mis.library', ['q' => $q, 'cat' => $catName, 'src' => $src === 'net' ? '' : $src, 'page' => $net['page']], null, null, 6, '0');
