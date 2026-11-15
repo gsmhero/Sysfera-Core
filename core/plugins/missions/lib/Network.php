@@ -150,6 +150,25 @@ final class Network
             [$source, $ext, $ownerSid, $clean['title'], $clean['type'], $cat, $catRu, $clean['description'] ?: null, $author, count($clean['tasks']), json_encode($clean, JSON_UNESCAPED_UNICODE), $srcUpdated ?? date('Y-m-d H:i:s')]);
     }
 
+    /** a reader reports a mission; three different reporters hide it. false when it does not exist */
+    public static function report(Db $db, int $id, string $sid): bool
+    {
+        if (!$db->val('SELECT 1 FROM {p}mis_net WHERE id = ?', [$id])) return false;
+        $db->q('INSERT IGNORE INTO {p}mis_net_reports (net_id, sid) VALUES (?,?)', [$id, $sid]);
+        $n = (int)$db->val('SELECT COUNT(*) FROM {p}mis_net_reports WHERE net_id = ?', [$id]);
+        $db->q('UPDATE {p}mis_net SET reports = ?, hidden = IF(? >= ?, 1, hidden), updated_at = updated_at WHERE id = ?', [$n, $n, self::HIDE_AFTER_REPORTS, $id]);
+        return true;
+    }
+
+    /** one visible mission with its content, or null */
+    public static function one(Db $db, int $id): ?array
+    {
+        $r = $db->row('SELECT id, source, title, type, category, category_ru, description, author, tasks_n, content, updated_at FROM {p}mis_net WHERE id = ? AND hidden = 0', [$id]);
+        if (!$r) return null;
+        $r['content'] = json_decode((string)$r['content'], true) ?: [];
+        return $r;
+    }
+
     /** list for the library tab: [rows, total] */
     public static function search(Db $db, string $q, string $cat, string $src, int $limit = 60, int $offset = 0): array
     {

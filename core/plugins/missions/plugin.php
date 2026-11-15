@@ -50,18 +50,14 @@ return function (\Sysfera\Plugin $sf): void {
             return ['ok' => true];
         });
         \SysferaMsg\HubServer::register('mis.report', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) {
-            $id = (int)($c->in['id'] ?? 0); if (!$hdb->val('SELECT 1 FROM {p}mis_net WHERE id = ?', [$id])) throw new \SysferaMsg\HubError('not_found', 404);
-            $hdb->q('INSERT IGNORE INTO {p}mis_net_reports (net_id, sid) VALUES (?,?)', [$id, $c->sid()]);
-            $n = (int)$hdb->val('SELECT COUNT(*) FROM {p}mis_net_reports WHERE net_id = ?', [$id]);
-            $hdb->q('UPDATE {p}mis_net SET reports = ?, hidden = IF(? >= ?, 1, hidden), updated_at = updated_at WHERE id = ?', [$n, $n, Network::HIDE_AFTER_REPORTS, $id]);
+            if (!Network::report($hdb, (int)($c->in['id'] ?? 0), $c->sid())) throw new \SysferaMsg\HubError('not_found', 404);
             return ['ok' => true];
         });
         \SysferaMsg\HubServer::register('mis.library', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) use ($sf) {
             if (function_exists('mis_tactify_tick')) mis_tactify_tick();
             if (isset($c->q['id'])) {
-                $r = $hdb->row('SELECT id, source, title, type, category, category_ru, description, author, tasks_n, content, updated_at FROM {p}mis_net WHERE id = ? AND hidden = 0', [(int)$c->q['id']]);
+                $r = Network::one($hdb, (int)$c->q['id']);
                 if (!$r) throw new \SysferaMsg\HubError('not_found', 404);
-                $r['content'] = json_decode((string)$r['content'], true) ?: [];
                 return ['mission' => $r];
             }
             $page = max(1, (int)($c->q['page'] ?? 1));
@@ -106,11 +102,20 @@ return function (\Sysfera\Plugin $sf): void {
     /* ---------- access ---------- */
     $mine = fn(int $id): ?array => $db->row('SELECT * FROM {p}mis_missions WHERE id = ? AND user_id = ?', [$id, $uid()]);
     /** a mission shared to the library goes to the network library on the hub (and comes back when it is made private or deleted); never blocks the page */
-    $netSync = function (int $id, bool $drop = false) use ($db, $uid, $netClient, $sf): void {
-        $c = $netClient(); if (!$c) return;
+    $netSync = function (int $id, bool $drop = false) use ($db, $uid, $netClient, $sf, $isHub): void {
+        $c = $isHub() ? null : $netClient();
+        if (!$c && !$isHub()) return;
         $m = $db->row('SELECT m.*, c.name AS cat, c.name_ru AS cat_ru, u.name AS author FROM {p}mis_missions m LEFT JOIN {p}mis_categories c ON c.id = m.category_id LEFT JOIN {p}users u ON u.id = m.user_id WHERE m.id = ? AND m.user_id = ?', [$id, $uid()]);
         if (!$m) return;
         try {
+            if (!$c) {   // this site IS the hub: its own missions go straight into the network library (there is no connection to itself)
+                $domain = (string)preg_replace('/:\d+$/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? 'hub'))); $sid = $m['user_id'] . '@' . $domain;
+                if ($m['shared'] && !$drop) {
+                    $clean = Network::sanitize(Mission::export($db, $id));
+                    if ($clean) { Network::store($db, 'site:' . $domain, (string)$id, $sid, $clean, Network::s($m['author'], 100), Network::s($m['cat'], 100), Network::s($m['cat_ru'], 100)); $db->q('UPDATE {p}mis_missions SET net_pub = 1 WHERE id = ?', [$id]); }
+                } elseif ($m['net_pub']) { $db->q('DELETE FROM {p}mis_net WHERE source = ? AND ext_id = ? AND owner_sid = ?', ['site:' . $domain, (string)$id, $sid]); $db->q('UPDATE {p}mis_missions SET net_pub = 0 WHERE id = ?', [$id]); }
+                return;
+            }
             if ($m['shared'] && !$drop) { $r = $c->call('POST', 'mis.publish', [], ['local_id' => $id, 'mission' => Mission::export($db, $id), 'category' => (string)$m['cat'], 'category_ru' => (string)$m['cat_ru'], 'author' => (string)$m['author']], null, null, 5); if ($r['ok']) $db->q('UPDATE {p}mis_missions SET net_pub = 1 WHERE id = ?', [$id]); }
             elseif ($m['net_pub']) { $r = $c->call('POST', 'mis.withdraw', [], ['local_id' => $id], null, null, 5); if ($r['ok']) $db->q('UPDATE {p}mis_missions SET net_pub = 0 WHERE id = ?', [$id]); }
         } catch (\Throwable $e) { App::log('missions network ' . $e->getMessage()); }
@@ -356,14 +361,14 @@ return function (\Sysfera\Plugin $sf): void {
     }, ['cap' => 'missions.use']);
 
     /* ================= library of shared missions ================= */
-    $sf->route('GET', '/library', function () use ($sf, $db, $cats, $netClient) {
+    $sf->route('GET', '/library', function () use ($sf, $db, $cats, $netClient, $isHub) {
         $q = trim((string)($_GET['q'] ?? '')); $cat = (int)($_GET['cat'] ?? 0); $src = (string)($_GET['src'] ?? ''); $net = null;
         if (in_array($src, ['net', 'tactify', 'sites'], true)) {   // the network library kept on the hub
             $net = ['rows' => [], 'total' => 0, 'err' => null, 'page' => max(1, (int)($_GET['page'] ?? 1))];
-            $c = $netClient();
-            if (!$c) $net['err'] = 'not_connected';
+            $c = $netClient(); $catName = $cat ? (string)$db->val('SELECT name FROM {p}mis_categories WHERE id = ?', [$cat]) : '';
+            if ($isHub()) { [$net['rows'], $net['total']] = Network::search($db, mb_substr($q, 0, 100), $catName, $src === 'net' ? '' : $src, 24, ($net['page'] - 1) * 24); }   // the hub reads its own table
+            elseif (!$c) $net['err'] = 'not_connected';
             else {
-                $catName = $cat ? (string)$db->val('SELECT name FROM {p}mis_categories WHERE id = ?', [$cat]) : '';
                 $r = $c->call('GET', 'mis.library', ['q' => $q, 'cat' => $catName, 'src' => $src === 'net' ? '' : $src, 'page' => $net['page']], null, null, 6, '0');
                 if ($r['ok']) { $net['rows'] = (array)($r['data']['rows'] ?? []); $net['total'] = (int)($r['data']['total'] ?? 0); } else $net['err'] = (string)$r['error'];
             }
@@ -378,15 +383,19 @@ return function (\Sysfera\Plugin $sf): void {
         $sf->render('library', ['rows' => $rows, 'cats' => $cats(), 'q' => $q, 'cat' => $cat, 'src' => '', 'net' => null], $sf->t('library'));
     }, ['cap' => 'missions.use']);
     /** a mission of the network library: preview, copy to my missions, report */
-    $sf->route('*', '/library/net/{id}', function (array $a) use ($sf, $db, $uid, $path, $netClient, $types) {
-        $c = $netClient(); $id = (int)$a['id']; $m = null;
-        if ($c) { $r = $c->call('GET', 'mis.library', ['id' => $id], null, null, 6, '0'); if ($r['ok']) $m = $r['data']['mission'] ?? null; }
+    $sf->route('*', '/library/net/{id}', function (array $a) use ($sf, $db, $uid, $path, $netClient, $types, $isHub) {
+        $c = $netClient(); $id = (int)$a['id']; $m = null; $hubHere = $isHub();
+        if ($hubHere) $m = Network::one($db, $id);
+        elseif ($c) { $r = $c->call('GET', 'mis.library', ['id' => $id], null, null, 6, '0'); if ($r['ok']) $m = $r['data']['mission'] ?? null; }
         if (!$m) { http_response_code(404); echo e($sf->t('not_found')); return; }
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = (string)($_POST['do'] ?? '');
             if ($do === 'import') {
                 try { $new = Mission::import($db, (array)$m['content'], $uid(), $types()); flash($sf->t('imported')); redirect($path("m/$new")); } catch (\RuntimeException) { flash($sf->t('e_file'), 'bad'); }
-            } elseif ($do === 'report') { $c->call('POST', 'mis.report', [], ['id' => $id], null, null, 5); flash($sf->t('net_reported')); }
+            } elseif ($do === 'report') {
+                if ($hubHere) Network::report($db, $id, $uid() . '@' . preg_replace('/:\d+$/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? 'hub')))); else $c->call('POST', 'mis.report', [], ['id' => $id], null, null, 5);
+                flash($sf->t('net_reported'));
+            }
             redirect($path("library/net/$id"));
         }
         $sf->render('netmission', ['m' => $m, 'types' => $types(), 'id' => $id], (string)$m['title']);
