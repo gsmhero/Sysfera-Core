@@ -1,0 +1,233 @@
+openapi: 3.0.3
+info:
+  title: Sysfera Goods issue — exchange layer
+  version: 0.1.0
+  description: |
+    Document exchange between the head-office system (source of truth) and the limited-rights pickup-warehouse app.
+
+    **Units.** Weights are whole GRAMS (integers). Money is decimal RUBLES as a STRING with at most two digits ("1250.50").
+    Floats, unit suffixes and negative values are refused (`unit_weight`, `unit_money`, `unit_qty`); a manifest must declare
+    `units: {weight: g, money: RUB}` (`unit_mismatch` otherwise).
+
+    **Idempotency.** Every document carries a UUID (`uuid` of a manifest, `doc_uuid` of a confirmation). Replaying a request
+    returns the first result with `replayed: true`; the same UUID with different content is `409 idempotency_conflict`.
+    After a timeout simply send the same request again.
+
+    **Signatures (HTTPS only).** Headers `X-GI-Timestamp` (unix seconds, +-5 minutes) and `X-GI-Signature` =
+    hex(HMAC-SHA256(key, ts + "\n" + METHOD + "\n" + path-with-query + "\n" + hex(SHA256(body)))).
+    App: key = device key from login, plus `X-GI-Token` and `X-GI-Device`. Head office: key = office key (Settings), `X-GI-Device: office`.
+    Every answer to a signed request carries `X-GI-Timestamp` and `X-GI-Signature` = hex(HMAC-SHA256(key, ts + "\n" + status + "\n" + hex(SHA256(body)))); the client must verify it.
+
+    **Retries.** Retry network errors and 5xx/503 `busy` with exponential backoff (1s, 2s, 4s ... max 60s) and the same UUIDs.
+
+    **Statuses of an order.** created -> transferred -> received -> ready_for_issue -> issued | return_requested -> returned | blocked.
+servers:
+  - url: https://YOUR-SITE/api/goodsissue/v1
+tags:
+  - name: app
+    description: Warehouse app (limited rights; always one warehouse)
+  - name: office
+    description: Head-office system
+  - name: public
+security:
+  - deviceSignature: []
+paths:
+  /time:
+    get:
+      tags: [public]
+      security: []
+      summary: Server time (to correct the clock of a device)
+      responses:
+        '200': { description: ok, content: { application/json: { schema: { type: object, properties: { time: { type: integer }, iso: { type: string } } } } } }
+  /auth/login:
+    post:
+      tags: [public]
+      security: []
+      summary: Sign in with a user account and bind the device
+      description: The first device of a user is bound automatically; further devices answer 403 `device_pending` until the office approves them. Eight failed attempts in 10 minutes lock the account for 10 minutes.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/Login' } } }
+      responses:
+        '200': { description: session, content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post: { tags: [app], summary: End the session, responses: { '200': { description: ok } } }
+  /me:
+    get: { tags: [app], summary: Who am I, responses: { '200': { description: ok } } }
+  /manifests:
+    get:
+      tags: [app]
+      summary: Manifests of the warehouse (open ones and the last 30 days)
+      responses:
+        '200': { description: list, content: { application/json: { schema: { type: object, properties: { manifests: { type: array, items: { type: object } } } } } } }
+  /manifests/{uuid}:
+    get:
+      tags: [app]
+      summary: Fetch a manifest (marks it as transferred; repeatable)
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      responses:
+        '200': { description: manifest, content: { application/json: { schema: { $ref: '#/components/schemas/Manifest' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /manifests/{uuid}/receipt:
+    post:
+      tags: [app]
+      summary: Confirm or reject the receipt of a manifest
+      description: |
+        Clean receipt -> every order becomes ready_for_issue and a one-time code is sent to the customer (never to the app).
+        A discrepancy blocks ONLY the affected orders and opens an incident. `reject` blocks all. If the server already has another result
+        (another device, office action) nothing is applied and `conflict: true` with the server copy is returned (the server wins).
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Receipt' } } } }
+      responses:
+        '200': { description: result (original result when replayed), content: { application/json: { schema: { $ref: '#/components/schemas/ReceiptResult' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /orders:
+    get:
+      tags: [app]
+      summary: Orders of the warehouse
+      parameters:
+        - { name: status, in: query, schema: { type: string }, description: 'comma separated statuses, default ready_for_issue,blocked,return_requested' }
+        - { name: q, in: query, schema: { type: string }, description: number, name or phone }
+      responses: { '200': { description: orders, content: { application/json: { schema: { type: object, properties: { orders: { type: array, items: { $ref: '#/components/schemas/Order' } } } } } } } }
+  /orders/{uuid}:
+    get:
+      tags: [app]
+      summary: One order
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      responses: { '200': { description: order, content: { application/json: { schema: { $ref: '#/components/schemas/Order' } } } }, '404': { $ref: '#/components/responses/Error' } }
+  /orders/{uuid}/issue:
+    post:
+      tags: [app]
+      summary: Issue goods to the customer
+      description: |
+        Only with status ready_for_issue AND a valid one-time code bound to the order (not expired, not used, fewer than 5 wrong attempts).
+        Above the configured amount `id_checked: true` is also required. The signature or photo is required. Needs the server: it is never accepted through /sync.
+        Errors: code_wrong (with `detail.attempts_left`), code_expired, code_used, code_locked, code_missing, id_check_required, evidence_required, order_blocked, not_ready, already_issued.
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Issue' } } } }
+      responses:
+        '200': { description: issue act, content: { application/json: { schema: { type: object, properties: { doc_uuid: { type: string }, order: { $ref: '#/components/schemas/Order' }, act: { type: object }, replayed: { type: boolean } } } } } }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /orders/{uuid}/return:
+    post:
+      tags: [app]
+      summary: Register a return (request, or goods received back)
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [doc_uuid, kind], properties: { doc_uuid: { type: string, format: uuid }, kind: { type: string, enum: [request, receive] }, reason: { type: string }, condition: { type: string, enum: [ok, damaged] }, client_ts: { type: integer } } } } }
+      responses: { '200': { description: result or conflict (server copy) } }
+  /counts:
+    post:
+      tags: [app]
+      summary: End-of-day stock count of the warehouse
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [doc_uuid, lines], properties: { doc_uuid: { type: string, format: uuid }, day: { type: string, format: date }, client_ts: { type: integer }, lines: { type: array, items: { type: object, properties: { barcode: { type: string }, qty: { type: integer } } } } } } } }
+      responses: { '200': { description: stored } }
+  /sync:
+    post:
+      tags: [app]
+      summary: Send the actions queued while offline
+      description: |
+        Actions run in the order of their ORIGINAL `client_ts` (kept in the audit log; a time in the future is cut to the server time). Each is independent and idempotent.
+        Allowed types: receipt, return, count. `issue` is refused with `online_only`. Where the server moved on meanwhile the result has `conflict: true` and the server copy: the server wins.
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [actions], properties: { actions: { type: array, maxItems: 200, items: { type: object, required: [type, doc_uuid, client_ts], properties: { type: { type: string, enum: [receipt, return, count] }, doc_uuid: { type: string, format: uuid }, ref: { type: string, description: 'manifest or order uuid' }, client_ts: { type: integer }, payload: { type: object } } } } } } } }
+      responses: { '200': { description: one result per action, content: { application/json: { schema: { type: object, properties: { results: { type: array, items: { type: object } }, server_time: { type: integer } } } } } } }
+  /office/transfers:
+    post:
+      tags: [office]
+      summary: Create a transfer order (manifest)
+      description: Idempotent by `uuid`. The server computes the checksum; a `checksum` you send must match. The total of every order must equal the sum of its items.
+      security: [{ officeSignature: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ManifestIn' } } } }
+      responses: { '200': { description: created or the original result }, '409': { $ref: '#/components/responses/Error' }, '422': { $ref: '#/components/responses/Error' } }
+  /office/transfers/{uuid}:
+    get: { tags: [office], security: [{ officeSignature: [] }], summary: State of a manifest, parameters: [{ $ref: '#/components/parameters/Uuid' }], responses: { '200': { description: manifest } } }
+  /office/orders/{uuid}:
+    get: { tags: [office], security: [{ officeSignature: [] }], summary: State of an order, parameters: [{ $ref: '#/components/parameters/Uuid' }], responses: { '200': { description: order } } }
+  /office/orders/{uuid}/resolve:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Resolve a blocked order
+      description: '`release` -> ready_for_issue (a new code goes to the customer), `return` -> return_requested. Open incidents of the order are closed.'
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [resolution], properties: { resolution: { type: string, enum: [release, return] }, note: { type: string } } } } } }
+      responses: { '200': { description: order } }
+  /office/orders/{uuid}/code:
+    post: { tags: [office], security: [{ officeSignature: [] }], summary: Send the customer a new code (the old one stops working), parameters: [{ $ref: '#/components/parameters/Uuid' }], responses: { '200': { description: sent } } }
+  /office/incidents:
+    get: { tags: [office], security: [{ officeSignature: [] }], summary: Incidents, parameters: [{ name: status, in: query, schema: { type: string, enum: [open, resolved] } }], responses: { '200': { description: list } } }
+  /office/reports:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Run the end-of-day reconciliation of a warehouse
+      description: One report per warehouse and day (repeat returns the stored one, `force` rebuilds). Expected stock vs the count of the day, issued / not issued / overdue; every difference opens an incident.
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [warehouse_id], properties: { warehouse_id: { type: integer }, day: { type: string, format: date }, force: { type: boolean } } } } } }
+      responses: { '200': { description: report } }
+  /office/reports/{wid}/{day}:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: A stored report
+      parameters: [{ name: wid, in: path, required: true, schema: { type: integer } }, { name: day, in: path, required: true, schema: { type: string, format: date } }]
+      responses: { '200': { description: report }, '404': { $ref: '#/components/responses/Error' } }
+components:
+  securitySchemes:
+    deviceSignature: { type: apiKey, in: header, name: X-GI-Signature, description: 'with X-GI-Token, X-GI-Device, X-GI-Timestamp (see the description above)' }
+    officeSignature: { type: apiKey, in: header, name: X-GI-Signature, description: 'HMAC with the office key; X-GI-Device: office; X-GI-Timestamp' }
+  parameters:
+    Uuid: { name: uuid, in: path, required: true, schema: { type: string, format: uuid } }
+  responses:
+    Error:
+      description: error
+      content: { application/json: { schema: { type: object, properties: { error: { type: object, properties: { code: { type: string }, message: { type: string }, detail: { type: object } } } } } } }
+  schemas:
+    Login: { type: object, required: [email, password, device_id], properties: { email: { type: string }, password: { type: string }, device_id: { type: string, minLength: 16, maxLength: 64, description: generated once by the app }, device_label: { type: string } } }
+    Session: { type: object, properties: { token: { type: string }, expires_in: { type: integer }, device_key: { type: string, description: HMAC key of this device }, user: { type: object }, warehouse: { type: object }, config: { type: object }, server_time: { type: integer } } }
+    Units: { type: object, required: [weight, money], properties: { weight: { type: string, enum: [g] }, money: { type: string, enum: [RUB] } } }
+    ManifestIn:
+      type: object
+      required: [uuid, warehouse_id, units, orders]
+      properties:
+        uuid: { type: string, format: uuid }
+        warehouse_id: { type: integer }
+        units: { $ref: '#/components/schemas/Units' }
+        checksum: { type: string, description: optional; SHA-256 of the contents }
+        orders:
+          type: array
+          items:
+            type: object
+            required: [uuid, total_rub, items]
+            properties:
+              uuid: { type: string, format: uuid }
+              number: { type: string }
+              customer_name: { type: string }
+              customer_phone: { type: string }
+              customer_email: { type: string }
+              total_rub: { type: string, example: '2700.00' }
+              items:
+                type: array
+                items: { type: object, required: [barcode, qty, weight_g, price_rub], properties: { sku: { type: string }, name: { type: string }, qty: { type: integer, minimum: 1 }, weight_g: { type: integer, minimum: 0, description: grams }, barcode: { type: string, description: unique in the manifest, one per package }, price_rub: { type: string, example: '1500.00' } } }
+    Manifest: { type: object, properties: { uuid: { type: string }, warehouse_id: { type: integer }, status: { type: string, enum: [created, transferred, confirmed, disputed] }, checksum: { type: string }, units: { $ref: '#/components/schemas/Units' }, orders: { type: array, items: { $ref: '#/components/schemas/Order' } } } }
+    Order: { type: object, properties: { uuid: { type: string }, number: { type: string }, status: { type: string, enum: [created, transferred, received, ready_for_issue, issued, return_requested, returned, blocked] }, version: { type: integer }, customer_name: { type: string }, customer_phone: { type: string }, total_rub: { type: string }, id_check: { type: boolean }, ready_at: { type: string, nullable: true }, issued_at: { type: string, nullable: true }, items: { type: array, items: { type: object } } } }
+    Receipt:
+      type: object
+      required: [doc_uuid, checksum]
+      properties:
+        doc_uuid: { type: string, format: uuid }
+        checksum: { type: string, description: the checksum of the manifest the app holds; a different one is 409 manifest_changed }
+        decision: { type: string, enum: [confirm, reject], default: confirm }
+        client_ts: { type: integer, description: unix seconds on the device when the action happened }
+        scans: { type: array, items: { type: object, properties: { barcode: { type: string }, qty: { type: integer } } } }
+        discrepancies: { type: array, items: { type: object, properties: { barcode: { type: string }, kind: { type: string, enum: [missing, damaged, extra, wrong_weight, unknown] }, qty: { type: integer }, note: { type: string } } } }
+    ReceiptResult: { type: object, properties: { doc_uuid: { type: string }, conflict: { type: boolean }, replayed: { type: boolean }, reason: { type: string }, server: { type: object }, transfer: { type: object }, orders: { type: array, items: { $ref: '#/components/schemas/Order' } }, incidents: { type: integer } } }
+    Issue: { type: object, required: [doc_uuid, code, signature], properties: { doc_uuid: { type: string, format: uuid }, code: { type: string, pattern: '^[0-9]{6}$' }, id_checked: { type: boolean }, signature: { type: string, description: 'customer signature or photo as a data URL (kept next to the act, only its SHA-256 goes to the log)' }, client_ts: { type: integer } } }

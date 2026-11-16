@@ -1,0 +1,11 @@
+{
+  "slug": "goodsissue",
+  "version": "0.1.0",
+  "name": { "en": "Goods issue", "ru": "Выдача товаров" },
+  "description": {
+    "en": "Pickup-warehouse goods issue: the head office sends transfer orders, remote warehouses confirm receipt, issue goods against a one-time code and register returns in a limited-rights app (PWA, works offline). Append-only audit log, signed exchange, daily reconciliation.",
+    "ru": "Выдача товаров в удалённых пунктах: офис отправляет заказы на перемещение, склад подтверждает приёмку, выдаёт товар по одноразовому коду и оформляет возвраты в приложении с ограниченными правами (PWA, работает офлайн). Неизменяемый журнал, подписанный обмен, ежедневная сверка."
+  },
+  "requires": { "core": ">=0.1.44" },
+  "capabilities": {}
+}

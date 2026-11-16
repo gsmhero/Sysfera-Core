@@ -1,0 +1,9 @@
+<?php /** @var \Sysfera\Plugin $sf @var string $tab @var array $rows @var string $e @var string $a @var ?array $verify */
+include __DIR__ . '/_nav.php'; ?>
+<div class="page-h"><h1><?= e($sf->t('nav_audit')) ?></h1><a class="btn" href="<?= e($sf->url('/audit?verify=1')) ?>"><?= e($sf->t('verify_chain')) ?></a></div>
+<div class="hint"><?= e($sf->t('audit_hint')) ?></div>
+<?php if ($verify): ?><div class="flash <?= $verify['bad'] === null ? 'ok' : 'bad' ?>"><?= e($verify['bad'] === null ? $sf->t('chain_ok', ['n' => $verify['n']]) : $sf->t('chain_broken', ['id' => $verify['bad']])) ?></div><?php endif; ?>
+<form class="row" method="get"><input name="e" value="<?= e($e) ?>" placeholder="<?= e($sf->t('entity_uuid')) ?>"><input name="a" value="<?= e($a) ?>" placeholder="<?= e($sf->t('action_prefix')) ?>"><button class="btn"><?= e($sf->t('find')) ?></button></form>
+<div class="card flush"><table class="tbl"><thead><tr><th>#</th><th><?= e($sf->t('date')) ?></th><th><?= e($sf->t('actor')) ?></th><th><?= e($sf->t('event')) ?></th><th>UUID</th><th><?= e($sf->t('device')) ?></th><th><?= e($sf->t('code_hash')) ?></th></tr></thead><tbody>
+<?php foreach ($rows as $l): ?><tr><td class="muted"><?= (int)$l['id'] ?></td><td class="muted"><?= e($l['ts']) ?><?= $l['client_ts'] && $l['client_ts'] !== $l['ts'] ? '<br><small>' . e($sf->t('device_time')) . ' ' . e($l['client_ts']) . '</small>' : '' ?></td><td><?= e($l['actor']) ?></td><td><?= e($l['action']) ?></td>
+  <td><a href="<?= e($sf->url('/audit?e=' . urlencode($l['entity_uuid']))) ?>"><code><?= e(substr($l['entity_uuid'], 0, 8)) ?></code></a></td><td class="muted"><?= e(substr((string)$l['device_id'], 0, 10)) ?></td><td class="muted"><code><?= e(substr((string)$l['code_hash'], 0, 10)) ?></code></td></tr><?php endforeach; ?></tbody></table></div>
