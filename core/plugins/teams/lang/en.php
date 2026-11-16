@@ -19,7 +19,7 @@ return [
     'reply' => 'Reply', 'edit' => 'Edit', 'pin' => 'Pin', 'unpin' => 'Unpin', 'edited' => 'edited', 'deleted' => 'message deleted', 'new_messages' => 'New messages', 'pinned' => 'Pinned', 'replying' => 'Replying to', 'too_big' => 'File is larger than 5 MB.',
     'sending_failed' => 'Could not send. Try again.', 'download' => 'Download',
     /* board */
-    'add_task' => 'Add task', 'edit_task' => 'Edit task', 'f_title' => 'Title', 'f_column' => 'Column', 'f_assignee' => 'Assigned to', 'f_due' => 'Due date', 'f_prio' => 'Priority', 'prio_low' => 'Low', 'prio_mid' => 'Normal', 'prio_high' => 'High',
+    'assigned_to' => 'Assigned to', 'attachments' => 'Attachments', 'add_task' => 'Add task', 'edit_task' => 'Edit task', 'f_title' => 'Title', 'f_column' => 'Column', 'f_assignee' => 'Assigned to', 'f_due' => 'Due date', 'f_prio' => 'Priority', 'prio_low' => 'Low', 'prio_mid' => 'Normal', 'prio_high' => 'High',
     'only_mine' => 'only mine', 'manage_columns' => 'Manage columns', 'new_column' => 'New column', 'col_done' => 'counts as done', 'st_order' => 'Order',
     'col_todo' => 'To do', 'col_doing' => 'In progress', 'col_done_name' => 'Done',
     /* calendar */

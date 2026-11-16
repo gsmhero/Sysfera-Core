@@ -28,8 +28,13 @@ $act = fn(string $p) => e($sf->url('/t/' . $tid . $p)); $prio = ['0' => 'prio_lo
   <section class="tm-col" data-col="<?= (int)$col['id'] ?>"><header><b><?= e($col['name']) ?><?= $col['is_done'] ? ' ✓' : '' ?></b><span class="muted"><?= count($list) ?></span></header>
     <div class="tm-cards"><?php foreach ($list as $x): $late = $x['due'] && !$x['done_at'] && $x['due'] < $today; ?>
       <a class="tm-task prio<?= (int)$x['prio'] ?>" href="<?= $act('/board?view=' . (int)$x['id']) ?>" draggable="<?= $can ? 'true' : 'false' ?>" data-id="<?= (int)$x['id'] ?>">
-        <b><?= e($x['title']) ?></b>
-        <span class="tm-task-f"><?php if ($x['due']): ?><small class="<?= $late ? 'late' : 'muted' ?>">📅 <?= e(date('d.m', strtotime($x['due']))) ?></small><?php endif; ?><?php if ($x['aname']): ?><i class="tm-av" title="<?= e($x['aname']) ?>"><?= e(mb_strtoupper(mb_substr($x['aname'], 0, 1))) ?></i><?php endif; ?></span></a><?php endforeach; ?></div></section>
+        <b class="tm-tt"><?= e($x['title']) ?></b>
+        <?php if (trim((string)($x['descr'] ?? '')) !== ''): ?><span class="tm-td"><?= e(mb_substr(trim((string)preg_replace('/\s+/u', ' ', $x['descr'])), 0, 90)) ?></span><?php endif; ?>
+        <?php $att = count(\Sysfera\Attach::decode($x['links'] ?? null)) + count(\Sysfera\Attach::decode($x['wdocs'] ?? null)) + count(\Sysfera\Attach::decode($x['tfiles'] ?? null)); ?>
+        <span class="tm-task-f"><span class="tm-tmeta">
+          <?php if ($x['due']): ?><small class="<?= $late ? 'late' : 'muted' ?>"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg> <?= e(date('d.m', strtotime((string)$x['due']))) ?></small><?php endif; ?>
+          <?php if ($att): ?><small class="muted" title="<?= e($sf->t('attachments')) ?>"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg> <?= $att ?></small><?php endif; ?></span>
+          <?php if ($x['aname']): ?><span class="tm-tas"><small class="muted"><?= e($sf->t('assigned_to')) ?></small><i class="tm-av" title="<?= e($x['aname']) ?>"><?= e(mb_strtoupper(mb_substr($x['aname'], 0, 1))) ?></i></span><?php endif; ?></span></a><?php endforeach; ?></div></section>
 <?php endforeach; ?></div>
 
 <?php if ($adm): ?><details class="card tm-add"><summary><?= e($sf->t('manage_columns')) ?></summary>

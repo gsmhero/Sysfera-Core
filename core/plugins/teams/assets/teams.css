@@ -54,3 +54,14 @@ html.lb-open{overflow:hidden}
 .tm-ud{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:4px 0 0;font-size:13px}.tm-ud b{color:var(--ink)}.tm-uh{color:#1d6fd8;font-weight:600}.tm-ue{color:var(--mut)}
 .tm-uc{margin:6px 0 0;font-size:14px;color:var(--mut);line-height:1.45;white-space:pre-line;word-break:break-word}
 .tm-inv{display:grid;gap:14px}.tm-invrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.tm-invrow .fld{margin:0}.tm-invrow select{min-width:120px}.tm-invp{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:6px}.tm-invp:last-child{border-bottom:0}
+
+/* task cards (board): title, short text, due date / attachments, assignee; the priority is the colour bar at the bottom */
+.tm-task{position:relative;gap:6px;border:1px solid var(--line);border-left:1px solid var(--line);border-radius:12px;padding:11px 13px 14px;box-shadow:0 1px 3px #0000000d;transition:box-shadow .12s,border-color .12s,transform .12s}
+.tm-task:hover{border-color:var(--acc);box-shadow:0 4px 12px #00000014}
+.tm-task::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--line)}
+.tm-task.prio2{border-left-color:var(--line)}.tm-task.prio1{border-left-color:var(--line)}.tm-task.prio0{border-left-color:var(--line)}
+.tm-task.prio2::after{background:var(--bad)}.tm-task.prio1::after{background:var(--warn)}.tm-task.prio0::after{background:var(--ok)}
+.tm-tt{font-size:15px;line-height:1.3;word-break:break-word}.tm-td{font-size:13px;line-height:1.35;color:var(--mut);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.tm-task-f{margin-top:2px;gap:8px}.tm-tmeta{display:flex;align-items:center;gap:10px;min-width:0}.tm-tmeta small{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;white-space:nowrap}
+.tm-tmeta svg,.tm-task svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tm-tas{display:inline-flex;align-items:center;gap:6px;flex:none}.tm-tas small{font-size:12px}

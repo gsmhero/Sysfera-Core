@@ -90,3 +90,11 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 @media(max-width:640px){[data-rep=l] .rep-row,[data-ptype] [data-rep=l] .rep-row{grid-template-columns:1fr 1fr auto}[data-rep=l] .c-stock{display:none}}
 
 .docprog .bar-mini.big{height:8px;border-radius:4px;margin-top:10px}.docprog .row.between{align-items:center;gap:12px}
+
+/* sections are told apart by colour: warehouse blue, purchases amber, sales green */
+.g-stock{--gc:#2563eb}.g-buy{--gc:#d97706}.g-sell{--gc:#16a34a}
+.menu-h.g-stock,.menu-h.g-buy,.menu-h.g-sell{color:var(--gc);font-weight:700;display:flex;align-items:center;gap:7px}.menu-h.g-stock::before,.menu-h.g-buy::before,.menu-h.g-sell::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--gc)}
+.menu-body a.g-stock,.menu-body a.g-buy,.menu-body a.g-sell{border-left:3px solid var(--gc);border-radius:0 7px 7px 0;margin-left:3px}.menu-body a.g-stock:hover,.menu-body a.g-buy:hover,.menu-body a.g-sell:hover{background:color-mix(in srgb,var(--gc) 9%,transparent)}
+.seg a.g-stock::before,.seg a.g-buy::before,.seg a.g-sell::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gc);margin-right:7px}
+.seg a.g-stock.on,.seg a.g-buy.on,.seg a.g-sell.on{background:var(--gc);color:#fff}.seg a.on.g-stock::before,.seg a.on.g-buy::before,.seg a.on.g-sell::before{background:#fff}
+.gdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gc);margin-right:6px;vertical-align:1px}
