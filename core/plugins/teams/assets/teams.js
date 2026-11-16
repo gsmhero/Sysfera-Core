@@ -53,7 +53,7 @@
   function render(m) {
     var row = el('div', 'tm-m' + (m.mine ? ' mine' : '') + (m.id > cfg.lastRead && !m.mine ? ' fresh' : '') + (m.pinned ? ' pinned' : '')); row.dataset.id = m.id;
     row.appendChild(el('i', 'tm-av', (m.name || '?').charAt(0).toUpperCase()));
-    var c = el('div', 'tm-mc'), h = el('div', 'tm-mh'); h.appendChild(el('b', null, m.name)); h.appendChild(el('small', 'muted', ' ' + m.at + (m.edited ? ' · ' + T.edited : '') + (m.pinned ? ' · 📌' : ''))); c.appendChild(h);
+    var c = el('div', 'tm-mc'), h = el('div', 'tm-mh'); h.appendChild(el('b', null, m.name)); h.appendChild(el('small', 'muted', ' ' + m.at + (m.edited ? ' · ' + T.edited : '') + (m.pinned ? ' · ' + T.pinned : ''))); c.appendChild(h);
     if (m.reply) { var q = el('div', 'tm-quote'); q.appendChild(el('b', null, m.reply.name)); q.appendChild(document.createTextNode(' ' + m.reply.text)); c.appendChild(q); }
     if (m.deleted) c.appendChild(el('div', 'tm-del muted', T.deleted));
     else {
@@ -64,13 +64,13 @@
         var l = el('a', 'tm-dl', '⬇ ' + T.download + ' ' + m.file.name + ' (' + size(m.file.size) + ')'); l.href = cfg.file + m.file.id; l.setAttribute('download', m.file.name); fw.appendChild(l); c.appendChild(fw);
       }
       var rx = el('div', 'tm-rx');
-      m.react.forEach(function (r) { var bt = el('button', 'tm-r' + (r.me ? ' me' : ''), r.e + ' ' + r.n); bt.type = 'button'; bt.onclick = function () { act(m.id, 'react', { emoji: r.e }); }; rx.appendChild(bt); });
+      m.react.forEach(function (r) { var bt = el('button', 'tm-r' + (r.me ? ' me' : '')); bt.type = 'button'; if (EMO[r.e]) { bt.innerHTML = svg(EMO[r.e]); bt.appendChild(document.createTextNode(' ' + r.n)); } else bt.textContent = r.e + ' ' + r.n; bt._fn = function () { act(m.id, 'react', { emoji: r.e }); }; rx.appendChild(bt); });
       var tools = el('span', 'tm-tools');
-      if (cfg.canPost) tools.appendChild(tool('↩', T.reply, function () { setReply(m); }));
-      if (cfg.canReact) cfg.emoji.slice(0, 3).forEach(function (e) { tools.appendChild(tool(e, e, function () { act(m.id, 'react', { emoji: e }); })); });
-      if (m.mine) tools.appendChild(tool('✎', T.edit, function () { editMsg(m, row); }));
-      if (cfg.canPin) tools.appendChild(tool('📌', m.pinned ? T.unpin : T.pin, function () { act(m.id, 'pin', {}); }));
-      if (m.can_del) tools.appendChild(tool('🗑', T.delete, function () { if (confirm(T.confirm_delete)) act(m.id, 'delete', {}); }));
+      if (cfg.canPost) tools.appendChild(tool('reply', T.reply, function () { setReply(m); }));
+      if (cfg.canReact) cfg.emoji.slice(0, 3).forEach(function (e) { tools.appendChild(tool(EMO[e] || 'smile', e, function () { act(m.id, 'react', { emoji: e }); })); });
+      if (m.mine) tools.appendChild(tool('edit', T.edit, function () { editMsg(m, row); }));
+      if (cfg.canPin) tools.appendChild(tool('pin', m.pinned ? T.unpin : T.pin, function () { act(m.id, 'pin', {}); }));
+      if (m.can_del) tools.appendChild(tool('trash', T.delete, function () { if (confirm(T.confirm_delete)) act(m.id, 'delete', {}); }));
       rx.appendChild(tools); c.appendChild(rx);
     }
     row.appendChild(c); return row;
@@ -101,7 +101,12 @@
     });
     document.addEventListener('keydown', function (e) { if (!lb || lb.hidden) return; if (e.key === 'Escape') close(); else if (e.key === 'ArrowLeft') go(-1); else if (e.key === 'ArrowRight') go(1); });
   })();
-  function tool(sym, title, fn) { var b = el('button', 'tm-tool', sym); b.type = 'button'; b.title = title; b.onclick = fn; return b; }
+  /* one-colour line icons (follow the text colour) */
+  var ICO = { reply: 'M9 14 4 9l5-5M4 9h10a6 6 0 0 1 6 6v3', thumb: 'M7 10v11M7 10l4-7a2 2 0 0 1 2 2v4h6a2 2 0 0 1 2 2l-1.5 7A2 2 0 0 1 17.5 21H7', heart: 'M12 21s-7-4.5-9.5-9A5.5 5.5 0 0 1 12 6a5.5 5.5 0 0 1 9.5 6C19 16.5 12 21 12 21z', smile: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01', edit: 'M4 20h4L19 9l-4-4L4 16v4z', pin: 'M12 17v5M8 3h8l-1 7 3 3v2H6v-2l3-3-1-7z', trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3' };
+  var EMO = { '\uD83D\uDC4D': 'thumb', '\u2764\uFE0F': 'heart', '\u2764': 'heart', '\uD83D\uDE04': 'smile' };
+  function svg(n) { return '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="' + ICO[n] + '"/></svg>'; }
+  function tool(name, title, fn) { var b = el('button', 'tm-tool'); b.type = 'button'; b.title = title; b.setAttribute('aria-label', title); b.innerHTML = svg(name); b._fn = fn; return b; }
+  box.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('.tm-tool, .tm-r') : null; if (b && b._fn) { e.preventDefault(); b._fn(); } });
   function editMsg(m, row) {
     var bd = row.querySelector('.tm-body') || row.querySelector('.tm-mc'), ta = el('textarea'); ta.value = m.body || ''; ta.rows = 3;
     var ok = el('button', 'btn sm primary', T.save), no = el('button', 'btn sm', T.cancel), w = el('div', 'tm-edit'); ok.type = no.type = 'button';
@@ -118,7 +123,7 @@
     pinsBox.hidden = !list.length; pinsBox.textContent = '';
     list.slice(-3).forEach(function (m) { var d = el('div', null, '📌 ' + m.name + ': ' + (m.body || '').slice(0, 120)); pinsBox.appendChild(d); });
   }
-  function act(id, what, data) { post(cfg.msg + id + '/' + what, data).then(function (j) { if (j.ok && j.message) show(j.message); else if (j.error) alert(j.error); }); }
+  function act(id, what, data) { post(cfg.msg + id + '/' + what, data).then(function (j) { if (j.ok && j.message) show(j.message); else alert(j.error || T.sending_failed); }).catch(function () { alert(T.sending_failed); }); }
   function atBottom() { return box.scrollHeight - box.scrollTop - box.clientHeight < 80; }
 
   cfg.msgs.forEach(show); box.scrollTop = box.scrollHeight;

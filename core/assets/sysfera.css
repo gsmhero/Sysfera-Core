@@ -122,3 +122,6 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .side-foot{margin-top:auto}
 
 .upd-all{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px}
+
+/* task types admin: air between the form parts */
+.tt-form{gap:20px}.tt-form .cols{gap:14px}.tt-form .tt-fields{gap:12px}.tt-form .row{gap:14px;flex-wrap:wrap}.tt-form .chk{margin-right:10px}

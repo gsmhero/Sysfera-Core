@@ -34,7 +34,7 @@ $form = function (array $x, bool $new) use ($apps, $fieldRows, $tk): void { $hav
 <div class="page-h"><h1><?= e(t('nav.tasktypes')) ?></h1></div>
 <div class="hint"><?= e(t('tasktypes.hint')) ?></div>
 <?php foreach ($types as $x): ?>
-<form method="post" class="card col"><?= csrf_field() ?>
+<form method="post" class="card col tt-form"><?= csrf_field() ?>
   <div class="row between"><div><span style="color:<?= e($x['color']) ?>"><?= \Sysfera\TaskTypes::svg($x['icon'], 18) ?></span> <b><?= e($lang === 'ru' && $x['name_ru'] !== '' ? $x['name_ru'] : $x['name']) ?></b> <small class="muted"><?= e($x['code']) ?></small><?= $x['active'] ? '' : ' <span class="badge warn">off</span>' ?></div></div>
   <?php $form($x, false); ?>
   <div class="row"><button class="btn primary" name="do" value="save"><?= e(t('common.save')) ?></button>
@@ -42,7 +42,7 @@ $form = function (array $x, bool $new) use ($apps, $fieldRows, $tk): void { $hav
 </form>
 <?php endforeach; ?>
 <h2><?= e(t('tasktypes.add')) ?></h2>
-<form method="post" class="card col"><?= csrf_field() ?>
+<form method="post" class="card col tt-form"><?= csrf_field() ?>
   <?php $form(['code' => '', 'name' => '', 'name_ru' => '', 'icon' => 'tag', 'color' => '#6b7280', 'apps' => 'missions,crm', 'fields' => [], 'sort' => 500, 'active' => 1], true); ?>
   <div class="row"><button class="btn primary" name="do" value="add"><?= e(t('tasktypes.add')) ?></button></div>
 </form>

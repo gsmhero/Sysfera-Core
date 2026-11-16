@@ -16,7 +16,7 @@ $cfg = ['poll' => $base . '/poll', 'send' => $base . '/send', 'msg' => $base . '
     <div class="tm-replybar" id="tmreply" hidden></div>
     <div class="tm-sug" id="tmsug" hidden></div>
     <textarea id="tmbody" rows="2" maxlength="<?= Tm::MAX_TEXT ?>" placeholder="<?= e($sf->t('write_ph', ['c' => $c['name']])) ?>"></textarea>
-    <div class="tm-composer-f"><?php if (!\Sysfera\Demo::on() && Tm::can($t['role'], 'upload')): ?><label class="btn sm tm-attach">📎 <?= e($sf->t('attach')) ?><input type="file" id="tmfile" hidden></label><span class="muted sm" id="tmfname"></span><?php endif; ?>
+    <div class="tm-composer-f"><?php if (!\Sysfera\Demo::on() && Tm::can($t['role'], 'upload')): ?><label class="btn sm tm-attach"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg> <?= e($sf->t('attach')) ?><input type="file" id="tmfile" hidden></label><span class="muted sm" id="tmfname"></span><?php endif; ?>
       <span class="grow"></span><small class="muted" id="tmerr"></small><button class="btn primary sm" id="tmsend"><?= e($sf->t('send')) ?></button></div></form>
   <?php else: ?><p class="muted" style="text-align:center"><?= e($sf->t('read_only')) ?></p><?php endif; ?>
 </main>
