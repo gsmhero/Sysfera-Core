@@ -53,3 +53,4 @@ html.lb-open{overflow:hidden}
 .tm-ut{font-size:18px;font-weight:700;line-height:1.25;color:var(--acc);word-break:break-word}
 .tm-ud{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin:4px 0 0;font-size:13px}.tm-ud b{color:var(--ink)}.tm-uh{color:#1d6fd8;font-weight:600}.tm-ue{color:var(--mut)}
 .tm-uc{margin:6px 0 0;font-size:14px;color:var(--mut);line-height:1.45;white-space:pre-line;word-break:break-word}
+.tm-inv{display:grid;gap:14px}.tm-invrow{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.tm-invrow .fld{margin:0}.tm-invrow select{min-width:120px}.tm-invp{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:6px}.tm-invp:last-child{border-bottom:0}

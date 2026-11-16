@@ -53,6 +53,7 @@ return function (\Sysfera\Plugin $sf): void {
     $nameMap = function (int $tid) use ($members): array { $m = []; foreach ($members($tid) as $r) $m[(int)$r['id']] = (string)$r['name']; return $m; };
     $layout = fn(array $t, string $tab, array $vars = []) => $vars + ['t' => $t, 'tab' => $tab, 'chans' => ($t['role'] !== null ? $channels((int)$t['id'], (string)$t['role']) : [])];
 
+    $abs = fn(string $path): string => 'https://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $path;
     $addMember = function (int $tid, int $userId, string $r = 'member') use ($db): void {
         $db->q('INSERT IGNORE INTO {p}teams_members (team_id, user_id, role) VALUES (?,?,?)', [$tid, $userId, $r]);
     };
@@ -383,18 +384,35 @@ return function (\Sysfera\Plugin $sf): void {
         redirect($self('t/' . $t['id'] . '/calendar'));
     });
 
+    /* =============================== invitations (the link is sent by e-mail or copied; the person signs in and joins) =============================== */
+    $inviteOf = fn(string $tok): ?array => preg_match('/^[a-f0-9]{32}$/', $tok) ? ($db->row('SELECT i.*, t.name AS tname, t.descr AS tdescr, t.color AS tcolor, u.name AS by_name FROM {p}teams_invites i JOIN {p}teams_teams t ON t.id = i.team_id AND t.archived = 0 LEFT JOIN {p}users u ON u.id = i.invited_by WHERE i.token = ? AND i.used_at IS NULL AND i.expires_at > NOW()', [$tok]) ?: null) : null;
+    $route('GET', '/invite/{token}', function (array $p) use ($inviteOf, $db, $uid, $sf, $self, $page) {
+        $i = $inviteOf((string)$p['token']);
+        if (!$i) { flash($sf->t('inv_e_gone'), 'bad'); redirect($self()); }
+        if ($db->val('SELECT 1 FROM {p}teams_members WHERE team_id = ? AND user_id = ?', [$i['team_id'], $uid()])) redirect($self('t/' . $i['team_id']));
+        $page('invite', ['i' => $i], $sf->t('inv_title'));
+    });
+    $route('POST', '/invite/{token}/accept', function (array $p) use ($inviteOf, $db, $uid, $sf, $self, $addMember) {
+        $i = $inviteOf((string)$p['token']);
+        if (!$i) { flash($sf->t('inv_e_gone'), 'bad'); redirect($self()); }
+        $addMember((int)$i['team_id'], $uid(), (string)$i['role']);
+        $db->q('UPDATE {p}teams_invites SET used_at = NOW(), used_by = ? WHERE id = ?', [$uid(), $i['id']]);
+        flash($sf->t('inv_joined', ['t' => $i['tname']])); redirect($self('t/' . $i['team_id']));
+    });
+
     /* =============================== members and team settings =============================== */
     $route('GET', '/t/{id}/members', function (array $p) use ($open, $db, $page, $layout, $sf, $members) {
         $t = $open($p, 'read'); $mem = $members((int)$t['id']);
         $others = Tm::can($t['role'], 'members') ? $db->rows("SELECT u.id, u.name, u.email FROM {p}users u WHERE u.status = 'active' AND u.id NOT IN (SELECT user_id FROM {p}teams_members WHERE team_id = ?) ORDER BY u.name LIMIT 500", [$t['id']]) : [];
-        $page('members', $layout($t, 'members', ['mem' => $mem, 'others' => $others]), $sf->t('members'));
+        $invites = Tm::can($t['role'], 'members') ? $db->rows('SELECT i.*, u.name AS by_name FROM {p}teams_invites i LEFT JOIN {p}users u ON u.id = i.invited_by WHERE i.team_id = ? AND i.used_at IS NULL AND i.expires_at > NOW() ORDER BY i.id DESC LIMIT 50', [$t['id']]) : [];
+        $page('members', $layout($t, 'members', ['mem' => $mem, 'others' => $others, 'invites' => $invites]), $sf->t('members'));
     });
 
-    $route('POST', '/t/{id}/members/{do}', function (array $p) use ($open, $db, $int, $uid, $sf, $self, $addMember) {
+    $route('POST', '/t/{id}/members/{do}', function (array $p) use ($open, $db, $int, $uid, $sf, $self, $addMember, $abs) {
         $t = $open($p, 'members'); $do = $p['do']; $u = $int($_POST['user_id'] ?? '');
         $cur = $u ? $db->val('SELECT role FROM {p}teams_members WHERE team_id = ? AND user_id = ?', [$t['id'], $u]) : null;
         $back = $self('t/' . $t['id'] . '/members');
-        if ($do === 'add' && $u && !$cur && $db->val("SELECT 1 FROM {p}users WHERE id = ? AND status = 'active'", [$u])) { $addMember((int)$t['id'], $u); flash($sf->t('member_added')); }
+        if ($do === 'add' && $u && !$cur && $db->val("SELECT 1 FROM {p}users WHERE id = ? AND status = 'active'", [$u])) { $addMember((int)$t['id'], $u, ($_POST['role'] ?? '') === 'admin' && Tm::can($t['role'], 'roles') ? 'admin' : 'member'); flash($sf->t('member_added')); }
         elseif ($do === 'role' && $u && $cur && Tm::can($t['role'], 'roles')) {
             $r = in_array($_POST['role'] ?? '', Tm::ROLES, true) ? $_POST['role'] : 'member';
             if ($cur === 'owner' && $r !== 'owner' && (int)$db->val("SELECT COUNT(*) FROM {p}teams_members WHERE team_id = ? AND role = 'owner'", [$t['id']]) < 2) flash($sf->t('e_last_owner'), 'bad');
@@ -403,6 +421,28 @@ return function (\Sysfera\Plugin $sf): void {
             $db->q('DELETE FROM {p}teams_members WHERE team_id = ? AND user_id = ?', [$t['id'], $u]);
             $db->q('DELETE FROM {p}teams_channel_members WHERE user_id = ? AND channel_id IN (SELECT id FROM {p}teams_channels WHERE team_id = ?)', [$u, $t['id']]);
             flash($sf->t('member_removed'));
+        } elseif ($do === 'revoke') { $db->q('DELETE FROM {p}teams_invites WHERE id = ? AND team_id = ? AND used_at IS NULL', [(int)($_POST['invite'] ?? 0), $t['id']]); flash($sf->t('inv_revoked'));
+        } elseif (in_array($do, ['invite', 'link'], true)) {   // invitation by e-mail (a link is sent) or a link to copy; valid 14 days, one person
+            $role = ($_POST['role'] ?? '') === 'admin' && Tm::can($t['role'], 'roles') ? 'admin' : 'member';
+            $mk = function (?string $email) use ($db, $t, $role, $uid): string { $tok = bin2hex(random_bytes(16)); $db->q('INSERT INTO {p}teams_invites (team_id, email, role, token, invited_by, expires_at) VALUES (?,?,?,?,?, NOW() + INTERVAL 14 DAY)', [$t['id'], $email, $role, $tok, $uid()]); return $tok; };
+            if ((int)$db->val('SELECT COUNT(*) FROM {p}teams_invites WHERE team_id = ? AND used_at IS NULL AND expires_at > NOW()', [$t['id']]) >= 50) flash($sf->t('inv_e_many'), 'bad');
+            elseif ($do === 'link') { $mk(null); flash($sf->t('inv_link_made')); }
+            else {
+                $to = array_slice(array_values(array_unique(array_filter(array_map('trim', preg_split('/[,;\s]+/', (string)($_POST['emails'] ?? '')) ?: []), fn($a) => filter_var($a, FILTER_VALIDATE_EMAIL)))), 0, 5);
+                sf_session(); $_SESSION['tm_inv'] = array_filter((array)($_SESSION['tm_inv'] ?? []), fn($x) => $x > time() - 3600);
+                if (!$to) flash($sf->t('inv_e_to'), 'bad');
+                elseif (count($_SESSION['tm_inv']) + count($to) > 20) flash($sf->t('inv_e_rate'), 'bad');
+                else {
+                    $me = $sf->auth()->user() ?? []; $sent = 0; $err = null;
+                    foreach ($to as $addr) {
+                        $link = $abs($sf->url('/invite/' . $mk($addr)));
+                        $err = $sf->mail([$addr], $sf->t('inv_subject', ['t' => $t['name']]), $sf->t('inv_body', ['n' => (string)($me['name'] ?? ''), 't' => $t['name'], 'l' => $link]), null, [(string)($me['email'] ?? ''), (string)($me['name'] ?? '')]);
+                        if ($err === null) { $sent++; $_SESSION['tm_inv'][] = time(); } else break;
+                    }
+                    if ($err === null) flash($sf->t('inv_sent', ['n' => $sent]));
+                    else flash($err === 'not_configured' ? $sf->t('inv_e_mail_off') : $sf->t('inv_e_mail', ['e' => $err]), 'bad');
+                }
+            }
         }
         redirect($back);
     });
