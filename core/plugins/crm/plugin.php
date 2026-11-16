@@ -315,7 +315,8 @@ return function (\Sysfera\Plugin $sf): void {
     $route('GET', '/task/{id}', function (array $p) use ($page, $sf, $db, $uid, $profile, $users, $need, $self) {
         $need('edit'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
         if (!$t || !($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) redirect($self('tasks'));
-        $b = (string)($_GET['back'] ?? ''); $page('taskedit', ['task' => $t, 'users' => $users(), 'backTo' => str_starts_with($b, '/p/crm/') ? $b : $self('tasks')], $sf->t('edit_task'), 'tasks');
+        $b = (string)($_GET['back'] ?? ''); $cr = $t['contact_id'] ? $sf->contacts()->find((int)$t['contact_id']) : null; if ($cr && !Pipe::visible($profile(), $cr['owner_id'] === null ? null : (int)$cr['owner_id'], $uid())) $cr = null;
+        $page('taskedit', ['task' => $t, 'curContact' => $cr, 'users' => $users(), 'backTo' => str_starts_with($b, '/p/crm/') ? $b : $self('tasks')], $sf->t('edit_task'), 'tasks');
     });
 
     $route('POST', '/task/{id}/save', function (array $p) use ($db, $sf, $need, $int, $txt, $uid, $profile, $self, $back, $json) {

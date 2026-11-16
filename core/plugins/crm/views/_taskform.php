@@ -16,7 +16,7 @@ $task = $task ?? null; $tv = []; if ($task) { $tv = (array)(json_decode((string)
   <div class="cols crm-tfields" data-t="<?= e($code) ?>" <?= $code === $first ? '' : 'hidden' ?>>
     <?php foreach ($fl as $f): $dis = $code === $first ? '' : 'disabled'; $k = $f['key']; $label = \Sysfera\TaskTypes::fieldLabel($f, $lang); ?>
     <label class="fld"><span><?= e($label) ?></span>
-      <?php if ($f['kind'] === 'contact'): ?><span class="crm-contactpick" data-find="<?= e($sf->url('/contacts/find')) ?>"><input type="search" class="cp-q" placeholder="<?= e($sf->t('contacts')) ?>…" autocomplete="off"><select name="td[<?= e($k) ?>]" class="cp-sel" <?= $dis ?>><option value="">—</option></select></span>
+      <?php if ($f['kind'] === 'contact'): ?><span class="crm-contactpick" data-find="<?= e($sf->url('/contacts/find')) ?>"><input type="search" class="cp-q" placeholder="<?= e($sf->t('contacts')) ?>…" autocomplete="off"><select name="td[<?= e($k) ?>]" class="cp-sel" <?= $dis ?>><option value="">—</option><?php if (!empty($curContact)): ?><option value="<?= (int)$curContact['id'] ?>" selected><?= e($curContact['name'] . ((string)$curContact['company'] !== '' ? ' · ' . $curContact['company'] : '')) ?></option><?php endif; ?></select></span>
       <?php elseif ($f['kind'] === 'textarea'): ?><textarea name="td[<?= e($k) ?>]" rows="2" <?= $dis ?>><?= e((string)($tv[$k] ?? '')) ?></textarea>
       <?php else: ?><input <?= $f['kind'] === 'email' ? 'type="email"' : ($f['kind'] === 'phone' ? 'type="tel"' : (in_array($f['kind'], ['url', 'shop'], true) ? 'type="url" placeholder="https://"' : '')) ?> name="td[<?= e($k) ?>]" <?= $dis ?> value="<?= e((string)($tv[$k] ?? '')) ?>"><?php endif; ?></label>
     <?php endforeach; ?></div>

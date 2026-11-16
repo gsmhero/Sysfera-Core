@@ -1,5 +1,5 @@
 <?php /** @var \Sysfera\Plugin $sf @var array $sum @var float $wonMonth @var list<array> $tasks @var list<array> $feed @var list<array> $funnel @var list<array> $recent @var int $nowTs */
-$tab = 'dashboard'; require __DIR__ . '/_nav.php'; $cur = $sf->setting('currency', 'RUB') ?: 'RUB'; $backTo = '/p/crm/'; $showLinks = true; $prof = ['delete' => false]; ?>
+$tab = 'dashboard'; require __DIR__ . '/_nav.php'; $cur = $sf->setting('currency', 'RUB') ?: 'RUB'; $backTo = '/p/crm/'; $showLinks = true; $prof['delete'] = false; ?>
 <div class="page-h"><h1><?= e($sf->t('menu')) ?></h1></div>
 <div class="crm-kpi"><div><small><?= e($sf->t('k_open')) ?></small><b><?= (int)$sum['open_n'] ?></b><span><?= e(crm_money($sum['open_sum'], $cur)) ?></span></div>
   <div><small><?= e($sf->t('k_forecast')) ?></small><b><?= e(crm_money($sum['weighted'], $cur)) ?></b></div>
