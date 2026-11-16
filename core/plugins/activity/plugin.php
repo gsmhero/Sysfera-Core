@@ -82,7 +82,7 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('POST', '/post', function () use ($sf, $ready, $go, $err) {
         if (!($c = $ready())) return;
         $r = $c->call('POST', 'act.post', [], ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? '')]);
-        if ($r['ok']) flash($sf->t('posted'));
+        if ($r['ok']) { @unlink(SF_ROOT . '/storage/activity-feed.json'); @unlink(SF_ROOT . '/storage/activity-feed.json.try'); flash($sf->t('posted')); }
         else { flash($err($r['error']), 'bad'); $_SESSION['act_form'] = ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? '')]; }
         $go();
     });
@@ -92,16 +92,17 @@ return function (\Sysfera\Plugin $sf): void {
         $do = (string)($_POST['do'] ?? ''); $id = (int)($_POST['id'] ?? 0);
         if (!in_array($do, ['delete', 'report'], true)) $go();
         $r = $c->call('POST', 'act.' . $do, [], ['id' => $id]);
+        if ($r['ok']) { @unlink(SF_ROOT . '/storage/activity-feed.json'); @unlink(SF_ROOT . '/storage/activity-feed.json.try'); }
         flash($r['ok'] ? $sf->t($do === 'delete' ? 'deleted' : 'reported') : $err($r['error']), $r['ok'] ? 'ok' : 'bad');
         $go();
     });
 
-    /* ---------- latest posts for the dashboard widget and the embed code (cached 5 minutes, works without a signed-in user) ---------- */
+    /* ---------- latest posts for the dashboard widget and the embed code (cached 1 minute, refreshed at once after a post, works without a signed-in user) ---------- */
     $latest = function (int $n = 10) use ($client): array {
         $file = SF_ROOT . '/storage/activity-feed.json';
         $age = is_file($file) ? time() - (int)filemtime($file) : PHP_INT_MAX;
         $cached = is_file($file) ? (json_decode((string)@file_get_contents($file), true) ?: []) : [];
-        if ($age >= 300 && !(is_file($file . '.try') && time() - (int)filemtime($file . '.try') < 120)) {
+        if ($age >= 60 && !(is_file($file . '.try') && time() - (int)filemtime($file . '.try') < 30)) {
             @file_put_contents($file . '.try', (string)time());
             $c = $client();
             if ($c && $c->ready()) {
