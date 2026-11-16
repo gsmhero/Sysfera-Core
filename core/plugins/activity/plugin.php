@@ -24,21 +24,27 @@ return function (\Sysfera\Plugin $sf): void {
         $title = trim((string)($c->in['title'] ?? '')); $body = trim((string)($c->in['body'] ?? ''));
         if ($e = Text::checkPost($title, $body)) throw new HubError($e, 400);
         if ((int)$db->val('SELECT COUNT(*) FROM {p}act_posts WHERE sid = ? AND created > (NOW() - INTERVAL 1 DAY)', [$c->sid()]) >= Activity::POSTS_PER_DAY) throw new HubError('post_rate', 429);
-        $db->q('INSERT INTO {p}act_posts (sid, title, body) VALUES (?,?,?)', [$c->sid(), $title, $body]);
+        $aud = in_array((string)($c->in['aud'] ?? ''), Activity::AUDIENCES, true) ? (string)$c->in['aud'] : 'global';
+        $db->q('INSERT INTO {p}act_posts (sid, title, body, audience) VALUES (?,?,?,?)', [$c->sid(), $title, $body, $aud]);
         return ['id' => $db->insertId()];
     });
 
     HubServer::register('act.feed', function (Ctx $c, \Sysfera\Db $db) use ($date) {
         $per = in_array((int)($c->q['per'] ?? 5), [5, 20, 50], true) ? (int)$c->q['per'] : 5;
         $from = $date((string)($c->q['from'] ?? '')); $to = $date((string)($c->q['to'] ?? ''));
-        $where = 'p.hidden = 0' . ($from !== '' ? ' AND p.created >= ?' : '') . ($to !== '' ? ' AND p.created < ? + INTERVAL 1 DAY' : '');
-        $args = array_values(array_filter([$from, $to], fn($x) => $x !== ''));
+        // who sees what: the site itself (the public widget) only "global"; users also "users", their own domain's "mine", administrators "admins"; everybody his own posts
+        $aud = in_array((string)($c->q['aud'] ?? ''), Activity::AUDIENCES, true) ? (string)$c->q['aud'] : '';
+        if ($c->uid === '0') { $vis = "p.audience = 'global'"; $visArgs = []; }
+        else { $isAdmin = (int)$db->val('SELECT is_admin FROM {p}msg_users WHERE sid = ?', [$c->sid()]) === 1;
+            $vis = "(p.audience IN ('global','users') OR p.sid = ? OR (p.audience = 'mine' AND SUBSTRING_INDEX(p.sid, '@', -1) = ?)" . ($isAdmin ? " OR p.audience = 'admins'" : '') . ')'; $visArgs = [$c->sid(), $c->domain]; }
+        $where = 'p.hidden = 0 AND ' . $vis . ($aud !== '' ? ' AND p.audience = ?' : '') . ($from !== '' ? ' AND p.created >= ?' : '') . ($to !== '' ? ' AND p.created < ? + INTERVAL 1 DAY' : '');
+        $args = array_merge($visArgs, $aud !== '' ? [$aud] : [], array_values(array_filter([$from, $to], fn($x) => $x !== '')));
         $total = (int)$db->val("SELECT COUNT(*) FROM {p}act_posts p WHERE $where", $args);
         $pages = max(1, (int)ceil($total / $per)); $page = min(max(1, (int)($c->q['page'] ?? 1)), $pages);
-        $rows = $db->rows("SELECT p.id, p.sid, p.title, p.body, p.created, COALESCE(u.name, p.sid) AS name,
+        $rows = $db->rows("SELECT p.id, p.sid, p.title, p.body, p.created, p.audience, COALESCE(u.name, p.sid) AS name,
                 (SELECT COUNT(*) FROM {p}act_reports r WHERE r.post_id = p.id AND r.sid = ?) AS reported
             FROM {p}act_posts p LEFT JOIN {p}msg_users u ON u.sid = p.sid WHERE $where ORDER BY p.id DESC LIMIT $per OFFSET " . (($page - 1) * $per), [$c->sid(), ...$args]);
-        return ['items' => array_map(fn($r) => ['id' => (int)$r['id'], 'sid' => $r['sid'], 'name' => $r['name'], 'title' => $r['title'], 'body' => $r['body'], 'at' => $r['created'],
+        return ['items' => array_map(fn($r) => ['id' => (int)$r['id'], 'sid' => $r['sid'], 'name' => $r['name'], 'title' => $r['title'], 'body' => $r['body'], 'at' => $r['created'], 'aud' => $r['audience'],
             'mine' => $r['sid'] === $c->sid(), 'reported' => (int)$r['reported'] > 0], $rows), 'total' => $total, 'pages' => $pages, 'page' => $page, 'per' => $per];
     }, true);   // the installation itself (user 0) may read the feed for its widget
 
@@ -65,7 +71,7 @@ return function (\Sysfera\Plugin $sf): void {
         if (!$c || !$c->ready()) { $sf->render('notice', ['msg' => 'not_connected'], $sf->t('title')); return null; }
         $me = $sf->auth()->user() ?? [];
         sf_session();
-        if (!isset($_SESSION['act_me']) || time() - $_SESSION['act_me'] > 600) { $c->call('POST', 'me', [], ['name' => (string)($me['name'] ?? ''), 'email' => (string)($me['email'] ?? '')]); $_SESSION['act_me'] = time(); }
+        if (!isset($_SESSION['act_me']) || time() - $_SESSION['act_me'] > 600) { $c->call('POST', 'me', [], ['name' => (string)($me['name'] ?? ''), 'email' => (string)($me['email'] ?? ''), 'admin' => ($me['role'] ?? '') === 'admin']); $_SESSION['act_me'] = time(); }
         return $c;
     };
 
@@ -73,17 +79,19 @@ return function (\Sysfera\Plugin $sf): void {
         if (!($c = $ready())) return;
         $per = in_array((int)($_GET['per'] ?? 5), [5, 20, 50], true) ? (int)$_GET['per'] : 5;
         $from = $date((string)($_GET['from'] ?? '')); $to = $date((string)($_GET['to'] ?? ''));
-        $r = $c->call('GET', 'act.feed', ['per' => $per, 'page' => (int)($_GET['page'] ?? 1), 'from' => $from, 'to' => $to]);
+        $aud = in_array((string)($_GET['aud'] ?? ''), Activity::AUDIENCES, true) ? (string)$_GET['aud'] : '';
+        $r = $c->call('GET', 'act.feed', ['per' => $per, 'page' => (int)($_GET['page'] ?? 1), 'from' => $from, 'to' => $to, 'aud' => $aud]);
         if (!$r['ok']) flash($err($r['error']), 'bad');
         $d = $r['data'] + ['items' => [], 'total' => 0, 'pages' => 1, 'page' => 1, 'per' => $per];
-        $sf->render('index', ['d' => $d, 'from' => $from, 'to' => $to, 'sid' => $c->me(), 'chatUrl' => url('/p/messenger/chat?with='), 'mod' => $sf->can('activity.admin') && \Sysfera\Hooks::filter('messenger.hub', null) !== null], $sf->t('title'));
+        $sf->render('index', ['d' => $d, 'from' => $from, 'to' => $to, 'aud' => $aud, 'sid' => $c->me(), 'chatUrl' => url('/p/messenger/chat?with='), 'mod' => $sf->can('activity.admin') && \Sysfera\Hooks::filter('messenger.hub', null) !== null], $sf->t('title'));
     });
 
     $sf->route('POST', '/post', function () use ($sf, $ready, $go, $err) {
         if (!($c = $ready())) return;
-        $r = $c->call('POST', 'act.post', [], ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? '')]);
+        $aud = in_array((string)($_POST['aud'] ?? ''), Activity::AUDIENCES, true) ? (string)$_POST['aud'] : 'global';
+        $r = $c->call('POST', 'act.post', [], ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? ''), 'aud' => $aud]);
         if ($r['ok']) { @unlink(SF_ROOT . '/storage/activity-feed.json'); @unlink(SF_ROOT . '/storage/activity-feed.json.try'); flash($sf->t('posted')); }
-        else { flash($err($r['error']), 'bad'); $_SESSION['act_form'] = ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? '')]; }
+        else { flash($err($r['error']), 'bad'); $_SESSION['act_form'] = ['title' => (string)($_POST['title'] ?? ''), 'body' => (string)($_POST['body'] ?? ''), 'aud' => $aud]; }
         $go();
     });
 

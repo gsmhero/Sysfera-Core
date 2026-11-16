@@ -4,3 +4,7 @@
 .act-tk-in{animation:act-up calc(var(--n) * 7s) linear infinite}.act-tk-i{padding:8px 0;border-bottom:1px solid var(--line)}
 @keyframes act-up{from{transform:translateY(0)}to{transform:translateY(-50%)}}@media (prefers-reduced-motion:reduce){.act-tk-in{animation:none}.act-tk{overflow:auto}}
 .act-f2{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+
+.act-aud{display:inline-flex;align-items:center;gap:8px}.act-aud span{font-size:13px;color:var(--mut)}.act-aud select{min-width:150px}
+.act-tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid currentColor}.act-tag.a-admins{color:#b45309}.act-tag.a-users{color:#2563eb}.act-tag.a-mine{color:#7c3aed}
+.act-f .act-aud{margin-left:6px}

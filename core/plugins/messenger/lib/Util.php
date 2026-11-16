@@ -84,4 +84,6 @@ final class Text
 final class Activity
 {
     public const TITLE_WORDS = 20, BODY_WORDS = 50, POSTS_PER_DAY = 3, HIDE_AFTER_REPORTS = 3;
+    /** who may read a post: everybody (also the public widget) · administrators of all sites · every registered user · users of the author's own site */
+    public const AUDIENCES = ['global', 'admins', 'users', 'mine'];
 }

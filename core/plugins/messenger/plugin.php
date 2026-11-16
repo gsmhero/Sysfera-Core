@@ -40,7 +40,7 @@ return function (\Sysfera\Plugin $sf): void {
         $c = $client(); if (!$c->ready()) return null;
         if (!$force && isset($_SESSION['msg_me']) && time() - $_SESSION['msg_me']['t'] < 600) return $_SESSION['msg_me']['d'];
         $u = $sf->auth()->user() ?? [];
-        $r = $c->call('POST', 'me', [], ['name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? '')]);
+        $r = $c->call('POST', 'me', [], ['name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? ''), 'admin' => ($u['role'] ?? '') === 'admin']);
         if (!$r['ok']) return null;
         $_SESSION['msg_me'] = ['t' => time(), 'd' => $r['data']];
         return $r['data'];
@@ -117,7 +117,7 @@ return function (\Sysfera\Plugin $sf): void {
 
     $sf->route('POST', '/profile', $guard(function ($p) use ($sf, $client, $err, $go) {
         $u = $sf->auth()->user() ?? [];
-        $r = $client()->call('POST', 'me', [], ['name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? ''), 'discoverable' => !empty($_POST['discoverable'])]);
+        $r = $client()->call('POST', 'me', [], ['name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? ''), 'admin' => ($u['role'] ?? '') === 'admin', 'discoverable' => !empty($_POST['discoverable'])]);
         unset($_SESSION['msg_me']);
         flash($r['ok'] ? $sf->t('saved') : $err($r['error']), $r['ok'] ? 'ok' : 'bad');
         $go();

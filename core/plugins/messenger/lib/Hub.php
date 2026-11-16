@@ -79,6 +79,7 @@ final class HubServer
     {
         $this->touch($c, $c->in);
         if (isset($c->in['email']) && is_string($c->in['email']) && $c->in['email'] !== '') $this->db->q('UPDATE {p}msg_users SET email_hash = ? WHERE sid = ?', [hash('sha256', strtolower(trim($c->in['email']))), $c->sid()]);
+        if (array_key_exists('admin', $c->in)) $this->db->q('UPDATE {p}msg_users SET is_admin = ? WHERE sid = ?', [!empty($c->in['admin']) ? 1 : 0, $c->sid()]);   // administrator of his own site ("All Admins" in Activity)
         if (array_key_exists('discoverable', $c->in)) $this->db->q('UPDATE {p}msg_users SET discoverable = ? WHERE sid = ?', [!empty($c->in['discoverable']) ? 1 : 0, $c->sid()]);
         $r = $this->db->row('SELECT discoverable FROM {p}msg_users WHERE sid = ?', [$c->sid()]);
         return ['sid' => $c->sid(), 'discoverable' => (int)($r['discoverable'] ?? 0), 'unread' => $this->unreadCount($c->sid())];

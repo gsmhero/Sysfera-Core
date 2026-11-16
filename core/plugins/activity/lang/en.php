@@ -9,7 +9,7 @@ return [
     'menu' => 'Activity', 'title' => 'Sysfera Activity', 'saved' => 'Saved.', 'moderate' => 'Moderation',
     'n_demo' => 'Activity is switched off in the demo', 'n_demo_hint' => 'Demo visitors cannot publish for real people.',
     'n_not_connected' => 'Not connected to the Sysfera hub', 'n_not_connected_hint' => 'An administrator has to connect this installation once in Messenger → Connection.',
-    'f_title' => 'Title (up to 20 words)', 'f_body' => 'Text (up to 50 words)', 'publish' => 'Publish', 'rules' => 'Up to 20 words in the title, 50 in the text, 3 posts a day. Everybody on every Sysfera site can read it.',
+    'aud_to' => 'To', 'aud_all' => 'All', 'aud_global' => 'Global', 'aud_admins' => 'All Admins', 'aud_users' => 'All Users', 'aud_mine' => 'My Users', 'aud_hint' => 'Global: everybody, also the public widget. All Admins: administrators of every site. All Users: every registered user. My Users: users of your own site.', 'f_title' => 'Title (up to 20 words)', 'f_body' => 'Text (up to 50 words)', 'publish' => 'Publish', 'rules' => 'Up to 20 words in the title, 50 in the text, 3 posts a day. Everybody on every Sysfera site can read it.',
     'posted' => 'Published.', 'deleted' => 'Deleted.', 'reported' => 'Reported — thank you.', 'delete' => 'Delete', 'confirm_delete' => 'Delete this post?',
     'report' => 'Report', 'confirm_report' => 'Report this post to the moderators?', 'write_author' => 'Write to author',
     'per' => 'Per page', 'from' => 'From', 'to' => 'To', 'apply' => 'Show', 'reset' => 'Reset dates', 'total' => '{n} posts',
