@@ -6,7 +6,7 @@ declare(strict_types=1);
  */
 if (!function_exists('mb_substr')) { function mb_substr(string $s, int $a = 0, ?int $l = null): string { return $l === null ? substr($s, $a) : substr($s, $a, $l); } }
 if (!function_exists('mb_strlen')) { function mb_strlen(string $s): int { return strlen($s); } }
-foreach (['Err', 'Units', 'Machine', 'Sig', 'Code', 'Audit', 'Manifest', 'Store', 'Seed', 'Exchange'] as $c) require dirname(__DIR__) . "/core/plugins/goodsissue/lib/$c.php";
+foreach (['Err', 'Units', 'Machine', 'Sig', 'Code', 'Audit', 'Manifest', 'Store', 'Seed', 'Extras', 'Kpi', 'Label', 'Exchange'] as $c) require dirname(__DIR__) . "/core/plugins/goodsissue/lib/$c.php";
 require __DIR__ . '/GiMemStore.php';
 use SysferaGi\{Err, Units, Machine, Sig, Code, Audit, Manifest, Exchange, Seed};
 

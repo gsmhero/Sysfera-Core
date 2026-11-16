@@ -4,6 +4,9 @@ include __DIR__ . '/_nav.php'; ?>
 <?php if (!$whs || !$ops): ?><div class="hint"><b><?= e($sf->t('setup_h')) ?></b> <?= e($sf->t('setup_t')) ?> <a href="<?= e($sf->url('/warehouses')) ?>"><?= e($sf->t('nav_warehouses')) ?></a></div><?php endif; ?>
 <div class="gi-tiles"><?php foreach (['transferred', 'ready_for_issue', 'blocked', 'issued', 'return_requested', 'returned'] as $s): ?>
   <a class="card gi-tile" href="<?= e($sf->url('/orders?status=' . $s)) ?>"><b><?= (int)($counts[$s] ?? 0) ?></b><span class="<?= e($stc($s)) ?>"><?= e($sf->t('st_' . $s)) ?></span></a><?php endforeach; ?></div>
+<?php if (!empty($pend['returns']) || !empty($pend['adjust']) || !empty($pend['refunds'])): ?><div class="flash warn"><?php if (!empty($pend['returns'])): ?><a href="<?= e($sf->url('/returns')) ?>"><?= e($sf->t('pend_returns', ['n' => $pend['returns']])) ?></a> <?php endif; ?>
+  <?php if (!empty($pend['refunds'])): ?><a href="<?= e($sf->url('/returns')) ?>"><?= e($sf->t('pend_refunds', ['n' => $pend['refunds']])) ?></a> <?php endif; ?>
+  <?php if (!empty($pend['adjust'])): ?><a href="<?= e($sf->url('/stocktake')) ?>"><?= e($sf->t('pend_adjust', ['n' => $pend['adjust']])) ?></a><?php endif; ?></div><?php endif; ?>
 <div class="cols">
   <div class="card"><h3><?= e($sf->t('open_incidents')) ?></h3>
     <?php if (!$incidents): ?><p class="muted"><?= e($sf->t('none')) ?></p><?php endif; ?>

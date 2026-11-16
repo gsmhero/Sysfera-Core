@@ -37,4 +37,18 @@ interface Store
     public function closeIncident(int $id, string $by, string $note): void;
     public function report(int $warehouseId, string $day): ?array;
     public function saveReport(array $r): void;
+
+    /** @return list<array> transfers in any of the statuses */
+    public function transfersByStatus(array $statuses): array;
+    /** @return list<array> open incidents of a kind */
+    public function openIncidents(string $kind): array;
+
+    /**
+     * Generic documents of the 0.2 extensions: kind = return | stocktake | adjust | rule | wcfg | regweek; (kind, ref) is unique;
+     * a record is ['kind','ref','warehouse_id','status','data' => array, 'created_at','updated_at'].
+     */
+    public function record(string $kind, string $ref): ?array;
+    public function saveRecord(array $r): void;
+    /** @return list<array> newest first; $warehouseId 0 = any, $status '' = any */
+    public function records(string $kind, int $warehouseId = 0, string $status = ''): array;
 }

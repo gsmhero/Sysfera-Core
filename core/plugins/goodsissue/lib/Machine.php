@@ -12,10 +12,10 @@ final class Machine
         'created'          => ['transferred' => ['system']],
         'transferred'      => ['received' => ['operator'], 'blocked' => ['operator']],
         'received'         => ['ready_for_issue' => ['operator', 'system'], 'blocked' => ['operator']],
-        'ready_for_issue'  => ['issued' => ['operator'], 'blocked' => ['office', 'system']],
+        'ready_for_issue'  => ['issued' => ['operator'], 'blocked' => ['office', 'system'], 'return_requested' => ['system']],   // system: unclaimed too long -> refund
         'blocked'          => ['ready_for_issue' => ['office'], 'return_requested' => ['office']],
         'issued'           => ['return_requested' => ['operator', 'office']],
-        'return_requested' => ['returned' => ['operator']],
+        'return_requested' => ['returned' => ['operator'], 'issued' => ['office'], 'ready_for_issue' => ['office']],   // office: the return was rejected, the order goes back
         'returned'         => [],
     ];
 

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Sysfera Goods issue — exchange layer
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Document exchange between the head-office system (source of truth) and the limited-rights pickup-warehouse app.
 
@@ -105,7 +105,8 @@ paths:
       description: |
         Only with status ready_for_issue AND a valid one-time code bound to the order (not expired, not used, fewer than 5 wrong attempts).
         Above the configured amount `id_checked: true` is also required. The signature or photo is required. Needs the server: it is never accepted through /sync.
-        Errors: code_wrong (with `detail.attempts_left`), code_expired, code_used, code_locked, code_missing, id_check_required, evidence_required, order_blocked, not_ready, already_issued.
+        Optional `photo` of the handover (JPEG/PNG/WebP data URL); REQUIRED above the photo threshold of the warehouse (`order.photo_required`). `handover: courier` with `courier {service, name, waybill}` hands the goods to an external courier: the same code and ID rules apply, the courier acts as the customer.
+        Errors: code_wrong (with `detail.attempts_left`), code_expired, code_used, code_locked, code_missing, id_check_required, evidence_required, photo_required, bad_photo, bad_handover, bad_courier, forbidden (no `issue` permission), order_blocked, not_ready, already_issued.
       parameters: [{ $ref: '#/components/parameters/Uuid' }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Issue' } } } }
       responses:
@@ -119,8 +120,11 @@ paths:
       parameters: [{ $ref: '#/components/parameters/Uuid' }]
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [doc_uuid, kind], properties: { doc_uuid: { type: string, format: uuid }, kind: { type: string, enum: [request, receive] }, reason: { type: string }, condition: { type: string, enum: [ok, damaged] }, client_ts: { type: integer } } } } }
-      responses: { '200': { description: result or conflict (server copy) } }
+        content: { application/json: { schema: { type: object, required: [doc_uuid, kind], properties: { doc_uuid: { type: string, format: uuid }, kind: { type: string, enum: [request, receive] }, reason: { type: string, description: 'required for request' }, condition: { type: string, enum: [ok, opened, damaged] }, photo: { type: string, description: 'data URL; required for damaged goods' }, items: { type: array, description: 'lines that come back (default: all)', items: { type: object, properties: { barcode: { type: string }, qty: { type: integer } } } }, client_ts: { type: integer } } } } }
+      description: |
+        `request` = the customer declares a return at the warehouse (issued -> return_requested): the reason, the condition, the photo and the lines are kept as a return document with status `pending`, the refund is computed from the lines;
+        the office approves (optionally a smaller amount) or rejects it. `receive` = the goods are taken back (return_requested -> returned). Errors: reason_required, photo_required, bad_photo, bad_condition, bad_return_item, forbidden.
+      responses: { '200': { description: 'result (with `return: {ref, status, refund_rub, photo_sha256}` for a request) or conflict (server copy)' } }
   /counts:
     post:
       tags: [app]
@@ -135,11 +139,38 @@ paths:
       summary: Send the actions queued while offline
       description: |
         Actions run in the order of their ORIGINAL `client_ts` (kept in the audit log; a time in the future is cut to the server time). Each is independent and idempotent.
-        Allowed types: receipt, return, count. `issue` is refused with `online_only`. Where the server moved on meanwhile the result has `conflict: true` and the server copy: the server wins.
+        Allowed types: receipt, return, count, shelf, stocktake (`ref` = order uuid for shelf, the stock count uuid for stocktake). `issue` is refused with `online_only`. Where the server moved on meanwhile the result has `conflict: true` and the server copy: the server wins.
       requestBody:
         required: true
-        content: { application/json: { schema: { type: object, required: [actions], properties: { actions: { type: array, maxItems: 200, items: { type: object, required: [type, doc_uuid, client_ts], properties: { type: { type: string, enum: [receipt, return, count] }, doc_uuid: { type: string, format: uuid }, ref: { type: string, description: 'manifest or order uuid' }, client_ts: { type: integer }, payload: { type: object } } } } } } } }
+        content: { application/json: { schema: { type: object, required: [actions], properties: { actions: { type: array, maxItems: 200, items: { type: object, required: [type, doc_uuid, client_ts], properties: { type: { type: string, enum: [receipt, return, count, shelf, stocktake] }, doc_uuid: { type: string, format: uuid }, ref: { type: string, description: 'manifest or order uuid' }, client_ts: { type: integer }, payload: { type: object } } } } } } } }
       responses: { '200': { description: one result per action, content: { application/json: { schema: { type: object, properties: { results: { type: array, items: { type: object } }, server_time: { type: integer } } } } } } }
+  /orders/{uuid}/shelf:
+    post:
+      tags: [app]
+      summary: Put the goods of an order into a shelf cell
+      description: 'Shelf codes are 1-20 letters, digits or "-"; a scanned label "SH:A12" is understood. An empty shelf empties the field. Permission `shelf`. Only for orders that are in the warehouse (otherwise conflict).'
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [doc_uuid, shelf], properties: { doc_uuid: { type: string, format: uuid }, shelf: { type: string }, client_ts: { type: integer } } } } } }
+      responses: { '200': { description: stored or conflict } }
+  /find:
+    get:
+      tags: [app]
+      summary: Find an item - orders of this warehouse by number, customer, phone, item name / SKU / barcode or shelf cell
+      parameters: [{ name: q, in: query, required: true, schema: { type: string, minLength: 2 } }]
+      responses: { '200': { description: orders with their shelf } }
+  /stocktake:
+    get:
+      tags: [app]
+      summary: The open blind stock count of the warehouse (names and barcodes only, never the expected quantities)
+      responses: { '200': { description: '`stocktake` is null when nothing is to be counted' } }
+  /stocktake/{uuid}/submit:
+    post:
+      tags: [app]
+      summary: Submit the counted quantities
+      description: 'The answer only says how many lines differ, not which. A second submission of a count that is already submitted is a conflict (server copy). Permission `count`.'
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [doc_uuid, lines], properties: { doc_uuid: { type: string, format: uuid }, client_ts: { type: integer }, lines: { type: array, items: { type: object, properties: { barcode: { type: string }, qty: { type: integer, minimum: 0 }, name: { type: string, description: for a barcode that was not in the list } } } } } } } } }
+      responses: { '200': { description: '`differences` and `stocktake.status`' } }
   /office/transfers:
     post:
       tags: [office]
@@ -180,6 +211,84 @@ paths:
       summary: A stored report
       parameters: [{ name: wid, in: path, required: true, schema: { type: integer } }, { name: day, in: path, required: true, schema: { type: string, format: date } }]
       responses: { '200': { description: report }, '404': { $ref: '#/components/responses/Error' } }
+  /office/returns:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Return registry of a period (default: this week)
+      parameters: [{ name: from, in: query, schema: { type: string, format: date } }, { name: to, in: query, schema: { type: string, format: date } }, { name: warehouse_id, in: query, schema: { type: integer } }]
+      responses: { '200': { description: 'rows, count, by_status, refund_rub' } }
+  /office/returns/weekly:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Weekly registry (Monday-Sunday) of a warehouse; a finished week is stored once
+      parameters: [{ name: warehouse_id, in: query, required: true, schema: { type: integer } }, { name: week, in: query, schema: { type: string, format: date } }]
+      responses: { '200': { description: registry } }
+  /office/returns/{ref}/decision:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Approve (with an optional smaller refund) or reject a pending return
+      description: 'A rejected return puts the order back (issued / ready_for_issue). Errors: already_decided, refund_too_high.'
+      parameters: [{ name: ref, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [decision], properties: { decision: { type: string, enum: [approve, reject] }, refund_rub: { type: string, example: '700.00' }, note: { type: string } } } } } }
+      responses: { '200': { description: decided } }
+  /office/returns/{ref}/refunded:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: The money was paid back (approved -> refunded)
+      parameters: [{ name: ref, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: marked } }
+  /office/stocktakes:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Start a blind stock count of a warehouse (one open count per warehouse)
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [warehouse_id], properties: { warehouse_id: { type: integer } } } } } }
+      responses: { '200': { description: 'uuid, status, items' } }
+  /office/stocktakes/{uuid}:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: The adjustment act of a stock count (every line: expected, counted, difference, decision)
+      parameters: [{ $ref: '#/components/parameters/Uuid' }]
+      responses: { '200': { description: act } }
+  /office/adjustments:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Approve or reject an adjustment line; an approved one corrects the expected stock
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [ref, decision], properties: { ref: { type: string, description: '<stocktake uuid>:<barcode>' }, decision: { type: string, enum: [approve, reject] }, note: { type: string } } } } } }
+      responses: { '200': { description: decided } }
+  /office/rules:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Storage rules per SKU
+      responses: { '200': { description: rules } }
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Set a storage rule (0 and 0 removes it)
+      description: 'max_days: an unclaimed order is overdue after this many days; refund_days: after that it is returned and refunded automatically (0 = never). The strictest rule of the items of an order applies.'
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [sku], properties: { sku: { type: string }, max_days: { type: integer }, refund_days: { type: integer } } } } } }
+      responses: { '200': { description: stored } }
+  /office/sweep:
+    post:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: Run the periodic checks now (call it from a scheduler, e.g. every 15 minutes)
+      description: 'Overdue alerts, automatic refunds of unclaimed orders, warehouse offline alerts, stuck shipments, weekly registries. Idempotent: an open alert is not raised twice, one that no longer applies is closed.'
+      responses: { '200': { description: counts } }
+  /office/kpi:
+    get:
+      tags: [office]
+      security: [{ officeSignature: [] }]
+      summary: KPI per warehouse, operator activity and suspicious events
+      parameters: [{ name: days, in: query, schema: { type: integer, default: 30, maximum: 365 } }]
+      responses: { '200': { description: kpi } }
 components:
   securitySchemes:
     deviceSignature: { type: apiKey, in: header, name: X-GI-Signature, description: 'with X-GI-Token, X-GI-Device, X-GI-Timestamp (see the description above)' }
@@ -218,7 +327,7 @@ components:
                 type: array
                 items: { type: object, required: [barcode, qty, weight_g, price_rub], properties: { sku: { type: string }, name: { type: string }, qty: { type: integer, minimum: 1 }, weight_g: { type: integer, minimum: 0, description: grams }, barcode: { type: string, description: unique in the manifest, one per package }, price_rub: { type: string, example: '1500.00' } } }
     Manifest: { type: object, properties: { uuid: { type: string }, warehouse_id: { type: integer }, status: { type: string, enum: [created, transferred, confirmed, disputed] }, checksum: { type: string }, units: { $ref: '#/components/schemas/Units' }, orders: { type: array, items: { $ref: '#/components/schemas/Order' } } } }
-    Order: { type: object, properties: { uuid: { type: string }, number: { type: string }, status: { type: string, enum: [created, transferred, received, ready_for_issue, issued, return_requested, returned, blocked] }, version: { type: integer }, customer_name: { type: string }, customer_phone: { type: string }, total_rub: { type: string }, id_check: { type: boolean }, ready_at: { type: string, nullable: true }, issued_at: { type: string, nullable: true }, items: { type: array, items: { type: object } } } }
+    Order: { type: object, properties: { uuid: { type: string }, number: { type: string }, status: { type: string, enum: [created, transferred, received, ready_for_issue, issued, return_requested, returned, blocked] }, version: { type: integer }, customer_name: { type: string }, customer_phone: { type: string }, total_rub: { type: string }, id_check: { type: boolean }, photo_required: { type: boolean }, shelf: { type: string, nullable: true }, handover: { type: string, nullable: true, enum: [customer, courier] }, ready_at: { type: string, nullable: true }, issued_at: { type: string, nullable: true }, items: { type: array, items: { type: object } } } }
     Receipt:
       type: object
       required: [doc_uuid, checksum]
@@ -230,4 +339,4 @@ components:
         scans: { type: array, items: { type: object, properties: { barcode: { type: string }, qty: { type: integer } } } }
         discrepancies: { type: array, items: { type: object, properties: { barcode: { type: string }, kind: { type: string, enum: [missing, damaged, extra, wrong_weight, unknown] }, qty: { type: integer }, note: { type: string } } } }
     ReceiptResult: { type: object, properties: { doc_uuid: { type: string }, conflict: { type: boolean }, replayed: { type: boolean }, reason: { type: string }, server: { type: object }, transfer: { type: object }, orders: { type: array, items: { $ref: '#/components/schemas/Order' } }, incidents: { type: integer } } }
-    Issue: { type: object, required: [doc_uuid, code, signature], properties: { doc_uuid: { type: string, format: uuid }, code: { type: string, pattern: '^[0-9]{6}$' }, id_checked: { type: boolean }, signature: { type: string, description: 'customer signature or photo as a data URL (kept next to the act, only its SHA-256 goes to the log)' }, client_ts: { type: integer } } }
+    Issue: { type: object, required: [doc_uuid, code, signature], properties: { doc_uuid: { type: string, format: uuid }, code: { type: string, pattern: '^[0-9]{6}$' }, id_checked: { type: boolean }, signature: { type: string, description: 'customer signature or photo as a data URL (kept next to the act, only its SHA-256 goes to the log)' }, photo: { type: string, description: 'optional photo of the handover (data URL), required above the photo threshold' }, handover: { type: string, enum: [customer, courier], default: customer }, courier: { type: object, properties: { service: { type: string, description: 'one of the configured services, e.g. boxberry, yandex, cdek, other' }, name: { type: string }, waybill: { type: string } } }, client_ts: { type: integer } } }

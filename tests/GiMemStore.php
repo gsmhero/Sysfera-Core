@@ -26,5 +26,11 @@ final class GiMemStore implements SysferaGi\Store
     public function closeIncident(int $id, string $by, string $note): void { $this->incidents[$id]['status'] = 'resolved'; $this->incidents[$id]['note'] = $note; }
     public function report(int $w, string $day): ?array { return $this->reports["$w|$day"] ?? null; }
     public function saveReport(array $r): void { $this->reports[$r['warehouse_id'] . '|' . $r['day']] = $r; }
+    public array $records = [];
+    public function transfersByStatus(array $st): array { return array_values(array_filter($this->transfers, fn($t) => in_array($t['status'], $st, true))); }
+    public function openIncidents(string $kind): array { return array_values(array_filter($this->incidents, fn($i) => $i['kind'] === $kind && $i['status'] === 'open')); }
+    public function record(string $k, string $r): ?array { return $this->records["$k|$r"] ?? null; }
+    public function saveRecord(array $r): void { $this->records[$r['kind'] . '|' . $r['ref']] = $r; }
+    public function records(string $k, int $w = 0, string $s = ''): array { return array_reverse(array_values(array_filter($this->records, fn($r) => $r['kind'] === $k && ($w === 0 || (int)$r['warehouse_id'] === $w) && ($s === '' || $r['status'] === $s)))); }
     public function actions(string $a): array { return array_values(array_filter($this->audit, fn($e) => $e['action'] === $a)); }
 }

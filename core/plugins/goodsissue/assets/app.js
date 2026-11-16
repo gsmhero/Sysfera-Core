@@ -17,6 +17,13 @@ let S = { auth: LS.get('auth', null), dev: LS.get('dev', null), skew: 0, online:
 if (!S.dev) { S.dev = (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '') : uuid().replace(/-/g, '')); LS.set('dev', S.dev); }
 const now = () => Math.floor((Date.now() + S.skew) / 1000);
 const save = () => { LS.set('queue', S.queue); LS.set('failed', S.failed); };
+const can = p => !S.auth || !Array.isArray(S.auth.perms) || S.auth.perms.includes(p);   // the head office can limit what an operator may do
+/* a photo from the camera, shrunk to about 100-200 KB so that it fits the offline queue and the request */
+function shrink(file, max = 1024, q = 0.65) {
+  return new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => { const k = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k)); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', q)); };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error('photo')); }; img.src = u; });
+}
 
 /* ---------------- signed API ---------------- */
 class ApiErr extends Error { constructor(code, msg, status, detail) { super(msg || code); this.code = code; this.status = status; this.detail = detail; } }
@@ -51,7 +58,8 @@ async function flush() {
   if (S.busy || !S.queue.length || !S.auth) return;
   S.busy = true; render();
   try {
-    const r = await call('POST', 'sync', { actions: S.queue });
+    const batch = []; let size = 0; for (const a of S.queue) { const n = JSON.stringify(a).length; if (batch.length && size + n > 1800000) break; batch.push(a); size += n; }   // photos make requests big: send in parts
+    const r = await call('POST', 'sync', { actions: batch });
     const done = new Set();
     for (const x of r.results) {
       const a = S.queue.find(q => q.doc_uuid === x.doc_uuid); if (!a) continue;
@@ -61,6 +69,7 @@ async function flush() {
     }
     S.queue = S.queue.filter(q => !done.has(q.doc_uuid)); S.notes = S.notes.slice(0, 20); S.failed = S.failed.slice(0, 30); save();
     await refresh();
+    if (S.queue.length && done.size) { S.busy = false; return flush(); }
   } catch (e) { if (e.code !== 'network') S.err = errText(e); }
   S.busy = false; render();
 }
@@ -89,7 +98,7 @@ const stLabel = s => `<span class="st ${h(s)}">${h(T('a_st_' + s))}</span>`;
 
 function render() {
   if (!S.auth) return $app.innerHTML = viewLogin();
-  const f = { home: viewHome, receive: viewReceiveList, rcv: viewReceive, issue: viewIssueList, iss: viewIssue, returns: viewReturns, count: viewCount, queue: viewQueue }[V.name] || viewHome;
+  const f = { home: viewHome, receive: viewReceiveList, rcv: viewReceive, issue: viewIssueList, iss: viewIssue, returns: viewReturns, ret: viewRet, find: viewFind, shelf: viewShelf, stocktake: viewStocktake, count: viewCount, queue: viewQueue }[V.name] || viewHome;
   $app.innerHTML = f(); after();
 }
 function viewLogin() {
@@ -100,10 +109,12 @@ function viewLogin() {
 function viewHome() {
   const m = LS.get('manifests', []).filter(x => ['created', 'transferred'].includes(x.status)).length, o = LS.get('orders', []).filter(x => x.status === 'ready_for_issue').length;
   return `${header(S.auth.warehouse.name)}${msg()}<div class="tiles">
-  <button class="card tile" data-go="receive"><b>${h(T('a_receive'))}</b><span>${m} ${h(T('a_manifests'))}</span></button>
-  <button class="card tile" data-go="issue"><b>${h(T('a_issue'))}</b><span>${o} ${h(T('a_ready'))}</span></button>
-  <button class="card tile" data-go="returns"><b>${h(T('a_returns'))}</b><span>${h(T('a_returns_h'))}</span></button>
-  <button class="card tile" data-go="count"><b>${h(T('a_count'))}</b><span>${h(T('a_count_h'))}</span></button></div>
+  ${can('receive') ? `<button class="card tile" data-go="receive"><b>${h(T('a_receive'))}</b><span>${m} ${h(T('a_manifests'))}</span></button>` : ''}
+  ${can('issue') ? `<button class="card tile" data-go="issue"><b>${h(T('a_issue'))}</b><span>${o} ${h(T('a_ready'))}</span></button>` : ''}
+  ${can('return') ? `<button class="card tile" data-go="returns"><b>${h(T('a_returns'))}</b><span>${h(T('a_returns_h'))}</span></button>` : ''}
+  <button class="card tile" data-go="find"><b>${h(T('a_find_item'))}</b><span>${h(T('a_find_item_h'))}</span></button>
+  ${can('count') ? `<button class="card tile" data-go="stocktake"><b>${h(T('a_stocktake'))}</b><span>${h(T('a_stocktake_h'))}</span></button>
+  <button class="card tile" data-go="count"><b>${h(T('a_count'))}</b><span>${h(T('a_count_h'))}</span></button>` : ''}</div>
   <div class="card"><div class="row"><span class="grow muted">${h(S.auth.user.name)}</span><button class="btn sm" data-act="sync">${h(T('a_sync_now'))}</button><button class="btn sm" data-act="logout">${h(T('a_signout'))}</button></div>
   ${S.notes.length ? '<hr>' + S.notes.slice(0, 5).map(noteHtml).join('') : ''}</div>`;
 }
@@ -143,7 +154,11 @@ async function openManifest(uuid) {
   V = { name: 'rcv', uuid, m, scans: {}, unknown: {}, flag: {}, note: {} }; render();
 }
 function scanCode(code) {
-  code = String(code).trim(); if (!code || V.name !== 'rcv' && V.name !== 'count') return;
+  code = String(code).trim(); if (!code) return;
+  if (V.name === 'find') return runFind(code);
+  if (V.name === 'shelf') { const i = document.querySelector('[name=shelf]'); if (i) i.value = code.replace(/^SH:/i, '').toUpperCase(); return; }
+  if (V.name === 'stocktake') { const known = (V.st.items || []).some(i => i.barcode === code); if (!known && !V.extra[code]) V.extra[code] = code; V.counts[code] = (+V.counts[code] || 0) + 1; return render(); }
+  if (V.name !== 'rcv' && V.name !== 'count') return;
   if (V.name === 'count') { V.lines[code] = (V.lines[code] || 0) + 1; return render(); }
   const known = V.m.orders.some(o => o.items.some(i => i.barcode === code));
   if (known) V.scans[code] = (V.scans[code] || 0) + 1; else V.unknown[code] = (V.unknown[code] || 0) + 1;
@@ -154,7 +169,7 @@ async function submitReceipt(decision) {
   for (const b in V.flag) { const f = V.flag[b]; disc.push({ barcode: b, kind: f === 'damaged' ? 'damaged' : 'wrong_weight', qty: f === 'damaged' ? Math.max(1, V.scans[b] || 1) : undefined, note: V.note[b] || '' }); }
   const scans = Object.keys(V.scans).map(b => ({ barcode: b, qty: V.scans[b] })).concat(Object.keys(V.unknown).map(b => ({ barcode: b, qty: V.unknown[b] })));
   enqueue('receipt', m.uuid, { checksum: m.checksum, decision, scans, discrepancies: disc });
-  await flush(); const m = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; go('home'); flash = m; render();
+  await flush(); const fm = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; go('home'); flash = fm; render();
 }
 
 /* ---- issue ---- */
@@ -165,12 +180,16 @@ function viewIssueList() {
 }
 function viewIssue() {
   const o = V.o; if (!o) return header(T('a_issue'), 'issue') + '<p class="muted">…</p>';
-  const ready = o.status === 'ready_for_issue';
-  return `${header('#' + o.number, 'issue')}${msg()}<div class="card"><b>${h(o.customer_name)}</b> ${stLabel(o.status)}<br><span class="muted">${h(o.customer_phone)} · ${h(o.total_rub)} ₽</span>
+  const ready = o.status === 'ready_for_issue', dr = V.draft || {};
+  return `${header('#' + o.number, 'issue')}${msg()}<div class="card"><b>${h(o.customer_name)}</b> ${stLabel(o.status)}<br><span class="muted">${h(o.customer_phone)} · ${h(o.total_rub)} ₽</span>${o.shelf ? `<br><b>${h(T('a_shelf'))}: ${h(o.shelf)}</b>` : ''}
   ${o.items.map(i => `<div class="item"><div class="nm"><b>${h(i.name)}</b><small>${h(i.barcode)}</small></div><b>× ${i.qty}</b></div>`).join('')}</div>
   ${!ready ? `<div class="warn">${h(T('a_not_ready', { s: T('a_st_' + o.status) }))}</div>` : !S.online ? `<div class="warn">${h(T('a_issue_online'))}</div>` : `
-  <form class="card" id="issue"><label>${h(T('a_code'))}<input class="code-in" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus></label>
-  ${o.id_check ? `<div class="warn">${h(T('a_id_required'))}</div><label class="row"><input type="checkbox" name="idc" style="width:auto"> ${h(T('a_id_checked'))}</label>` : ''}
+  <form class="card" id="issue"><label>${h(T('a_code'))}<input class="code-in" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required autofocus value="${h(dr.code || '')}"></label>
+  ${o.id_check ? `<div class="warn">${h(T('a_id_required'))}</div><label class="row"><input type="checkbox" name="idc" ${dr.idc ? 'checked' : ''} style="width:auto"> ${h(T('a_id_checked'))}</label>` : ''}
+  <label>${h(T('a_handover'))}</label><div class="row"><label class="row"><input type="radio" name="handover" value="customer" ${dr.handover === 'courier' ? '' : 'checked'} style="width:auto"> ${h(T('a_to_customer'))}</label><label class="row"><input type="radio" name="handover" value="courier" ${dr.handover === 'courier' ? 'checked' : ''} style="width:auto"> ${h(T('a_to_courier'))}</label></div>
+  <div id="courier" ${dr.handover === 'courier' ? '' : 'hidden'}><label>${h(T('a_courier_service'))}<select name="cservice">${((S.auth.config && S.auth.config.couriers) || ['other']).map(c => `<option value="${h(c)}" ${dr.cservice === c ? 'selected' : ''}>${h(c)}</option>`).join('')}</select></label>
+    <label>${h(T('a_courier_name'))}<input name="cname" maxlength="120" value="${h(dr.cname || '')}"></label><label>${h(T('a_courier_waybill'))}<input name="cwaybill" maxlength="40" value="${h(dr.cwaybill || '')}"></label></div>
+  <label>${h(T(o.photo_required ? 'a_photo_req' : 'a_photo_opt'))}</label><input type="file" id="photo" accept="image/*" capture="environment"><img id="pv" class="pv" ${V.photo ? `src="${h(V.photo)}"` : 'hidden'}>
   <label>${h(T('a_signature'))}</label><canvas class="sig" id="sig" width="640" height="320"></canvas><div class="row"><button type="button" class="btn sm" data-act="sigclear">${h(T('a_clear'))}</button></div><br>
   <button class="btn primary block" ${V.sending ? 'disabled' : ''}>${h(V.retry ? T('a_retry') : T('a_do_issue'))}</button></form>`}`;
 }
@@ -180,15 +199,18 @@ async function openOrder(uuid) {
 }
 const uuid_ = uuid;
 function sigPad() {
-  const c = document.getElementById('sig'); if (!c) return; const x = c.getContext('2d'); x.lineWidth = 4; x.lineCap = 'round'; x.strokeStyle = '#111'; let d = false;
+  const c = document.getElementById('sig'); if (!c) return; V.sig = false;   // a fresh, blank canvas const x = c.getContext('2d'); x.lineWidth = 4; x.lineCap = 'round'; x.strokeStyle = '#111'; let d = false;
   const p = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
   c.onpointerdown = e => { d = true; c.setPointerCapture(e.pointerId); const [a, b] = p(e); x.beginPath(); x.moveTo(a, b); V.sig = true; };
   c.onpointermove = e => { if (!d) return; const [a, b] = p(e); x.lineTo(a, b); x.stroke(); }; c.onpointerup = () => { d = false; };
 }
 async function doIssue(f) {
+  V.draft = { handover: f.handover.value, cservice: f.cservice.value, cname: f.cname.value, cwaybill: f.cwaybill.value, idc: !!(f.idc && f.idc.checked), code: f.code.value };
   const code = f.code.value.trim(); if (!/^\d{6}$/.test(code)) { S.err = T('a_err_code_wrong'); return render(); }
   if (!V.sig) { S.err = T('a_err_evidence_required'); return render(); }
   const body = { doc_uuid: V.doc, code, id_checked: !!(f.idc && f.idc.checked), signature: document.getElementById('sig').toDataURL('image/png'), client_ts: now() };
+  if (f.handover.value === 'courier') { body.handover = 'courier'; body.courier = { service: f.cservice.value, name: f.cname.value.trim(), waybill: f.cwaybill.value.trim() }; if (body.courier.name.length < 2 || body.courier.waybill.length < 3) { S.err = T('a_err_bad_courier'); return render(); } }
+  if (V.photo) body.photo = V.photo; else if (V.o.photo_required) { S.err = T('a_err_photo_required'); return render(); }
   V.sending = true; S.err = ''; render();
   try { const r = await call('POST', 'orders/' + V.uuid + '/issue', body); flash = { t: 'okmsg', m: T('a_issued_ok', { n: r.order.number }) }; await refresh(); const m = flash; go('home'); flash = m; render(); }
   catch (e) {
@@ -206,13 +228,73 @@ async function loadReturns() {
 function viewReturns() {
   return `${header(T('a_returns'), 'home')}${msg()}<form class="card" id="rfind"><input name="q" value="${h(V.q || '')}" placeholder="${h(T('a_search'))}"><button class="btn block">${h(T('a_find'))}</button></form>
   ${(V.list || []).map(o => `<div class="card"><b>#${h(o.number)}</b> ${stLabel(o.status)}<br><span class="muted">${h(o.customer_name)} · ${h(o.total_rub)} ₽</span>
-  <div class="row" style="margin-top:8px">${o.status === 'issued' ? `<button class="btn sm" data-ret="request" data-uuid="${h(o.uuid)}">${h(T('a_request_return'))}</button>` : `<button class="btn sm primary" data-ret="receive" data-uuid="${h(o.uuid)}">${h(T('a_received_back'))}</button><button class="btn sm danger" data-ret="receive-bad" data-uuid="${h(o.uuid)}">${h(T('a_received_damaged'))}</button>`}</div></div>`).join('') || `<p class="muted">${h(T('a_no_data'))}</p>`}`;
+  <div class="row" style="margin-top:8px">${o.status === 'issued' ? `<button class="btn sm" data-go="ret" data-uuid="${h(o.uuid)}">${h(T('a_request_return'))}</button>` : `<button class="btn sm primary" data-ret="receive" data-uuid="${h(o.uuid)}">${h(T('a_received_back'))}</button><button class="btn sm danger" data-ret="receive-bad" data-uuid="${h(o.uuid)}">${h(T('a_received_damaged'))}</button>`}</div></div>`).join('') || `<p class="muted">${h(T('a_no_data'))}</p>`}`;
+}
+async function openReturn(uuid) {
+  let o = null; try { o = await call('GET', 'orders/' + uuid); } catch (e) { o = LS.get('orders', []).find(x => x.uuid === uuid); if (!o) { S.err = errText(e); return go('returns'); } }
+  V = { name: 'ret', uuid, o, photo: '' }; render();
+}
+function viewRet() {
+  const o = V.o, dr = V.draft || {}; if (!o) return header(T('a_returns'), 'returns') + '<p class="muted">…</p>';
+  return `${header('#' + o.number, 'returns')}${msg()}<form class="card" id="retform"><b>${h(o.customer_name)}</b> <span class="muted">${h(o.total_rub)} ₽</span>
+  <label>${h(T('a_reason'))}<input name="reason" required minlength="3" maxlength="300" autocomplete="off" value="${h(dr.reason || '')}"></label>
+  <label>${h(T('a_condition'))}<select name="cond">${['ok', 'opened', 'damaged'].map(c => `<option value="${c}" ${dr.cond === c ? 'selected' : ''}>${h(T('a_cond_' + c))}</option>`).join('')}</select></label>
+  <label>${h(T('a_ret_items'))}</label>${o.items.map(i => `<div class="item"><div class="nm"><b>${h(i.name)}</b><small>${h(i.barcode)} · ${i.qty}</small></div><input type="number" min="0" max="${i.qty}" value="${dr.q && dr.q[i.barcode] !== undefined ? h(dr.q[i.barcode]) : i.qty}" data-bc="${h(i.barcode)}" data-max="${i.qty}" style="width:72px"></div>`).join('')}
+  <label>${h(T('a_photo_ret'))}</label><input type="file" id="photo" accept="image/*" capture="environment"><img id="pv" class="pv" ${V.photo ? `src="${h(V.photo)}"` : 'hidden'}>
+  <button class="btn primary block">${h(T('a_send_return'))}</button></form>`;
+}
+async function doRetForm(f) {
+  V.draft = { reason: f.reason.value, cond: f.cond.value, q: Object.fromEntries([...f.querySelectorAll('[data-bc]')].map(i => [i.dataset.bc, i.value])) };
+  const reason = f.reason.value.trim(), cond = f.cond.value; if (reason.length < 3) { S.err = T('a_err_reason_required'); return render(); }
+  if (cond === 'damaged' && !V.photo) { S.err = T('a_err_photo_required'); return render(); }
+  const inputs = [...f.querySelectorAll('[data-bc]')], items = inputs.filter(i => +i.value > 0).map(i => ({ barcode: i.dataset.bc, qty: Math.min(+i.value, +i.dataset.max) }));
+  if (!items.length) { S.err = T('a_err_bad_return_item'); return render(); }
+  const p = { kind: 'request', reason, condition: cond }; if (inputs.some(i => +i.value !== +i.dataset.max)) p.items = items; if (V.photo) p.photo = V.photo;
+  enqueue('return', V.uuid, p); await flush(); flash = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; const m = flash; go('home'); flash = m; render();
 }
 async function doReturn(kind, uuid) {
-  const p = { kind: kind === 'request' ? 'request' : 'receive' };
-  if (kind === 'request') { const r = prompt(T('a_reason')); if (!r || r.trim().length < 3) return; p.reason = r.trim(); }
-  else p.condition = kind === 'receive-bad' ? 'damaged' : 'ok';
+  const p = { kind: 'receive' };
+  p.condition = kind === 'receive-bad' ? 'damaged' : 'ok';
   enqueue('return', uuid, p); await flush(); flash = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; await loadReturns();
+}
+
+/* ---- find the item / shelf cells ---- */
+async function runFind(q) {
+  V.q = q; V.found = null; render();
+  try { V.found = (await call('GET', 'find?q=' + encodeURIComponent(q))).orders; } catch (e) { const l = q.toLowerCase().replace(/^sh:/, ''); V.found = LS.get('orders', []).filter(o => (o.number + ' ' + o.customer_name + ' ' + o.customer_phone + ' ' + (o.shelf || '') + ' ' + o.items.map(i => i.name + ' ' + i.barcode).join(' ')).toLowerCase().includes(l)); }
+  render();
+}
+function viewFind() {
+  return `${header(T('a_find_item'), 'home')}${msg()}<form class="card" id="findi"><input id="scan" name="q" value="${h(V.q || '')}" placeholder="${h(T('a_find_ph'))}" autocomplete="off" inputmode="none"><div class="row"><button class="btn primary grow">${h(T('a_find'))}</button><button type="button" class="btn sm" data-act="cam">${h(T('a_camera'))}</button></div><video id="cam" class="cam" playsinline muted hidden></video></form>
+  ${(V.found || []).map(o => `<div class="card"><b>#${h(o.number)}</b> ${stLabel(o.status)}<br><span class="muted">${h(o.customer_name)} · ${h(o.customer_phone)}</span>
+    <div class="shelfbig">${o.shelf ? h(o.shelf) : '—'}</div><small class="muted">${o.items.map(i => h(i.name) + ' × ' + i.qty).join('; ')}</small>
+    ${can('shelf') && ['received', 'ready_for_issue', 'blocked', 'returned'].includes(o.status) ? `<div class="row" style="margin-top:8px"><button class="btn sm" data-go="shelf" data-uuid="${h(o.uuid)}">${h(T('a_set_shelf'))}</button></div>` : ''}</div>`).join('') || (V.found ? `<p class="muted">${h(T('a_no_data'))}</p>` : '')}`;
+}
+async function openShelf(uuid) {
+  let o = (V.found || []).find(x => x.uuid === uuid) || LS.get('orders', []).find(x => x.uuid === uuid);
+  if (!o) try { o = await call('GET', 'orders/' + uuid); } catch (e) { S.err = errText(e); return render(); }
+  V = { name: 'shelf', uuid, o, back: V.q }; render();
+}
+function viewShelf() {
+  const o = V.o;
+  return `${header('#' + o.number, 'find')}${msg()}<form class="card" id="shelfform"><b>${h(o.customer_name)}</b> <span class="muted">${o.items.map(i => h(i.name) + ' × ' + i.qty).join('; ')}</span>
+  <label>${h(T('a_shelf_scan'))}<input id="shelfin" name="shelf" value="${h(o.shelf || '')}" maxlength="24" autocomplete="off" inputmode="none" style="text-transform:uppercase"></label>
+  <div class="row"><button type="button" class="btn sm" data-act="cam">${h(T('a_camera'))}</button></div><video id="cam" class="cam" playsinline muted hidden></video>
+  <button class="btn primary block">${h(T('a_save_shelf'))}</button></form>`;
+}
+
+/* ---- blind stock count: names only, the operator types what is on the shelf ---- */
+async function loadStocktake() {
+  try { const r = await call('GET', 'stocktake'); V.st = r.stocktake; LS.set('stocktake', r.stocktake); } catch (e) { V.st = LS.get('stocktake', null); }
+  V.counts = V.counts || {}; V.extra = V.extra || {}; V.loaded = true; render();
+}
+function viewStocktake() {
+  if (!V.loaded) return header(T('a_stocktake'), 'home') + '<p class="muted">…</p>';
+  const st = V.st; if (!st) return `${header(T('a_stocktake'), 'home')}${msg()}<p class="muted">${h(T('a_stocktake_none'))}</p>`;
+  const row = (bc, name, extra) => `<div class="item"><div class="nm"><b>${h(name)}</b><small>${extra ? h(T('a_unknown')) + ' · ' : ''}${h(bc)}</small></div><input type="number" min="0" inputmode="numeric" data-sc="${h(bc)}" value="${V.counts[bc] ?? ''}" placeholder="0" style="width:84px"></div>`;
+  return `${header(T('a_stocktake'), 'home')}${msg()}<div class="card"><p class="muted">${h(T('a_stocktake_hint'))}</p><input id="scan" placeholder="${h(T('a_scan_ph'))}" autocomplete="off" inputmode="none"><div class="row"><button class="btn sm" data-act="cam">${h(T('a_camera'))}</button></div><video id="cam" class="cam" playsinline muted hidden></video></div>
+  <div class="card">${st.items.map(i => row(i.barcode, i.name, false)).join('')}${Object.keys(V.extra).map(b => row(b, V.extra[b], true)).join('')}</div>
+  <button class="btn primary block" data-act="stocktake-send">${h(T('a_stocktake_send'))}</button>`;
 }
 
 /* ---- end-of-day count ---- */
@@ -233,14 +315,28 @@ document.addEventListener('submit', async e => {
     catch (er) { S.err = er.code === 'network' ? T('a_err_network') : errText(er); }
     render();
   } else if (f.id === 'issue') doIssue(f);
+  else if (f.id === 'retform') doRetForm(f);
+  else if (f.id === 'findi') runFind(f.q.value.trim());
+  else if (f.id === 'shelfform') {
+    const sh = f.shelf.value.trim().replace(/^SH:/i, '').toUpperCase(); if (!/^[A-Z0-9][A-Z0-9-]{0,19}$/.test(sh) && sh !== '') { S.err = T('a_err_bad_shelf'); return render(); }
+    enqueue('shelf', V.uuid, { shelf: sh }); const q = V.back; await flush(); go('find'); V.q = q; flash = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; if (q) await runFind(q); else render();
+  }
   else if (f.id === 'find') { V.q = f.q.value.trim(); try { V.found = (await call('GET', 'orders?status=ready_for_issue,blocked,issued,return_requested&q=' + encodeURIComponent(V.q))).orders; } catch (er) { const q = V.q.toLowerCase(); V.found = LS.get('orders', []).filter(o => (o.number + o.customer_name + o.customer_phone).toLowerCase().includes(q)); } render(); }
   else if (f.id === 'rfind') { V.q = f.q.value.trim(); loadReturns(); }
+});
+document.addEventListener('input', e => { const t = e.target; if (t.dataset && t.dataset.sc !== undefined && V.counts) V.counts[t.dataset.sc] = t.value; });
+document.addEventListener('change', async e => {
+  const t = e.target;
+  if (t.name === 'handover') { const c = document.getElementById('courier'); if (c) c.hidden = t.value !== 'courier'; }
+  if (t.id === 'photo' && t.files && t.files[0]) {
+    try { V.photo = await shrink(t.files[0]); const pv = document.getElementById('pv'); if (pv) { pv.src = V.photo; pv.hidden = false; } } catch (er) { S.err = T('a_err_bad_photo'); render(); }
+  }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'scan') { e.preventDefault(); scanCode(e.target.value); e.target.value = ''; } });
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-go],[data-act],[data-inc],[data-dec],[data-flag],[data-ret],[data-cinc],[data-cdec]'); if (!t) return;
   const d = t.dataset;
-  if (d.go) { if (d.go === 'rcv') return openManifest(d.uuid); if (d.go === 'iss') return openOrder(d.uuid); go(d.go, d.go === 'count' ? { lines: {} } : {}); if (d.go === 'returns') loadReturns(); if (d.go === 'receive' || d.go === 'issue') refresh().then(render); return; }
+  if (d.go) { if (d.go === 'rcv') return openManifest(d.uuid); if (d.go === 'iss') return openOrder(d.uuid); if (d.go === 'ret') return openReturn(d.uuid); if (d.go === 'shelf') return openShelf(d.uuid); go(d.go, d.go === 'count' ? { lines: {} } : d.go === 'stocktake' ? { counts: {}, extra: {} } : {}); if (d.go === 'stocktake') loadStocktake(); if (d.go === 'returns') loadReturns(); if (d.go === 'receive' || d.go === 'issue') refresh().then(render); return; }
   if (d.inc) { V.scans[d.inc] = (V.scans[d.inc] || 0) + 1; return render(); }
   if (d.dec) { V.scans[d.dec] = Math.max(0, (V.scans[d.dec] || 0) - 1); return render(); }
   if (d.cinc) { V.lines[d.cinc]++; return render(); }
@@ -256,6 +352,10 @@ document.addEventListener('click', async e => {
     case 'cam': { const v = document.getElementById('cam'); try { v.hidden = false; if (!await startCam(scanCode)) { v.hidden = true; S.err = T('a_no_camera'); render(); } } catch (er) { v.hidden = true; S.err = T('a_no_camera'); render(); } break; }
     case 'rcv-ok': if (confirm(T('a_confirm_q'))) submitReceipt('confirm'); break;
     case 'rcv-reject': if (confirm(T('a_reject_q'))) submitReceipt('reject'); break;
+    case 'stocktake-send': {
+      const st = V.st, all = [...st.items.map(i => i.barcode), ...Object.keys(V.extra)], lines = all.filter(b => V.counts[b] !== undefined && V.counts[b] !== '').map(b => ({ barcode: b, qty: Math.max(0, parseInt(V.counts[b], 10) || 0), name: V.extra[b] || undefined }));
+      if (lines.length < all.length && !confirm(T('a_stocktake_blank', { n: all.length - lines.length }))) break;
+      enqueue('stocktake', st.uuid, { lines }); LS.del('stocktake'); await flush(); flash = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; const m = flash; go('home'); flash = m; render(); break; }
     case 'count-send': { enqueue('count', '', { lines: Object.keys(V.lines).map(b => ({ barcode: b, qty: V.lines[b] })), day: new Date(Date.now() + S.skew).toISOString().slice(0, 10) }); await flush(); flash = { t: 'okmsg', m: S.queue.length ? T('a_queued') : T('a_sent') }; const m = flash; go('home'); flash = m; render(); break; }
   }
 });

@@ -28,9 +28,10 @@ final class DbStore implements Store
     public function order(string $uuid): ?array { return $this->db->row('SELECT * FROM {p}gi_orders WHERE uuid = ?', [$uuid]); }
     public function saveOrder(array $o): void
     {
-        $this->db->q('INSERT INTO {p}gi_orders (uuid, number, warehouse_id, transfer_uuid, customer_name, customer_phone, customer_email, total_rub, status, version, ready_at, issued_at, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-            ON DUPLICATE KEY UPDATE status = VALUES(status), version = VALUES(version), ready_at = VALUES(ready_at), issued_at = VALUES(issued_at), updated_at = VALUES(updated_at)',
-            [$o['uuid'], $o['number'], $o['warehouse_id'], $o['transfer_uuid'], $o['customer_name'], $o['customer_phone'], $o['customer_email'] ?? '', $o['total_rub'], $o['status'], $o['version'], $o['ready_at'] ?? null, $o['issued_at'] ?? null, $o['created_at'], $o['updated_at']]);
+        $this->db->q('INSERT INTO {p}gi_orders (uuid, number, warehouse_id, transfer_uuid, customer_name, customer_phone, customer_email, total_rub, status, version, ready_at, issued_at, created_at, updated_at, shelf, handover, courier) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE status = VALUES(status), version = VALUES(version), ready_at = VALUES(ready_at), issued_at = VALUES(issued_at), updated_at = VALUES(updated_at), shelf = VALUES(shelf), handover = VALUES(handover), courier = VALUES(courier)',
+            [$o['uuid'], $o['number'], $o['warehouse_id'], $o['transfer_uuid'], $o['customer_name'], $o['customer_phone'], $o['customer_email'] ?? '', $o['total_rub'], $o['status'], $o['version'], $o['ready_at'] ?? null, $o['issued_at'] ?? null, $o['created_at'], $o['updated_at'],
+                $o['shelf'] ?? null, $o['handover'] ?? null, $o['courier'] ?? null]);
     }
     public function ordersOfTransfer(string $tu): array { return $this->db->rows('SELECT * FROM {p}gi_orders WHERE transfer_uuid = ? ORDER BY number, uuid', [$tu]); }
     public function ordersOfWarehouse(int $w): array { return $this->db->rows('SELECT * FROM {p}gi_orders WHERE warehouse_id = ?', [$w]); }
@@ -80,6 +81,27 @@ final class DbStore implements Store
     public function openIncident(string $kind, string $ref): ?array { return $this->db->row("SELECT * FROM {p}gi_incidents WHERE kind = ? AND ref = ? AND status = 'open' LIMIT 1", [$kind, $ref]); }
     public function closeIncident(int $id, string $by, string $note): void { $this->db->q("UPDATE {p}gi_incidents SET status = 'resolved', note = ?, closed_by = ?, closed_at = NOW() WHERE id = ?", [mb_substr($note, 0, 300), mb_substr($by, 0, 120), $id]); }
     public function report(int $w, string $day): ?array { return $this->db->row('SELECT * FROM {p}gi_reports WHERE warehouse_id = ? AND day = ?', [$w, $day]); }
+    public function transfersByStatus(array $st): array
+    {
+        if (!$st) return [];
+        return $this->db->rows('SELECT * FROM {p}gi_transfers WHERE status IN (' . implode(',', array_fill(0, count($st), '?')) . ') ORDER BY created_at', array_values($st));
+    }
+    public function openIncidents(string $kind): array { return $this->db->rows("SELECT * FROM {p}gi_incidents WHERE kind = ? AND status = 'open'", [$kind]); }
+
+    private function unpack(?array $r): ?array { if ($r) $r['data'] = json_decode((string)$r['data'], true) ?: []; return $r; }
+    public function record(string $kind, string $ref): ?array { return $this->unpack($this->db->row('SELECT * FROM {p}gi_records WHERE kind = ? AND ref = ?', [$kind, $ref])); }
+    public function saveRecord(array $r): void
+    {
+        $this->db->q('INSERT INTO {p}gi_records (kind, ref, warehouse_id, status, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?)
+            ON DUPLICATE KEY UPDATE warehouse_id = VALUES(warehouse_id), status = VALUES(status), data = VALUES(data), updated_at = VALUES(updated_at)',
+            [$r['kind'], $r['ref'], (int)$r['warehouse_id'], $r['status'], json_encode($r['data'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $r['created_at'], $r['updated_at']]);
+    }
+    public function records(string $kind, int $w = 0, string $status = ''): array
+    {
+        $rows = $this->db->rows('SELECT * FROM {p}gi_records WHERE kind = ?' . ($w ? ' AND warehouse_id = ?' : '') . ($status !== '' ? ' AND status = ?' : '') . ' ORDER BY id DESC LIMIT 2000',
+            array_values(array_filter([$kind, $w ?: null, $status !== '' ? $status : null], fn($x) => $x !== null)));
+        return array_map(fn($r) => $this->unpack($r), $rows);
+    }
     public function saveReport(array $r): void
     {
         $this->db->q('INSERT INTO {p}gi_reports (warehouse_id, day, body, created_at) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE body = VALUES(body), created_at = VALUES(created_at)', [$r['warehouse_id'], $r['day'], $r['body'], $r['created_at']]);
