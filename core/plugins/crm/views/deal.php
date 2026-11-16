@@ -1,6 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var array $d @var ?array $contact @var array $stages @var array $defs @var array $users @var array $prof @var array $reasons @var string $cur @var array $tasks @var array $timeline @var array $pipeline @var int $nowTs */
 require __DIR__ . '/_nav.php'; $pid = (int)$d['pipeline_id']; $backTo = '/p/crm/deal/' . (int)$d['id']; ?>
-<div class="page-h"><div><a class="muted sm" href="<?= e($sf->url('/deals?pipeline=' . $pid)) ?>">← <?= e($pipeline['name'] ?? $sf->t('deals')) ?></a><h1 style="margin:2px 0 0"><?= e($d['title']) ?></h1></div>
+<div class="page-h"><div><a class="btn sm" href="<?= e($sf->url('/deals?pipeline=' . $pid)) ?>">← <?= e($pipeline['name'] ?? $sf->t('deals')) ?></a><h1 style="margin:2px 0 0"><?= e($d['title']) ?></h1></div>
   <span class="crm-amount"><?= e(crm_money($d['amount'], $d['currency'])) ?></span></div>
 
 <div class="crm-stagebar" data-lost-prompt="<?= e($sf->t('lost_prompt')) ?>"><?php foreach ($stages as $s): $on = (int)$s['id'] === (int)$d['stage_id']; ?>
@@ -28,7 +28,7 @@ require __DIR__ . '/_nav.php'; $pid = (int)$d['pipeline_id']; $backTo = '/p/crm/
     <section class="card"><h3><?= e($sf->t('tasks')) ?></h3>
       <?php $rows = array_map(fn($t) => $t, $tasks); require __DIR__ . '/_tasklist.php'; ?>
       <?php if (!empty($prof['create'])): ?><details class="crm-add"><summary><?= e($sf->t('add_task')) ?></summary><?php $dealId = (int)$d['id']; $contactId = $d['contact_id'] ? (int)$d['contact_id'] : null; require __DIR__ . '/_taskform.php'; ?></details><?php endif; ?></section>
-    <?php if (!empty($prof['delete'])): ?><form method="post" action="<?= e($sf->url('/deal/' . (int)$d['id'] . '/delete')) ?>" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= csrf_field() ?><button class="btn danger"><?= e($sf->t('delete')) ?></button></form><?php endif; ?>
+    <?php if (!empty($prof['delete'])): ?><form method="post" action="<?= e($sf->url('/deal/' . (int)$d['id'] . '/delete')) ?>" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= csrf_field() ?><button class="btn danger"><?= e($sf->t('delete_deal')) ?></button></form><?php endif; ?>
     <p class="muted sm"><?= e($sf->t('created')) ?>: <?= e(crm_dt($d['created_at'])) ?><?= $d['closed_at'] ? ' · ' . e($sf->t('closed')) . ': ' . e(crm_dt($d['closed_at'])) : '' ?></p>
   </div>
 </div>

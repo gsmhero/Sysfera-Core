@@ -312,6 +312,29 @@ return function (\Sysfera\Plugin $sf): void {
         flash($sf->t('task_created')); $back($self('tasks'));
     });
 
+    $route('GET', '/task/{id}', function (array $p) use ($page, $sf, $db, $uid, $profile, $users, $need, $self) {
+        $need('edit'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
+        if (!$t || !($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) redirect($self('tasks'));
+        $b = (string)($_GET['back'] ?? ''); $page('taskedit', ['task' => $t, 'users' => $users(), 'backTo' => str_starts_with($b, '/p/crm/') ? $b : $self('tasks')], $sf->t('edit_task'), 'tasks');
+    });
+
+    $route('POST', '/task/{id}/save', function (array $p) use ($db, $sf, $need, $int, $txt, $uid, $profile, $self, $back, $json) {
+        $need('edit'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
+        if (!$t || !($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) $back($self('tasks'));
+        $title = $txt('title'); if ($title === '') { flash($sf->t('e_title'), 'bad'); redirect($self('task/' . (int)$t['id'])); }
+        $all = TaskTypes::all($db); $offered = TaskTypes::all($db, 'crm'); $type = TaskTypes::normalize((string)($_POST['type'] ?? '')); if (!isset($offered[$type])) $type = (string)$t['type'];
+        $data = TaskTypes::clean(TaskTypes::get($all, $type), (array)($_POST['td'] ?? [])); $contact = $t['contact_id'] ? (int)$t['contact_id'] : null;
+        foreach (TaskTypes::get($all, $type)['fields'] as $fd) if ($fd['kind'] === 'contact') {
+            if (!empty($data[$fd['key']])) { $cRow = $sf->contacts()->find((int)$data[$fd['key']]); if ($cRow && Pipe::visible($profile(), $cRow['owner_id'] === null ? null : (int)$cRow['owner_id'], $uid())) $contact = (int)$cRow['id']; }
+            unset($data[$fd['key']]);
+        }
+        $data = array_filter($data, fn($v) => $v !== '');
+        $due = null; $d = (string)($_POST['due_date'] ?? ''); $tm = (string)($_POST['due_time'] ?? '');
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $due = $d . ' ' . (preg_match('/^\d{2}:\d{2}$/', $tm) ? $tm . ':00' : '00:00:00');
+        $as = (int)$t['assignee_id']; if ($profile()['reassign'] && ($n = $int($_POST['assignee_id'] ?? ''))) $as = $n;
+        $db->q('UPDATE {p}crm_tasks SET type = ?, title = ?, notes = ?, due_at = ?, assignee_id = ?, contact_id = ?, type_data = ? WHERE id = ?', [$type, $title, $txt('notes', 3000) ?: null, $due, $as, $contact, $data ? $json($data) : null, $t['id']]);
+        flash($sf->t('task_saved')); $back($self('tasks'));
+    });
     $route('POST', '/task/{id}/toggle', function (array $p) use ($db, $uid, $profile, $now, $log, $self, $back, $sf) {
         $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
         if ($t && ($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid()) && $profile()['edit']) {

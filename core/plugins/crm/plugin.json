@@ -1,6 +1,6 @@
 {
   "slug": "crm",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "name": { "en": "Sysfera CRM", "ru": "Sysfera CRM" },
   "description": {
     "en": "Clients, deals on kanban boards, tasks and reminders, reports and forecast. Configurable pipelines (project types), stages, custom fields, permission profiles, CSV import and export.",

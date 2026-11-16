@@ -1,6 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var array $c @var array $crm @var array $defs @var list<array> $deals @var array $prof @var array $tasks @var array $timeline @var int $nowTs */
 require __DIR__ . '/_nav.php'; $backTo = '/p/crm/contact/' . (int)$c['id']; $vals = $crm; ?>
-<div class="page-h"><div><a class="muted sm" href="<?= e($sf->url('/contacts')) ?>">← <?= e($sf->t('contacts')) ?></a><h1 style="margin:2px 0 0"><?= e($c['name']) ?></h1>
+<div class="page-h"><div><a class="btn sm" href="<?= e($sf->url('/contacts')) ?>">← <?= e($sf->t('contacts')) ?></a><h1 style="margin:2px 0 0"><?= e($c['name']) ?></h1>
   <span class="muted"><?= e(implode(' · ', array_filter([$c['company'], $c['email'], $c['phone']]))) ?></span></div></div>
 <div class="crm-two"><div>
   <section class="card"><h3><?= e($sf->t('details')) ?></h3>
@@ -24,6 +24,6 @@ require __DIR__ . '/_nav.php'; $backTo = '/p/crm/contact/' . (int)$c['id']; $val
     <?php if (!$deals): ?><p class="muted"><?= e($sf->t('none')) ?></p><?php endif; ?></section>
   <section class="card"><h3><?= e($sf->t('tasks')) ?></h3><?php $rows = $tasks; require __DIR__ . '/_tasklist.php'; ?>
     <?php if (!empty($prof['create'])): ?><details class="crm-add"><summary><?= e($sf->t('add_task')) ?></summary><?php $users = []; $dealId = null; $contactId = (int)$c['id']; require __DIR__ . '/_taskform.php'; ?></details><?php endif; ?></section>
-  <?php if (!empty($prof['delete'])): ?><form method="post" action="<?= e($sf->url('/contact/' . (int)$c['id'] . '/delete')) ?>" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= csrf_field() ?><button class="btn danger"><?= e($sf->t('delete')) ?></button></form><?php endif; ?>
+  <?php if (!empty($prof['delete'])): ?><form method="post" action="<?= e($sf->url('/contact/' . (int)$c['id'] . '/delete')) ?>" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= csrf_field() ?><button class="btn danger"><?= e($sf->t('delete_contact')) ?></button></form><?php endif; ?>
 </div></div>
 <script src="<?= e($sf->asset('crm.js')) ?>?v=<?= e($sf->manifest['version']) ?>"></script>
