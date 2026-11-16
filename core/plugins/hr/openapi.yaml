@@ -1,0 +1,768 @@
+openapi: 3.0.3
+info:
+  title: Sysfera HR (Отдел кадров) API
+  version: 0.1.0
+  description: |
+    Every feature of the HR module is a REST/JSON operation; the web UI calls the same operations (forms POST /p/hr/do/{op}, scripts /p/hr/api/{op}).
+    **Signed transport.** Each request carries `X-HR-Timestamp` (unix seconds, +-5 minutes) and `X-HR-Signature` = hex HMAC-SHA256(api_key, timestamp + "\n" + METHOD + "\n" + request_uri + "\n" + sha256_hex(body)).
+    Answers carry the same headers: HMAC-SHA256(api_key, timestamp + "\n" + status + "\n" + sha256_hex(body)). The key is shown to the administrator in HR > Settings; it is never in the repository.
+    **Least privilege.** The key acts with the permissions listed in the `api_perms` setting only (default: view employees, view pay, run payroll, view audit).
+    **Answers.** `{"data": ...}` or `{"error": {"code", "message", "detail?"}}`. Documents are idempotent: repeat a request with the same uuid and you get the same result.
+    **Money** is integer kopecks, percents are basis points. **Export contract** for Accounting: schemas/payroll-export.schema.json (+ sample).
+servers:
+  - url: /api/hr/v1
+security:
+  - hmac: []
+components:
+  securitySchemes:
+    hmac:
+      type: apiKey
+      in: header
+      name: X-HR-Signature
+      description: See the description above; X-HR-Timestamp is required with it.
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: {type: string, description: forbidden, forbidden_field, not_found, duplicate, bad_state, bad_move, consent_required, escalation, stale_request, bad_signature, ...}
+            message: {type: string}
+            detail: {type: object}
+    Data:
+      type: object
+      properties:
+        data: {description: The result of the operation}
+  responses:
+    Ok:
+      description: Result
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Data'}
+    Err:
+      description: Refused (400 / 401 / 403 / 404 / 409 / 422)
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Error'}
+paths:
+  /time:
+    get:
+      operationId: time
+      summary: "Server time (no signature needed)"
+      description: "Permission: none"
+      security: []
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /me:
+    get:
+      operationId: me
+      summary: "The caller: permissions, roles and their employee profile"
+      description: "Permission: any"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /rbac/catalog:
+    get:
+      operationId: rbac.catalog
+      summary: "Permission catalog, Goods issue mapping, built-in roles"
+      description: "Permission: any"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /roles:
+    get:
+      operationId: roles.list
+      summary: "List roles"
+      description: "Permission: hr.employees.view"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: roles.save
+      summary: "Create or edit a role (uuid given = edit). Permissions you do not hold cannot be added."
+      description: "Permission: hr.roles.manage (+ hr.rbac.manage to change permissions). body: uuid?, code (create), name, name_ru?, descr?, perms[]?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /roles/{uuid}/active:
+    post:
+      operationId: roles.active
+      summary: "Activate / deactivate a role (users lose its permissions while inactive)"
+      description: "Permission: hr.roles.manage. body: active (bool)"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies:
+    get:
+      operationId: vacancies.list
+      summary: "List vacancies"
+      description: "Permission: hr.vacancies.manage. query: status? (open|closed|archived), wf? (draft|approved|published|closed)"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: vacancies.save
+      summary: "Create or edit a vacancy; a changed description is a new version and sends approved/published back to draft"
+      description: "Permission: hr.vacancies.manage. body: uuid?, role_uuid, title, description, team_uuid?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}:
+    get:
+      operationId: vacancies.get
+      summary: "One vacancy with its current description"
+      description: "Permission: hr.vacancies.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/versions:
+    get:
+      operationId: vacancies.versions
+      summary: "All versions of the description"
+      description: "Permission: hr.vacancies.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/approve:
+    post:
+      operationId: vacancies.approve
+      summary: "Workflow draft -> approved"
+      description: "Permission: hr.vacancies.approve"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/publish:
+    post:
+      operationId: vacancies.publish
+      summary: "Workflow approved -> published: posts to the Activity feed and offers the vacancy to registered job-board hooks (idempotent)"
+      description: "Permission: hr.vacancies.approve. body: audience? (global|users|admins|mine)"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/close:
+    post:
+      operationId: vacancies.close
+      summary: "Close the vacancy (status closed, workflow closed)"
+      description: "Permission: hr.vacancies.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/archive:
+    post:
+      operationId: vacancies.archive
+      summary: "Archive a closed vacancy"
+      description: "Permission: hr.vacancies.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/board:
+    get:
+      operationId: candidates.board
+      summary: "Kanban of a vacancy: columns new, screening, interview, offer, hired, rejected"
+      description: "Permission: hr.candidates.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /vacancies/{uuid}/candidates:
+    post:
+      operationId: candidates.add
+      summary: "Add a candidate (idempotent by candidate_uuid; one application per e-mail)"
+      description: "Permission: hr.candidates.manage. body: candidate_uuid?, full_name, email, phone?, source?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /candidates/{uuid}:
+    get:
+      operationId: candidates.history
+      summary: "Candidate with stage history, interviews and feedback"
+      description: "Permission: hr.candidates.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /candidates/{uuid}/move:
+    post:
+      operationId: candidates.move
+      summary: "Move to the next stage or reject (a reason is required for rejection; an offer needs interviewer feedback)"
+      description: "Permission: hr.candidates.manage. body: stage, note?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /candidates/{uuid}/hire:
+    post:
+      operationId: candidates.hire
+      summary: "Hiring decision: the candidate in offer becomes an Employee (idempotent); history is kept"
+      description: "Permission: hr.candidates.manage + hr.employees.edit. body: hire_date, emp_type?, manager_uuid?, note?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /candidates/{uuid}/interviews:
+    post:
+      operationId: interviews.schedule
+      summary: "Schedule an interview slot (interviewer and candidate conflicts, interviewer leave are checked)"
+      description: "Permission: hr.candidates.manage. body: interview_uuid?, interviewer_user_id, starts_at, ends_at, place?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /interviews/{uuid}/cancel:
+    post:
+      operationId: interviews.cancel
+      summary: "Cancel an interview"
+      description: "Permission: hr.candidates.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /interviews/{uuid}/feedback:
+    post:
+      operationId: interviews.feedback
+      summary: "Structured feedback of the assigned interviewer (one per interview)"
+      description: "Permission: hr.interviews.feedback. body: scores{skills,communication,culture,motivation: 1..5}, recommend (strong_yes|yes|no|strong_no), comment?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /interviewers/{user_id}/slots:
+    get:
+      operationId: interviews.slots
+      summary: "Free one-hour slots of an interviewer on a day"
+      description: "Permission: hr.candidates.manage. query: day (YYYY-MM-DD)"
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees:
+    get:
+      operationId: employees.list
+      summary: "List employees (passport is never in lists)"
+      description: "Permission: hr.employees.view. query: status?, team_uuid?, q?"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: employees.create
+      summary: "Create an employee profile (idempotent by uuid) with its onboarding checklist"
+      description: "Permission: hr.employees.edit. body: uuid?, full_name, email, hire_date, phone?, birth_date?, department?, position_role_uuid?, team_uuid?, manager_uuid?, schedule_uuid?, emp_type?, warehouse_id?, user_id?, passport?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}:
+    get:
+      operationId: employees.get
+      summary: "One profile. passport only for hr.employees.pii and the employee"
+      description: "Permission: hr.employees.view or the employee"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: employees.update
+      summary: "Change fields. The employee changes only phone and avatar; HR changes the rest; passport needs hr.employees.pii. All-or-nothing; every change is logged with old and new value"
+      description: "Permission: see description. body: any profile field"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/timeline:
+    get:
+      operationId: employees.timeline
+      summary: "Status history: hire, transfer, role change, vacation, sick leave, dismissal"
+      description: "Permission: hr.audit.view or the employee"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/documents:
+    get:
+      operationId: docs.list
+      summary: "Documents and agreements of an employee (all versions)"
+      description: "Permission: hr.docs.manage or the employee"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: docs.add
+      summary: "Add a document, or (doc_key given) a new version of one (idempotent by doc_uuid)"
+      description: "Permission: hr.docs.manage. body: doc_uuid?, kind (contract|nda|job_description|extra), title, body, doc_key?, expires_at?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /documents/{uuid}/sign:
+    post:
+      operationId: docs.sign
+      summary: "Sign: method esign (the employee confirms the hash of the text shown) or scan (HR uploads a signed scan)"
+      description: "Permission: the employee (esign) / hr.docs.manage (scan). body: method, confirm?, body_sha256?, scan_base64?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /documents/{uuid}/expire:
+    post:
+      operationId: docs.expire
+      summary: "Mark a document expired"
+      description: "Permission: hr.docs.manage"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/pay:
+    get:
+      operationId: pay.get
+      summary: "Pay profile (decrypted for the caller)"
+      description: "Permission: hr.pay.view or the employee"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: pay.set
+      summary: "Set the pay profile: fixed | hourly | per_task | commission, bonuses, deductions. Money in kopecks, percents in basis points"
+      description: "Permission: hr.pay.manage. body: profile{type, base_kop, mission_bonus_kop, commission_bp, gi{per_issue_kop,per_receipt_kop,per_return_kop,per_count_kop}, deductions[{code,label,kind,value}]}"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/tasks:
+    get:
+      operationId: tasks.list
+      summary: "Onboarding or offboarding checklist (automatic items are re-evaluated)"
+      description: "Permission: hr.onboarding.manage or the employee. query: phase? (onboarding|offboarding)"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: tasks.add
+      summary: "Add a checklist item"
+      description: "Permission: hr.onboarding.manage. body: phase, code, note?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /tasks/{uuid}/done:
+    post:
+      operationId: tasks.done
+      summary: "Mark an item done / reopen it"
+      description: "Permission: hr.onboarding.manage. body: done? (default true)"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /onboarding/alerts:
+    get:
+      operationId: onboarding.alerts
+      summary: "Overdue onboarding items; each is announced to HR in Messenger once"
+      description: "Permission: hr.onboarding.manage. query: notify? (0 = do not notify)"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/offboard:
+    post:
+      operationId: offboard
+      summary: "One action: revoke all roles and warehouse access, block the account, archive the profile, remove team seats, create the property-return checklist (idempotent)"
+      description: "Permission: hr.offboard. body: last_day?, reason?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/consents:
+    post:
+      operationId: consent.set
+      summary: "Grant or revoke a consent (append-only, timestamped, versioned)"
+      description: "Permission: the employee or hr.consent.manage. body: kind? (default personal_data), action (grant|revoke)"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /consents/missing:
+    get:
+      operationId: consent.missing
+      summary: "Active employees without a current consent"
+      description: "Permission: hr.consent.manage"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /exports/employees:
+    post:
+      operationId: export.employees
+      summary: "CSV export of whitelisted columns (never passport or pay); the export is written to the audit log"
+      description: "Permission: hr.export. body: columns[]?, status?, purpose?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /employees/{uuid}/leave-balance:
+    get:
+      operationId: leave.balance
+      summary: "Vacation balance"
+      description: "Permission: hr.leave.view or the employee"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /teams:
+    get:
+      operationId: teams.list
+      summary: "Teams with members and links (Missions mission_ref, Goods issue warehouse_id)"
+      description: "Permission: hr.employees.view"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: teams.save
+      summary: "Create or edit a team"
+      description: "Permission: hr.teams.manage. body: uuid?, name, descr?, warehouse_id?, mission_ref?, active?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /teams/{uuid}/members:
+    post:
+      operationId: teams.member
+      summary: "Add / change / remove a team member or lead"
+      description: "Permission: hr.teams.manage. body: employee_uuid, role (member|lead), remove?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /schedules:
+    get:
+      operationId: schedules.list
+      summary: "Work-schedule templates"
+      description: "Permission: hr.employees.view"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: schedules.save
+      summary: "Create or edit a template: hours per ISO weekday 1..7"
+      description: "Permission: hr.employees.edit. body: uuid?, name, week{1..7: hours}"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /warehouses/{id}/shift:
+    get:
+      operationId: schedules.shift
+      summary: "Shift planning input: who works in a warehouse on a day, with approved leave taken into account"
+      description: "Permission: hr.leave.view. query: day (YYYY-MM-DD)"
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /leave:
+    get:
+      operationId: leave.list
+      summary: "Leave requests (own only without hr.leave.view)"
+      description: "Permission: any. query: status?, employee_uuid?"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+    post:
+      operationId: leave.request
+      summary: "Request vacation / sick / unpaid leave (idempotent by uuid). Chain: manager -> HR"
+      description: "Permission: the employee, or hr.leave.approve. body: uuid?, employee_uuid?, kind, starts_on, ends_on, note?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /leave/calendar:
+    get:
+      operationId: leave.calendar
+      summary: "Team calendar of a month (sick leave shown as absent to non-HR)"
+      description: "Permission: hr.leave.view. query: month (YYYY-MM), team_uuid?"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /leave/{uuid}/decision:
+    post:
+      operationId: leave.decide
+      summary: "Decide the current step: the manager of the employee, then HR. Nobody decides their own request"
+      description: "Permission: manager / hr.leave.approve. body: decision (approve|reject), note?"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /leave/{uuid}/cancel:
+    post:
+      operationId: leave.cancel
+      summary: "Cancel a request"
+      description: "Permission: the employee or hr.leave.approve"
+      parameters:
+        - {name: uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /users/{user_id}/access:
+    get:
+      operationId: rbac.user
+      summary: "Effective access of a user: roles, permissions and the warehouse-app projection"
+      description: "Permission: hr.rbac.manage or the user themself"
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /users/{user_id}/roles:
+    post:
+      operationId: rbac.grant
+      summary: "Give a role to a user (several roles allowed); the warehouse app is re-synced"
+      description: "Permission: hr.rbac.manage. body: role_uuid"
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /users/{user_id}/roles/{role_uuid}/revoke:
+    post:
+      operationId: rbac.revoke
+      summary: "Take a role away; the warehouse app is re-synced"
+      description: "Permission: hr.rbac.manage"
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+        - {name: role_uuid, in: path, required: true, schema: {type: string}}
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /users/{user_id}/can:
+    get:
+      operationId: rbac.check
+      summary: "Does the user have a permission?"
+      description: "Permission: hr.rbac.manage. query: permission"
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /access/orphans:
+    get:
+      operationId: rbac.orphans
+      summary: "Goods issue access that no active employee with a matching role stands behind"
+      description: "Permission: hr.rbac.manage"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /access/orphans/revoke:
+    post:
+      operationId: rbac.revoke_orphans
+      summary: "Revoke all stale Goods issue access"
+      description: "Permission: hr.rbac.manage"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /payroll:
+    get:
+      operationId: payroll.calc
+      summary: "Payroll of a period (preview, nothing stored)"
+      description: "Permission: hr.payroll.run + hr.pay.view. query: from, to (YYYY-MM-DD), commission_base{employee_uuid: kopecks}?"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /payroll/export:
+    post:
+      operationId: payroll.export
+      summary: "Payroll export document for Accounting (stored; the same period and numbers return the same export_id)"
+      description: "Permission: hr.payroll.run + hr.pay.view. body: from, to, commission_base?"
+      requestBody:
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /audit:
+    get:
+      operationId: audit.list
+      summary: "Audit rows (employee changes, grants, status history, exports)"
+      description: "Permission: hr.audit.view. query: entity?, ref?, action?, limit?"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}
+  /audit/verify:
+    get:
+      operationId: audit.verify
+      summary: "Verify the hash chain"
+      description: "Permission: hr.audit.view"
+      responses:
+        '200': {$ref: '#/components/responses/Ok'}
+        default: {$ref: '#/components/responses/Err'}

@@ -1,0 +1,14 @@
+<?php /** @var \Sysfera\Plugin $sf @var array $vac @var array $roles @var array $teams @var string $st */
+include __DIR__ . '/_nav.php'; ?>
+<div class="page-h"><h1><?= e($sf->t('nav_vacancies')) ?></h1></div>
+<div class="hr-sub"><?php foreach (['' => 'all', 'open' => 'vs_open', 'closed' => 'vs_closed', 'archived' => 'vs_archived'] as $k => $l): ?><a class="<?= $st === $k ? 'on' : '' ?>" href="<?= e($sf->url('/vacancies' . ($k ? '?status=' . $k : ''))) ?>"><?= e($sf->t($l)) ?></a><?php endforeach; ?></div>
+<div class="card flush"><table class="tbl"><tr><th><?= e($sf->t('f_title')) ?></th><th><?= e($sf->t('f_role')) ?></th><th><?= e($sf->t('f_wf')) ?></th><th><?= e($sf->t('f_status')) ?></th><th><?= e($sf->t('f_version')) ?></th><th><?= e($sf->t('f_candidates')) ?></th></tr>
+  <?php if (!$vac): ?><tr><td colspan="6" class="muted"><?= e($sf->t('none')) ?></td></tr><?php endif; ?>
+  <?php foreach ($vac as $v): ?><tr><td><a href="<?= e($sf->url('/vacancies/' . $v['uuid'])) ?>"><?= e($v['title']) ?></a></td><td><?= e(array_column($roles, 'name', 'uuid')[$v['role_uuid']] ?? '') ?></td><td><span class="hr-st <?= $hrst($v['wf']) ?>"><?= e($sf->t('wf_' . $v['wf'])) ?></span></td><td><?= e($sf->t('vs_' . $v['status'])) ?></td><td>v<?= (int)$v['version'] ?></td><td><?= (int)$v['candidates'] ?></td></tr><?php endforeach; ?></table></div>
+<div class="card"><h3><?= e($sf->t('vac_new')) ?></h3>
+  <form method="post" action="<?= e($sf->url('/do/vacancies.save')) ?>"><?= csrf_field() ?><input type="hidden" name="return" value="/vacancies">
+    <div class="hr-grid"><label><?= e($sf->t('f_title')) ?><input name="title" required maxlength="160"></label>
+      <label><?= e($sf->t('f_role')) ?><select name="role_uuid" required><?php foreach ($roles as $r): ?><option value="<?= e($r['uuid']) ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select></label>
+      <label><?= e($sf->t('f_team')) ?><select name="team_uuid"><option value=""></option><?php foreach ($teams as $t): ?><option value="<?= e($t['uuid']) ?>"><?= e($t['name']) ?></option><?php endforeach; ?></select></label></div>
+    <label class="fld"><?= e($sf->t('f_description')) ?><textarea name="description" rows="6" required maxlength="20000" style="width:100%"></textarea></label>
+    <button class="btn primary"><?= e($sf->t('add')) ?></button></form></div>

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sysfera.ru/schemas/payroll-export/1",
+  "title": "Sysfera HR payroll export",
+  "description": "The contract between the HR module and the (future) Accounting module: one document per period, one item per employee, accrual and deduction lines. Money is integer kopecks, percents are basis points (1% = 100). The document is immutable: the same period and numbers always give the same export_id, so a receiver can ignore repeats. checksum_sha256 = sha256 of the JSON of [period.from, period.to, items] (UTF-8, unescaped slashes). Contains the minimum of personal data: employee uuid, number and name.",
+  "type": "object",
+  "required": ["schema", "export_id", "generated_at", "period", "currency", "items", "totals", "checksum_sha256"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "sysfera.payroll.export/1" },
+    "export_id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" },
+    "generated_at": { "type": "string", "description": "server time, YYYY-MM-DD HH:MM:SS" },
+    "period": {
+      "type": "object", "required": ["from", "to"], "additionalProperties": false,
+      "properties": { "from": { "type": "string", "format": "date" }, "to": { "type": "string", "format": "date" } }
+    },
+    "currency": { "const": "RUB" },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } },
+    "totals": {
+      "type": "object", "required": ["employees", "gross_kop", "deductions_kop", "net_kop"], "additionalProperties": false,
+      "properties": { "employees": { "type": "integer", "minimum": 0 }, "gross_kop": { "type": "integer" }, "deductions_kop": { "type": "integer" }, "net_kop": { "type": "integer" } }
+    },
+    "checksum_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "item": {
+      "type": "object", "required": ["employee", "currency", "lines", "totals"], "additionalProperties": false,
+      "properties": {
+        "employee": {
+          "type": "object", "required": ["uuid", "number", "name"], "additionalProperties": false,
+          "properties": { "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" }, "number": { "type": "string" }, "name": { "type": "string" } }
+        },
+        "currency": { "const": "RUB" },
+        "lines": { "type": "array", "items": { "$ref": "#/$defs/line" } },
+        "totals": {
+          "type": "object", "required": ["gross_kop", "deductions_kop", "net_kop"], "additionalProperties": false,
+          "description": "gross = sum of accruals, deductions = sum of deductions, net = gross - deductions",
+          "properties": { "gross_kop": { "type": "integer" }, "deductions_kop": { "type": "integer" }, "net_kop": { "type": "integer" } }
+        }
+      }
+    },
+    "line": {
+      "type": "object", "required": ["code", "kind", "label", "qty", "rate_kop", "amount_kop", "source"], "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "description": "base_fixed | base_guaranteed | base_hourly | bonus_mission | commission | bonus_gi_issue | bonus_gi_receipt | bonus_gi_return | bonus_gi_count | a deduction code" },
+        "kind": { "enum": ["accrual", "deduction"] },
+        "label": { "type": "string" },
+        "qty": { "type": "number", "description": "days, hours, missions, operations ... depending on the code" },
+        "rate_kop": { "type": "integer", "description": "kopecks per unit; for percent deductions and commission: basis points" },
+        "amount_kop": { "type": "integer" },
+        "source": { "enum": ["profile", "schedule/teams", "missions", "goodsissue", "input"] }
+      }
+    }
+  }
+}

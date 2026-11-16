@@ -1,0 +1,112 @@
+{
+    "schema": "sysfera.payroll.export/1",
+    "export_id": "02bd5652-3a3d-5340-af2d-5fa1dc170f72",
+    "generated_at": "2026-12-01 09:00:00",
+    "period": {
+        "from": "2026-11-01",
+        "to": "2026-11-30"
+    },
+    "currency": "RUB",
+    "items": [
+        {
+            "employee": {
+                "uuid": "7d1c5a52-3b8e-4f0a-9a57-0c2f6a1e8b01",
+                "number": "E00001",
+                "name": "Maria Petrova"
+            },
+            "currency": "RUB",
+            "lines": [
+                {
+                    "code": "base_fixed",
+                    "kind": "accrual",
+                    "label": "Base salary",
+                    "qty": 21,
+                    "rate_kop": 9000000,
+                    "amount_kop": 9000000,
+                    "source": "profile"
+                },
+                {
+                    "code": "bonus_mission",
+                    "kind": "accrual",
+                    "label": "Missions completed",
+                    "qty": 4,
+                    "rate_kop": 50000,
+                    "amount_kop": 200000,
+                    "source": "missions"
+                },
+                {
+                    "code": "bonus_gi_issue",
+                    "kind": "accrual",
+                    "label": "Goods issue: issues",
+                    "qty": 120,
+                    "rate_kop": 1500,
+                    "amount_kop": 180000,
+                    "source": "goodsissue"
+                },
+                {
+                    "code": "bonus_gi_receipt",
+                    "kind": "accrual",
+                    "label": "Goods issue: receipts",
+                    "qty": 30,
+                    "rate_kop": 1000,
+                    "amount_kop": 30000,
+                    "source": "goodsissue"
+                },
+                {
+                    "code": "ndfl",
+                    "kind": "deduction",
+                    "label": "Income tax",
+                    "qty": 1,
+                    "rate_kop": 1300,
+                    "amount_kop": 1223300,
+                    "source": "profile"
+                }
+            ],
+            "totals": {
+                "gross_kop": 9410000,
+                "deductions_kop": 1223300,
+                "net_kop": 8186700
+            }
+        },
+        {
+            "employee": {
+                "uuid": "b3a9e6c4-1d27-4c58-8f3e-5a7d90c2e412",
+                "number": "E00002",
+                "name": "Ivan Sidorov"
+            },
+            "currency": "RUB",
+            "lines": [
+                {
+                    "code": "base_hourly",
+                    "kind": "accrual",
+                    "label": "Hourly pay",
+                    "qty": 152.5,
+                    "rate_kop": 25000,
+                    "amount_kop": 3812500,
+                    "source": "schedule/teams"
+                },
+                {
+                    "code": "advance",
+                    "kind": "deduction",
+                    "label": "Advance paid",
+                    "qty": 1,
+                    "rate_kop": 500000,
+                    "amount_kop": 500000,
+                    "source": "profile"
+                }
+            ],
+            "totals": {
+                "gross_kop": 3812500,
+                "deductions_kop": 500000,
+                "net_kop": 3312500
+            }
+        }
+    ],
+    "totals": {
+        "employees": 2,
+        "gross_kop": 13222500,
+        "deductions_kop": 1723300,
+        "net_kop": 11499200
+    },
+    "checksum_sha256": "0b2e61085523a55eefe9abf703cf8a80ae9952a093d7701a93eb60e5f69366e0"
+}
