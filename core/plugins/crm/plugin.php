@@ -518,13 +518,27 @@ return function (\Sysfera\Plugin $sf): void {
     /* ---------- dashboard widget ---------- */
     \Sysfera\Hooks::on('dashboard.widgets', function (array $w) use ($sf, $db, $uid, $self) {
         if (!$sf->can('crm.use') || !$uid()) return $w;
+        $t = time(); $lang = \Sysfera\I18n::lang(); $tt = crm_task_types($sf, true);
         try {
-            $rows = $db->rows('SELECT due_at FROM {p}crm_tasks WHERE assignee_id = ? AND done_at IS NULL AND due_at IS NOT NULL', [$uid()]);
+            $open = $db->rows('SELECT id, title, type, type_data, due_at FROM {p}crm_tasks WHERE assignee_id = ? AND done_at IS NULL ORDER BY (due_at IS NULL), due_at LIMIT 200', [$uid()]);
+            $done = $db->rows('SELECT id, title, type, type_data, due_at FROM {p}crm_tasks WHERE assignee_id = ? AND done_at IS NOT NULL ORDER BY done_at DESC LIMIT 3', [$uid()]);
         } catch (\Throwable $e) { return $w; }
-        $over = 0; $today = 0; $t = time();
-        foreach ($rows as $r) { $s = Pipe::taskState($r['due_at'], null, $t); if ($s === 'overdue') $over++; elseif ($s === 'today') $today++; }
-        $w[] = '<div class="card"><div class="row between"><b>' . e($sf->t('menu')) . '</b><a href="' . e(url($self('tasks'))) . '">' . e($sf->t('tasks')) . ' →</a></div><p style="margin:6px 0 0">'
-            . e($sf->t('w_today', ['n' => $today])) . ' · <span style="color:' . ($over ? 'var(--bad)' : 'inherit') . '">' . e($sf->t('w_overdue', ['n' => $over])) . '</span></p></div>';
+        $g = ['today' => [], 'overdue' => [], 'upcoming' => []];
+        foreach ($open as $r) { $s = Pipe::taskState($r['due_at'], null, $t); if (isset($g[$s])) $g[$s][] = $r; }
+        $item = function (array $r) use ($sf, $tt, $lang): string {
+            $ty = \Sysfera\TaskTypes::get($tt, (string)$r['type'], 'todo'); $d = '';
+            foreach ((array)(json_decode((string)($r['type_data'] ?? ''), true) ?: []) as $k => $v) {
+                foreach ($ty['fields'] as $ff) if ($ff['key'] === $k && $v !== '' && is_scalar($v)) { $d = \Sysfera\TaskTypes::fieldLabel($ff, $lang) . ': ' . mb_substr((string)$v, 0, 40); break 2; }
+            }
+            return '<a class="dw-i" href="' . e(url('/p/crm/task/' . (int)$r['id'] . '?back=' . rawurlencode('/p/crm/'))) . '"><b>' . e($r['title']) . '</b> <small class="muted">· ' . \Sysfera\TaskTypes::svg($ty['icon'], 13) . ' ' . e(\Sysfera\TaskTypes::label($ty, $lang)) . '</small>'
+                . ($d !== '' ? '<small class="dw-d">' . e($d) . '</small>' : '') . '</a>';
+        };
+        $grp = function (string $k, array $rows, string $cls) use ($sf, $item): string {
+            return $rows ? '<div class="dw-g ' . $cls . '"><h4>' . e($sf->t('g_' . $k)) . '</h4>' . implode('', array_map($item, array_slice($rows, 0, 3))) . '</div>' : '';
+        };
+        $body = $grp('today', $g['today'], '') . $grp('overdue', $g['overdue'], 'bad') . $grp('upcoming', $g['upcoming'], '') . $grp('done', $done, 'off');
+        $w[] = '<div class="dw-w"><div class="dw-h"><b>' . e($sf->t('menu')) . '</b><a class="btn sm" href="' . e(url($self('tasks'))) . '">' . e($sf->t('tasks')) . ' →</a></div>'
+            . ($body !== '' ? '<div class="dw-grid">' . $body . '</div>' : '<p class="muted sm">' . e($sf->t('no_tasks')) . '</p>') . '</div>';
         return $w;
     });
 };

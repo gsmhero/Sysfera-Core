@@ -510,8 +510,14 @@ return function (\Sysfera\Plugin $sf): void {
         $open = (int)$db->val("SELECT COUNT(*) FROM {p}mis_missions WHERE user_id = ? AND status = 'active'", [$u]);
         $late = (int)$db->val('SELECT COUNT(*) FROM {p}mis_tasks WHERE user_id = ? AND completed = 0 AND scheduled_at IS NOT NULL AND scheduled_at < NOW()', [$u]);
         $new = (int)$db->val('SELECT COUNT(*) FROM {p}mis_notes WHERE user_id = ? AND read_at IS NULL', [$u]);
-        $w[] = '<b>' . e($sf->t('title')) . '</b>: ' . e($sf->t('widget', ['open' => $open])) . ($late ? ' · <span class="bad-t">' . e($sf->t('widget_late', ['n' => $late])) . '</span>' : '')
-            . ($new ? ' · <a href="' . e($sf->url('/notes')) . '">🔔 ' . e($sf->t('widget_new', ['n' => $new])) . '</a>' : '') . ' — <a href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a>';
+        $cards = '';
+        foreach ($db->rows("SELECT m.id, m.title, m.due_date, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS n, (SELECT COUNT(*) FROM {p}mis_tasks t WHERE t.mission_id = m.id AND t.completed = 1) AS done, (SELECT COALESCE(SUM(t.cost), 0) FROM {p}mis_tasks t WHERE t.mission_id = m.id) AS total FROM {p}mis_missions m WHERE m.user_id = ? AND m.status = 'active' ORDER BY (m.due_date IS NULL), m.due_date, m.id DESC LIMIT 3", [$u]) as $r) {
+            $pct = $r['n'] ? (int)round($r['done'] * 100 / $r['n']) : 0;
+            $cards .= '<a class="dw-i dw-m" href="' . e($sf->url('/m/' . (int)$r['id'])) . '"><b>' . e($r['title']) . '</b><span class="dw-meta">' . ($r['due_date'] ? '<span>' . e(date('d/m/Y', strtotime((string)$r['due_date']))) . '</span>' : '') . '<span>' . e($sf->t('tasks_n', ['n' => (int)$r['n']])) . '</span>'
+                . ((float)$r['total'] > 0 ? '<span class="dw-chip">$' . e(number_format((float)$r['total'], 2, '.', ' ')) . '</span>' : '') . '</span>' . ($r['n'] ? '<span class="dw-bar"><i style="width:' . $pct . '%"></i></span>' : '') . '</a>';
+        }
+        $w[] = '<div class="dw-w"><div class="dw-h"><b>' . e($sf->t('title')) . '</b><span>' . e($sf->t('widget', ['open' => $open])) . ($late ? ' · <span class="bad-t">' . e($sf->t('widget_late', ['n' => $late])) . '</span>' : '')
+            . ($new ? ' · <a href="' . e($sf->url('/notes')) . '">' . e($sf->t('widget_new', ['n' => $new])) . '</a>' : '') . '</span><a class="btn sm" href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a></div>' . ($cards !== '' ? '<div class="dw-list">' . $cards . '</div>' : '') . '</div>';
         return $w;
     });
 };

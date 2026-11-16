@@ -407,10 +407,13 @@ return function (\Sysfera\Plugin $sf): void {
             $unread = (int)$db->val('SELECT COUNT(*) FROM {p}teams_messages g JOIN {p}teams_channels c ON c.id = g.channel_id JOIN {p}teams_members m ON m.team_id = c.team_id AND m.user_id = ?
                 LEFT JOIN {p}teams_reads r ON r.channel_id = c.id AND r.user_id = ? WHERE c.archived = 0 AND g.deleted = 0 AND g.id > COALESCE(r.last_id, 0) AND (g.user_id IS NULL OR g.user_id <> ?)
                 AND (c.is_private = 0 OR EXISTS (SELECT 1 FROM {p}teams_channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = ?))', [$u, $u, $u, $u]);
-            $tasks = (int)$db->val('SELECT COUNT(*) FROM {p}teams_tasks WHERE assignee_id = ? AND done_at IS NULL', [$u]);
+            $mine = $db->rows('SELECT id, team_id, title, due FROM {p}teams_tasks WHERE assignee_id = ? AND done_at IS NULL ORDER BY (due IS NULL), due, id DESC LIMIT 5', [$u]);
         } catch (\Throwable $e) { return $w; }
-        $w[] = '<div class="card"><div class="row between"><b>' . e($sf->t('menu')) . '</b><a href="' . e(url($self())) . '">' . e($sf->t('open')) . ' →</a></div><p style="margin:6px 0 0">'
-            . e($sf->t('w_unread', ['n' => $unread])) . ' · ' . e($sf->t('w_tasks', ['n' => $tasks])) . '</p></div>';
+        $ini = mb_strtoupper(mb_substr((string)($sf->auth()->user()['name'] ?? '?'), 0, 1));
+        $list = '';
+        foreach ($mine as $x) $list .= '<a class="dw-i dw-row" href="' . e(url($self('t/' . (int)$x['team_id'] . '/board?edit=' . (int)$x['id']))) . '"><b>' . e($x['title']) . '</b><span class="dw-r">' . ($x['due'] ? '<small class="muted">' . e(date('d.m', strtotime((string)$x['due']))) . '</small>' : '') . '<i class="dw-av">' . e($ini) . '</i></span></a>';
+        $w[] = '<div class="dw-w"><div class="dw-h"><b>' . e($sf->t('menu')) . '</b><span class="muted">' . e($sf->t('w_unread', ['n' => $unread])) . '</span><a class="btn sm" href="' . e(url($self())) . '">' . e($sf->t('open')) . ' →</a></div>'
+            . ($list !== '' ? '<div class="dw-list">' . $list . '</div>' : '<p class="muted sm">' . e($sf->t('w_tasks', ['n' => 0])) . '</p>') . '</div>';
         return $w;
     });
 };

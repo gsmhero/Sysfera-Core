@@ -125,3 +125,18 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 
 /* task types admin: air between the form parts */
 .tt-form{gap:20px}.tt-form .cols{gap:14px}.tt-form .tt-fields{gap:12px}.tt-form .row{gap:14px;flex-wrap:wrap}.tt-form .chk{margin-right:10px}
+
+/* dashboard widgets (CRM, Teams, Missions, Notes) */
+.dw-h{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:10px}.dw-h b{font-size:15px}.dw-h .btn{margin-left:auto}
+.dw-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 26px}@media(max-width:700px){.dw-grid{grid-template-columns:1fr}}
+.dw-g h4{margin:0 0 4px;font-size:16px}.dw-g.bad h4,.dw-g.bad b{color:var(--bad)}.dw-g.off{opacity:.55}
+.wdg .dw-w a.dw-i:not(.btn){display:block;padding:7px 0;margin:0;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;color:var(--ink);font-size:inherit;line-height:1.4}
+.wdg .dw-w a.dw-i:not(.btn):hover{color:var(--acc);border-color:var(--line);background:none}.wdg .dw-w a.dw-i:last-child{border-bottom:0}
+.dw-i small{font-size:12.5px}.dw-i svg{vertical-align:-2px}.dw-d{display:block;color:var(--mut)}
+.dw-row{display:flex!important;align-items:center;justify-content:space-between;gap:10px}.dw-r{display:inline-flex;align-items:center;gap:10px;flex:none}
+.dw-av{width:24px;height:24px;border-radius:50%;background:var(--acc);color:#fff;display:inline-grid;place-items:center;font:600 11px/1 system-ui;font-style:normal}
+.wdg .dw-w a.dw-m:not(.btn){border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0 0 10px}.wdg .dw-w a.dw-m:not(.btn):last-child{margin-bottom:0}
+.dw-meta{display:flex;gap:10px;align-items:center;font-size:12.5px;color:var(--mut);margin-top:3px}.dw-chip{background:var(--okbg,#e6f6ec);color:var(--ok,#157347);border-radius:999px;padding:0 8px}
+.dw-bar{display:block;height:6px;border-radius:999px;background:var(--line);margin-top:8px;overflow:hidden}.dw-bar i{display:block;height:100%;background:var(--acc)}
+.wdg .dw-w a.dw-note:not(.btn){background:#fff7e6;border:0;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:#5b4300;box-shadow:0 1px 4px #0001}
+.dw-note small{color:#a07a1a}.dw-note span{display:block;margin-top:2px}

@@ -1,6 +1,6 @@
 {
   "slug": "hello",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": { "en": "Hello (example)", "ru": "Hello (пример)" },
   "description": {
     "en": "A tiny example component: notes attached to the shared clients. Copy this folder to start your own component.",

@@ -31,7 +31,13 @@ return function (\Sysfera\Plugin $sf): void {
 
     // 3) a dashboard widget through a filter hook
     $sf->on('dashboard.widgets', function (array $w) use ($sf) {
-        if ($sf->can('hello.use')) $w[] = '<b>' . e($sf->t('title')) . '</b>: ' . (int)$sf->db()->val('SELECT COUNT(*) FROM {p}hello_notes') . ' — <a href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a>';
+        if (!$sf->can('hello.use')) return $w;
+        $db = $sf->db(); $n = (int)$db->val('SELECT COUNT(*) FROM {p}hello_notes'); $cards = '';
+        foreach ($db->rows('SELECT body, created_at FROM {p}hello_notes ORDER BY id DESC LIMIT 3') as $r) {
+            $parts = preg_split('/\R/', trim((string)$r['body']), 2); $head = mb_substr(trim((string)$parts[0]), 0, 60); $rest = trim((string)($parts[1] ?? ''));
+            $cards .= '<a class="dw-i dw-note" href="' . e($sf->url('/')) . '"><b>' . e($head) . '</b> <small>' . e(ago((string)$r['created_at'])) . '</small>' . ($rest !== '' ? '<span>' . e(mb_substr($rest, 0, 110)) . '</span>' : '') . '</a>';
+        }
+        $w['notes'] = '<div class="dw-w"><div class="dw-h"><b>' . e($sf->t('title')) . '</b><span class="muted">' . $n . '</span><a class="btn sm" href="' . e($sf->url('/')) . '">' . e($sf->t('open')) . '</a></div>' . ($cards !== '' ? '<div class="dw-list">' . $cards . '</div>' : '') . '</div>';
         return $w;
     });
 
