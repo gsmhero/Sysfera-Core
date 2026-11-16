@@ -518,8 +518,9 @@ return function (\Sysfera\Plugin $sf): void {
     /* ---------- dashboard widget ---------- */
     \Sysfera\Hooks::on('dashboard.widgets', function (array $w) use ($sf, $db, $uid, $self) {
         if (!$sf->can('crm.use') || !$uid()) return $w;
-        $t = time(); $lang = \Sysfera\I18n::lang(); $tt = crm_task_types($sf, true);
+        $t = time(); $lang = \Sysfera\I18n::lang();
         try {
+            $tt = \Sysfera\TaskTypes::all($db, null, true);
             $open = $db->rows('SELECT id, title, type, type_data, due_at FROM {p}crm_tasks WHERE assignee_id = ? AND done_at IS NULL ORDER BY (due_at IS NULL), due_at LIMIT 200', [$uid()]);
             $done = $db->rows('SELECT id, title, type, type_data, due_at FROM {p}crm_tasks WHERE assignee_id = ? AND done_at IS NOT NULL ORDER BY done_at DESC LIMIT 3', [$uid()]);
         } catch (\Throwable $e) { return $w; }
