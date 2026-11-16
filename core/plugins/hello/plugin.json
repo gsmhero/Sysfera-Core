@@ -1,13 +1,13 @@
 {
   "slug": "hello",
-  "version": "1.0.1",
-  "name": { "en": "Hello (example)", "ru": "Hello (пример)" },
+  "version": "1.1.0",
+  "name": { "en": "Notes", "ru": "Заметки" },
   "description": {
-    "en": "A tiny example component: notes attached to the shared clients. Copy this folder to start your own component.",
-    "ru": "Крошечный пример компонента: заметки, привязанные к общим клиентам. Скопируйте папку, чтобы начать свой компонент."
+    "en": "Personal notes with titles, tags and search. Edit them, share by e-mail or send to another user of the site.",
+    "ru": "Личные заметки с заголовками, тегами и поиском. Редактируйте, отправляйте по e-mail или другому пользователю сайта."
   },
   "requires": { "core": ">=0.1.0" },
   "capabilities": {
-    "hello.use": { "en": "Hello: notes", "ru": "Hello: заметки" }
+    "hello.use": { "en": "Notes: use", "ru": "Заметки: использование" }
   }
 }

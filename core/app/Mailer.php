@@ -30,7 +30,7 @@ final class Mailer
     }
 
     /** @param string|string[] $to */
-    public static function send(string|array $to, string $subject, string $text, ?string $html = null): ?string
+    public static function send(string|array $to, string $subject, string $text, ?string $html = null, ?array $showFrom = null): ?string
     {
         if (!self::configured()) return 'not_configured';
         $to = array_values(array_filter((array)$to, fn($a) => filter_var(trim((string)$a), FILTER_VALIDATE_EMAIL)));
@@ -38,7 +38,8 @@ final class Mailer
         $from = self::s('smtp_from'); $fromName = self::s('smtp_from_name', self::s('site_name', 'Sysfera'));
         $host = self::s('smtp_host'); $port = (int)self::s('smtp_port', '587') ?: 587;
         $secure = self::s('smtp_secure', 'auto'); if ($secure === 'auto') $secure = $port === 465 ? 'ssl' : ($port === 25 ? 'none' : 'tls');
-        $msg = self::build($from, $fromName, $to, $subject, $text, $html);
+        $shown = $showFrom && filter_var((string)($showFrom[0] ?? ''), FILTER_VALIDATE_EMAIL) ? $showFrom : null;   // [email, name] of the person who sends it
+        $msg = $shown ? self::build((string)$shown[0], (string)($shown[1] ?? ''), $to, $subject, $text, $html, null, null, null, $from) : self::build($from, $fromName, $to, $subject, $text, $html);
         $err = self::deliver($host, $port, $secure, self::s('smtp_user'), self::s('smtp_pass'), $from, $to, $msg, $_SERVER['HTTP_HOST'] ?? 'localhost');
         Hooks::do('mail.sent', $to, $subject, $err);
         return $err;
@@ -60,7 +61,7 @@ final class Mailer
         return implode("\r\n ", array_map(fn($p) => '=?UTF-8?B?' . base64_encode($p) . '?=', $parts));
     }
 
-    public static function build(string $from, string $fromName, array $to, string $subject, string $text, ?string $html = null, ?string $boundary = null, ?string $date = null, ?string $id = null): string
+    public static function build(string $from, string $fromName, array $to, string $subject, string $text, ?string $html = null, ?string $boundary = null, ?string $date = null, ?string $id = null, ?string $sender = null): string
     {
         $clean = fn(string $a) => str_replace(["\r", "\n", '<', '>', ','], '', trim($a));
         $fromHost = substr(strrchr($from, '@') ?: '@localhost', 1);
@@ -68,6 +69,7 @@ final class Mailer
             'Date: ' . ($date ?? date('r')),
             'From: ' . ($fromName !== '' ? self::header($fromName) . ' <' . $clean($from) . '>' : $clean($from)),
             'To: ' . implode(', ', array_map($clean, $to)),
+            ...($sender !== null ? ['Sender: ' . $clean($sender), 'Reply-To: ' . $clean($from)] : []),
             'Subject: ' . self::header($subject),
             'Message-ID: <' . ($id ?? bin2hex(random_bytes(12))) . '@' . $clean($fromHost) . '>',
             'MIME-Version: 1.0',
