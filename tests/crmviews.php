@@ -10,7 +10,8 @@ if (!function_exists('csrf_token')) { function csrf_token(): string { return 'x'
 if (!function_exists('url')) { function url(string $p = '/'): string { return '/' . ltrim($p, '/'); } }
 
 $dir = dirname(__DIR__) . '/core/plugins/crm';
-require dirname(__DIR__) . '/core/app/TaskTypes.php'; require dirname(__DIR__) . '/core/app/I18n.php';
+if (!function_exists('t')) { function t(string $k, array $v = []): string { return $k; } }
+require dirname(__DIR__) . '/core/app/TaskTypes.php'; require dirname(__DIR__) . '/core/app/I18n.php'; require dirname(__DIR__) . '/core/app/Hooks.php'; require dirname(__DIR__) . '/core/app/Attach.php';
 require $dir . '/lib/Fields.php'; require $dir . '/lib/Pipe.php';
 $en = require $dir . '/lang/en.php';
 
@@ -63,6 +64,8 @@ foreach (['full' => $full, 'none' => $none] as $label => $prof) {
         'deal' => ['d' => $deal, 'contact' => $contact, 'stages' => $stages, 'defs' => $defs, 'users' => $users, 'reasons' => ['x'], 'cur' => 'RUB', 'tasks' => [$task], 'timeline' => $tl, 'pipeline' => $pipes[0], 'nowTs' => $now, 'pipelines' => $pipes],
         'contacts' => ['rows' => [$contact + ['deals' => 2]], 'total' => 1, 'pg' => 1, 'pages' => 2, 'f' => ['q' => 'j', 'type' => 'person']],
         'contact' => ['c' => $contact, 'crm' => $contact['custom']['crm'], 'defs' => [$defs[2], $defs[3]], 'deals' => [$deal], 'tasks' => [$task], 'timeline' => $tl, 'nowTs' => $now],
+        'taskview' => ['task' => $task, 'curContact' => $contact, 'deal' => ['id' => 7, 'title' => 'Big'], 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now],
+        'taskedit' => ['task' => $task, 'curContact' => $contact, 'users' => $users, 'listBack' => '/p/crm/tasks', 'backTo' => '/p/crm/task/5?back=%2Fp%2Fcrm%2Ftasks'],
         'tasks' => ['rows' => [$task, ['done_at' => '2026-11-01 10:00:00'] + $task, ['due_at' => null] + $task], 'show' => 'mine', 'users' => $users, 'nowTs' => $now, 'assignee' => 0],
         'reports' => ['pl' => $pipes, 'pid' => 1, 'from' => '2026-01-01', 'to' => '2026-11-13', 'sum' => $sum, 'perStage' => $stages, 'byOwner' => ['Ann' => ['won_n' => 1, 'won_sum' => 5.0, 'lost_n' => 1]], 'reasons' => ['Price' => 2], 'byMonth' => ['2026-10' => 100.0], 'closedSum' => $sum],
         'import' => ['res' => ['ok' => 3, 'skip' => 1], 'pipelines' => $pipes],

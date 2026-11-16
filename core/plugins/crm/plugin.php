@@ -307,22 +307,38 @@ return function (\Sysfera\Plugin $sf): void {
         $as = $int($_POST['assignee_id'] ?? '');
         if (!$as || !$profile()['reassign']) $as = $uid();
         if ($title === '') { flash($sf->t('e_title'), 'bad'); $back($self('tasks')); }
-        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by, type_data) VALUES (?,?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid(), $data ? $json($data) : null]);
+        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by, type_data, report, links, wdocs, tfiles) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid(), $data ? $json($data) : null, ...\Sysfera\Attach::fromPost()]);
         if ($deal || $contact) $log($deal, $contact, 'task', TaskTypes::label(TaskTypes::get($all, $type), \Sysfera\I18n::lang()) . ': ' . $title);
         flash($sf->t('task_created')); $back($self('tasks'));
     });
 
-    $route('GET', '/task/{id}', function (array $p) use ($page, $sf, $db, $uid, $profile, $users, $need, $self) {
-        $need('edit'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
-        if (!$t || !($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) redirect($self('tasks'));
-        $b = (string)($_GET['back'] ?? ''); $cr = $t['contact_id'] ? $sf->contacts()->find((int)$t['contact_id']) : null; if ($cr && !Pipe::visible($profile(), $cr['owner_id'] === null ? null : (int)$cr['owner_id'], $uid())) $cr = null;
-        $page('taskedit', ['task' => $t, 'curContact' => $cr, 'users' => $users(), 'backTo' => str_starts_with($b, '/p/crm/') ? $b : $self('tasks')], $sf->t('edit_task'), 'tasks');
+    $taskOf = function (int $id) use ($db, $profile, $uid): ?array {   // a task this user may open
+        $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [$id]);
+        return $t && ($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid()) ? $t : null;
+    };
+    $listBack = function () use ($self): string { $b = (string)($_GET['back'] ?? ''); return str_starts_with($b, '/p/crm/') && !str_starts_with($b, '/p/crm/task/') ? $b : $self('tasks'); };
+    $taskContact = function (array $t) use ($sf, $profile, $uid): ?array {
+        $cr = $t['contact_id'] ? $sf->contacts()->find((int)$t['contact_id']) : null;
+        return $cr && Pipe::visible($profile(), $cr['owner_id'] === null ? null : (int)$cr['owner_id'], $uid()) ? $cr : null;
+    };
+
+    /** read-only view of a task (the Edit button leads to the form) */
+    $route('GET', '/task/{id}', function (array $p) use ($page, $sf, $db, $self, $taskOf, $listBack, $taskContact, $getDeal) {
+        $t = $taskOf((int)$p['id']); if (!$t) redirect($self('tasks'));
+        $deal = $t['deal_id'] ? $getDeal((int)$t['deal_id']) : null;
+        $page('taskview', ['task' => $t, 'curContact' => $taskContact($t), 'deal' => $deal, 'assignee' => $t['assignee_id'] ? (string)$db->val('SELECT name FROM {p}users WHERE id = ?', [$t['assignee_id']]) : '',
+            'listBack' => $listBack(), 'nowTs' => time()], (string)$t['title'], 'tasks');
     });
 
+    $route('GET', '/task/{id}/edit', function (array $p) use ($page, $sf, $users, $need, $self, $taskOf, $listBack, $taskContact) {
+        $need('edit'); $t = $taskOf((int)$p['id']); if (!$t) redirect($self('tasks'));
+        $lb = $listBack();
+        $page('taskedit', ['task' => $t, 'curContact' => $taskContact($t), 'users' => $users(), 'listBack' => $lb, 'backTo' => $self('task/' . (int)$t['id']) . '?back=' . rawurlencode($lb)], $sf->t('edit_task'), 'tasks');
+    });
     $route('POST', '/task/{id}/save', function (array $p) use ($db, $sf, $need, $int, $txt, $uid, $profile, $self, $back, $json) {
         $need('edit'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
         if (!$t || !($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) $back($self('tasks'));
-        $title = $txt('title'); if ($title === '') { flash($sf->t('e_title'), 'bad'); redirect($self('task/' . (int)$t['id'])); }
+        $title = $txt('title'); if ($title === '') { flash($sf->t('e_title'), 'bad'); redirect($self('task/' . (int)$t['id'] . '/edit')); }
         $all = TaskTypes::all($db); $offered = TaskTypes::all($db, 'crm'); $type = TaskTypes::normalize((string)($_POST['type'] ?? '')); if (!isset($offered[$type])) $type = (string)$t['type'];
         $data = TaskTypes::clean(TaskTypes::get($all, $type), (array)($_POST['td'] ?? [])); $contact = $t['contact_id'] ? (int)$t['contact_id'] : null;
         foreach (TaskTypes::get($all, $type)['fields'] as $fd) if ($fd['kind'] === 'contact') {
@@ -333,7 +349,7 @@ return function (\Sysfera\Plugin $sf): void {
         $due = null; $d = (string)($_POST['due_date'] ?? ''); $tm = (string)($_POST['due_time'] ?? '');
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $due = $d . ' ' . (preg_match('/^\d{2}:\d{2}$/', $tm) ? $tm . ':00' : '00:00:00');
         $as = (int)$t['assignee_id']; if ($profile()['reassign'] && ($n = $int($_POST['assignee_id'] ?? ''))) $as = $n;
-        $db->q('UPDATE {p}crm_tasks SET type = ?, title = ?, notes = ?, due_at = ?, assignee_id = ?, contact_id = ?, type_data = ? WHERE id = ?', [$type, $title, $txt('notes', 3000) ?: null, $due, $as, $contact, $data ? $json($data) : null, $t['id']]);
+        $db->q('UPDATE {p}crm_tasks SET type = ?, title = ?, notes = ?, due_at = ?, assignee_id = ?, contact_id = ?, type_data = ?, report = ?, links = ?, wdocs = ?, tfiles = ? WHERE id = ?', [$type, $title, $txt('notes', 3000) ?: null, $due, $as, $contact, $data ? $json($data) : null, ...\Sysfera\Attach::fromPost(), $t['id']]);
         flash($sf->t('task_saved')); $back($self('tasks'));
     });
     $route('POST', '/task/{id}/toggle', function (array $p) use ($db, $uid, $profile, $now, $log, $self, $back, $sf) {

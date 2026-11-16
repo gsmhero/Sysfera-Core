@@ -140,3 +140,9 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .dw-bar{display:block;height:6px;border-radius:999px;background:var(--line);margin-top:8px;overflow:hidden}.dw-bar i{display:block;height:100%;background:var(--acc)}
 .wdg .dw-w a.dw-note:not(.btn){background:#fff7e6;border:0;border-radius:10px;padding:10px 12px;margin:0 0 10px;color:#5b4300;box-shadow:0 1px 4px #0001}
 .dw-note small{color:#a07a1a}.dw-note span{display:block;margin-top:2px}
+/* task attachments: report, links, Warehouse documents */
+.att{display:grid;gap:12px;margin-top:6px}.att-lrow{display:grid;grid-template-columns:1.4fr 1fr;gap:8px;margin-bottom:8px}@media(max-width:640px){.att-lrow{grid-template-columns:1fr}}
+.att-chips{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}.att-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);font-size:13px}.att-chip a{color:var(--ink);text-decoration:none}.att-chip a:hover{color:var(--acc)}
+.att-x{border:0;background:none;cursor:pointer;color:var(--mut);font-size:16px;line-height:1;padding:0 4px}.att-x:hover{color:var(--bad)}
+.att-res{display:grid;border:1px solid var(--line);border-radius:10px;background:var(--card);max-height:220px;overflow:auto;margin-top:4px}.att-res[hidden]{display:none}.att-res button{text-align:left;border:0;border-bottom:1px solid var(--line);background:none;padding:8px 12px;cursor:pointer;color:var(--ink);font:inherit}.att-res button:hover{background:var(--bg)}
+.att-blk{margin:12px 0}.att-blk h4{margin:0 0 4px;font-size:14px;color:var(--mut);font-weight:600}.att-blk p{margin:0;word-break:break-word}.att-ul{margin:0;padding-left:18px}

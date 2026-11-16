@@ -9,6 +9,8 @@ if (!function_exists('csrf_token')) { function csrf_token(): string { return 'x'
 if (!function_exists('human_size')) { function human_size(int $b): string { return $b . ' B'; } }
 if (!class_exists('Sysfera\Demo')) eval('namespace Sysfera; final class Demo { public static function on(): bool { return false; } }');
 $dir = dirname(__DIR__) . '/core/plugins/teams';
+if (!function_exists('t')) { function t(string $k, array $v = []): string { return $k; } }
+require dirname(__DIR__) . '/core/app/Hooks.php'; require dirname(__DIR__) . '/core/app/Attach.php';
 require $dir . '/lib/Tm.php';
 $en = require $dir . '/lang/en.php';
 set_error_handler(function (int $no, string $msg, string $file, int $line): bool { throw new ErrorException("$msg in " . basename($file) . ":$line"); });

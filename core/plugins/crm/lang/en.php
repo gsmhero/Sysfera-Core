@@ -2,7 +2,7 @@
 return [
     'menu' => 'CRM', 'deals' => 'Deals', 'contacts' => 'Clients', 'tasks' => 'Tasks', 'reports' => 'Reports', 'import' => 'Import', 'settings' => 'CRM settings',
     'save' => 'Save', 'delete' => 'Delete', 'apply' => 'Apply', 'search' => 'Search…', 'none' => 'Nothing here yet.', 'yes' => 'Yes', 'system' => 'System', 'from' => 'From', 'to' => 'To',
-    'delete_contact' => 'Delete client', 'delete_deal' => 'Delete deal', 'edit_task' => 'Edit task', 'task_saved' => 'Task saved.', 'saved' => 'Saved.', 'deleted' => 'Deleted.', 'confirm_delete' => 'Delete? This cannot be undone.', 'created' => 'Created', 'closed' => 'Closed',
+    'delete_contact' => 'Delete client', 'delete_deal' => 'Delete deal', 'edit_task' => 'Edit task', 'task_saved' => 'Task saved.', 'back_view' => 'Task', 'f_status' => 'Status', 'tst_done' => 'Done', 'tst_open' => 'Open', 'f_deal' => 'Deal', 'saved' => 'Saved.', 'deleted' => 'Deleted.', 'confirm_delete' => 'Delete? This cannot be undone.', 'created' => 'Created', 'closed' => 'Closed',
     /* errors */
     'e_denied' => 'Your CRM profile does not allow this.', 'e_not_found' => 'Not found.', 'e_title' => 'Enter a title.', 'e_name' => 'Enter a name.', 'e_email' => 'Enter a valid e-mail.',
     'e_field' => 'Check the fields:', 'e_dupe' => 'A client with this e-mail already exists — saved anyway.', 'e_no_pipeline' => 'There is no pipeline yet — add one in CRM settings.',

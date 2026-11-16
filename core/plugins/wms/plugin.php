@@ -330,6 +330,20 @@ return function (\Sysfera\Plugin $sf): void {
             $stock->summary(['warehouse_id' => (int)($_GET['wh'] ?? 0), 'only' => 'in'], 500)), JSON_UNESCAPED_UNICODE);
     });
 
+    /* documents for the tasks of other components (CRM, Teams): search + labels; private documents are never offered */
+    $docLabel = fn(array $d): string => $d['number'] . ' · ' . W::type($sf, (string)$d['type']) . ($d['total'] > 0 ? ' · ' . number_format((float)$d['total'], 2, '.', ' ') : '');
+    \Sysfera\Hooks::on('attach.docs', fn($c) => $sf->can('wms.use') ? ['find' => $sf->url('/api/docs-find')] : $c);
+    \Sysfera\Hooks::on('attach.docs.info', function (array $acc, array $ids) use ($sf, $docs, $isPrivate, $docLabel) {
+        if (!$sf->can('wms.use')) return $acc;
+        foreach ($ids as $id) { $d = $docs->find((int)$id); if ($d && !$isPrivate($d)) $acc[] = ['id' => (int)$d['id'], 'label' => $docLabel($d), 'url' => $sf->url('/docs/' . (int)$d['id'])]; }
+        return $acc;
+    });
+    $route('GET', '/api/docs-find', function () use ($sf, $docs, $isPrivate, $docLabel) {
+        header('Content-Type: application/json; charset=utf-8'); $q = trim((string)($_GET['q'] ?? ''));
+        $out = [];
+        foreach ($q === '' ? [] : $docs->list(['q' => $q], 12) as $d) if (!$isPrivate($d)) $out[] = ['id' => (int)$d['id'], 'label' => $docLabel($d), 'url' => $sf->url('/docs/' . (int)$d['id'])];
+        echo json_encode($out, JSON_UNESCAPED_UNICODE);
+    });
     /* message for a posting problem: plain keys or "stock:<name>|<have>|<need>" */
     if (!function_exists('wms_path')) {
         /** site-relative path of a WMS page (for redirect()) */

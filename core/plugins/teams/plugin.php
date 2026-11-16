@@ -279,6 +279,21 @@ return function (\Sysfera\Plugin $sf): void {
         header('Content-Length: ' . filesize($path)); header('Cache-Control: private, max-age=3600'); readfile($path);
     });
 
+    /* Teams files for the tasks of other components: only files the user may open in Teams (same rules as the download) */
+    $fileFrom = "FROM {p}teams_files f JOIN {p}teams_members m ON m.team_id = f.team_id AND m.user_id = ? JOIN {p}teams_teams tt ON tt.id = f.team_id LEFT JOIN {p}teams_channels c ON c.id = f.channel_id
+        WHERE (c.id IS NULL OR c.is_private = 0 OR m.role IN ('owner','admin') OR EXISTS (SELECT 1 FROM {p}teams_channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = ?))";
+    $fileItem = fn(array $f): array => ['id' => (int)$f['id'], 'label' => $f['name'] . ' · ' . $f['tname'], 'url' => $sf->url('/file/' . (int)$f['id'])];
+    \Sysfera\Hooks::on('attach.files', fn($c) => $sf->can('teams.use') && $uid() ? ['find' => $sf->url('/api/files-find')] : $c);
+    \Sysfera\Hooks::on('attach.files.info', function (array $acc, array $ids) use ($sf, $db, $uid, $fileFrom, $fileItem) {
+        if (!$sf->can('teams.use') || !$uid()) return $acc;
+        foreach ($ids as $id) { $f = $db->row("SELECT f.id, f.name, tt.name AS tname $fileFrom AND f.id = ?", [$uid(), $uid(), (int)$id]); if ($f) $acc[] = $fileItem($f); }
+        return $acc;
+    });
+    $route('GET', '/api/files-find', function () use ($db, $uid, $fileFrom, $fileItem) {
+        header('Content-Type: application/json; charset=utf-8'); $q = trim((string)($_GET['q'] ?? ''));
+        $rows = $q === '' ? [] : $db->rows("SELECT f.id, f.name, tt.name AS tname $fileFrom AND f.name LIKE ? ORDER BY f.id DESC LIMIT 12", [$uid(), $uid(), '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%']);
+        echo json_encode(array_map($fileItem, $rows), JSON_UNESCAPED_UNICODE);
+    });
     /* =============================== task board =============================== */
     $route('GET', '/t/{id}/board', function (array $p) use ($open, $db, $page, $layout, $sf, $members, $int, $uid) {
         $t = $open($p, 'read');
@@ -291,7 +306,8 @@ return function (\Sysfera\Plugin $sf): void {
         $by = array_fill_keys(array_map(fn($c) => (int)$c['id'], $cols), []);
         foreach ($tasks as $x) if (isset($by[(int)$x['col_id']])) $by[(int)$x['col_id']][] = $x;
         $edit = ($id = $int($_GET['edit'] ?? '')) ? $db->row('SELECT * FROM {p}teams_tasks WHERE id = ? AND team_id = ?', [$id, $t['id']]) : null;
-        $page('board', $layout($t, 'board', ['cols' => $cols, 'by' => $by, 'people' => $members((int)$t['id']), 'f' => $f, 'edit' => $edit, 'today' => date('Y-m-d')]), $sf->t('board'));
+        $tview = !$edit && ($vid = $int($_GET['view'] ?? '')) ? $db->row('SELECT t.*, u.name AS aname, c.name AS cname FROM {p}teams_tasks t LEFT JOIN {p}users u ON u.id = t.assignee_id LEFT JOIN {p}teams_cols c ON c.id = t.col_id WHERE t.id = ? AND t.team_id = ?', [$vid, $t['id']]) : null;
+        $page('board', $layout($t, 'board', ['cols' => $cols, 'by' => $by, 'people' => $members((int)$t['id']), 'f' => $f, 'edit' => $edit, 'tview' => $tview, 'today' => date('Y-m-d')]), $sf->t('board'));
     });
 
     $route('POST', '/t/{id}/task/save', function (array $p) use ($open, $db, $txt, $uid, $int, $sf, $self, $nameMap, $now) {
@@ -303,9 +319,9 @@ return function (\Sysfera\Plugin $sf): void {
         $prio = in_array((int)($_POST['prio'] ?? 1), Tm::PRIO, true) ? (int)$_POST['prio'] : 1;
         $isDone = (int)$db->val('SELECT is_done FROM {p}teams_cols WHERE id = ?', [$col]);
         if ($id && $db->val('SELECT 1 FROM {p}teams_tasks WHERE id = ? AND team_id = ?', [$id, $t['id']])) {
-            $db->q('UPDATE {p}teams_tasks SET title=?, descr=?, col_id=?, assignee_id=?, due=?, prio=?, done_at = IF(? = 1, COALESCE(done_at, ?), NULL) WHERE id = ?', [$title, $txt('descr', 4000) ?: null, $col, $as, $due, $prio, $isDone, $now(), $id]);
+            $db->q('UPDATE {p}teams_tasks SET title=?, descr=?, col_id=?, assignee_id=?, due=?, prio=?, report=?, links=?, wdocs=?, tfiles=?, done_at = IF(? = 1, COALESCE(done_at, ?), NULL) WHERE id = ?', [$title, $txt('descr', 4000) ?: null, $col, $as, $due, $prio, ...\Sysfera\Attach::fromPost(), $isDone, $now(), $id]);
         } else {
-            $db->q('INSERT INTO {p}teams_tasks (team_id, col_id, title, descr, assignee_id, due, prio, created_by, done_at) VALUES (?,?,?,?,?,?,?,?,?)', [$t['id'], $col, $title, $txt('descr', 4000) ?: null, $as, $due, $prio, $uid(), $isDone ? $now() : null]);
+            $db->q('INSERT INTO {p}teams_tasks (team_id, col_id, title, descr, assignee_id, due, prio, created_by, done_at, report, links, wdocs, tfiles) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [$t['id'], $col, $title, $txt('descr', 4000) ?: null, $as, $due, $prio, $uid(), $isDone ? $now() : null, ...\Sysfera\Attach::fromPost()]);
         }
         redirect($self('t/' . $t['id'] . '/board'));
     });
