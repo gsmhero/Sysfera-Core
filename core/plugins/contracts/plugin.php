@@ -108,9 +108,23 @@ return function (\Sysfera\Plugin $sf): void {
         $f = array_intersect_key($_GET, array_flip(['category', 'from', 'to', 'q', 'sort', 'page'])); $l = $svc()->listing($f);
         $render('list', ['list' => $l, 'f' => $f, 'cats' => $svc()->categories()], $sf->t('nav_list'), 'list');
     }));
-    $sf->route('GET', '/remote/{id}', $page(function (array $p) use ($render, $svc, $sf) {
-        $k = $svc()->remote((int)$p['id']); $render('remote', ['k' => $k], $k['title'], 'list');
+    $sf->route('GET', '/remote/{id}', $page(function (array $p) use ($render, $svc, $sf, $me, $bLive, $bConfigured, $sync) {
+        $k = $svc()->remote((int)$p['id']); $mine = null;
+        if ($me()->uid && $bLive() && $bConfigured()) { try { $mine = $sync()->myOffer($me()->uid, (int)$p['id']); } catch (\Throwable $e) { $mine = null; } }
+        $render('remote', ['k' => $k, 'mine' => $mine], $k['title'], 'list');
     }));
+    /* An offer on a Bablito contract, made here: the user acts as their own Bablito account, Bablito notifies the author */
+    $sf->route('POST', '/remote/{id}/offer', function (array $p) use ($sf, $me, $svc, $bLive, $bConfigured, $sync) {
+        sf_session(); $id = (int)$p['id'];
+        try {
+            if (!$me()->uid) throw new Err('login_required', '', 401);
+            if (!$bLive() || !$bConfigured()) throw new Err('bablito_not_live');
+            $svc()->remote($id); $sync()->makeOffer($me()->uid, $id, $_POST);
+            flash($sf->t('offer_sent'));
+        } catch (Err $e) { flash($e->errCode === 'bablito_refused' || $e->errCode === 'bablito_unreachable' ? $sf->t('err_' . $e->errCode) . ' (' . $e->getMessage() . ')' : $sf->t('err_' . $e->errCode), 'bad'); }
+        catch (\Throwable $e) { \Sysfera\App::log('contracts bablito offer ' . $e->getMessage()); flash($sf->t('err_server'), 'bad'); }
+        redirect('/p/contracts/remote/' . $id);
+    });
     $sf->route('GET', '/mine', $page(function () use ($render, $svc, $sf, $me) {
         $tab = in_array($_GET['tab'] ?? '', ['created', 'working', 'offers', 'archive', 'watch'], true) ? $_GET['tab'] : 'created';
         $render('mine', ['rows' => $svc()->mine($me(), $tab), 'sub' => $tab], $sf->t('nav_mine'), 'mine');

@@ -15,7 +15,7 @@ ok($vec === hash_hmac('sha256', "1700000000\nPOST\n/api/sysfera/users\n" . hash(
 ok(Bablito::validBase('https://www.bablito.ru') && !Bablito::validBase('http://www.bablito.ru') && !Bablito::validBase('https://u:p@bablito.ru') && !Bablito::validBase('https://bablito.ru/?x=1') && !Bablito::validBase('ftp://bablito.ru'), 'base address: https only, no credentials, no query');
 
 /* ---------- a fake Bablito (same rules as app/pages/sysfera_api.php on the other side) ---------- */
-$R = ['now' => strtotime('2026-11-10 12:00:00'), 'next' => 100, 'bad' => false, 'down' => false, 'calls' => [],
+$R = ['now' => strtotime('2026-11-10 12:00:00'), 'next' => 100, 'bad' => false, 'down' => false, 'calls' => [], 'offers' => [],
   'sections' => [['id' => 7, 'title' => 'About the company', 'type' => 'company', 'position' => 1, 'fields' => [['id' => 70, 'label' => 'Tax number', 'type' => 'text', 'options' => '', 'required' => true, 'default_public' => false, 'position' => 1]]],
                  ['id' => 8, 'title' => 'Skills', 'type' => 'self', 'position' => 2, 'fields' => [['id' => 80, 'label' => 'Level', 'type' => 'select', 'options' => "junior\nsenior", 'required' => false, 'default_public' => true, 'position' => 1], ['id' => 81, 'label' => 'Site', 'type' => 'url', 'options' => '', 'required' => false, 'default_public' => true, 'position' => 2]]]],
   'contracts' => [
@@ -34,6 +34,21 @@ $http = function (string $m, string $url, array $h, string $body) use (&$R, $key
     if ($p['path'] === '/api/sysfera/ping') return $j(['ok' => true, 'users' => count($R['users'])]);
     if ($p['path'] === '/api/sysfera/contracts' && $m === 'POST') { $R['pushed'] = $in['contracts']; $R['push_dry'] = $dry; return $j(['dry_run' => $dry, 'new' => count($in['contracts']), 'updated' => 0, 'removed' => 1, 'rejected' => []]); }
     if ($p['path'] === '/api/sysfera/contracts') { $all = array_values(array_filter($R['contracts'], fn($c) => $c['id'] > (int)($q['after'] ?? 0))); $cut = array_slice($all, 0, 2); return $j(['contracts' => $cut, 'has_more' => count($all) > 2]); }
+    if ($p['path'] === '/api/sysfera/offers') {
+        $uidr = (int)($m === 'GET' ? ($q['user_id'] ?? 0) : ($in['user_id'] ?? 0)); $cid = (int)($m === 'GET' ? ($q['contract_id'] ?? 0) : ($in['contract_id'] ?? 0));
+        if (!isset($R['users'][$uidr]) || $R['users'][$uidr]['sysfera_id'] === null) return $j(['error' => 'no_user'], 404);
+        $ct = null; foreach ($R['contracts'] as $c) if ($c['id'] === $cid) $ct = $c; if (!$ct) return $j(['error' => 'no_contract'], 404);
+        $mine = $R['offers'][$uidr . '-' . $cid] ?? null;
+        if ($m === 'GET') return $j(['offer' => $mine, 'contract_status' => 'published']);
+        $R['offer_in'] = $in;
+        if ($ct['author']['id'] === $uidr) return $j(['error' => 'not_allowed'], 409);
+        if ($mine) return $j(['error' => 'already_offered', 'offer' => $mine], 409);
+        if (isset($in['steps_count']) && $in['steps_count'] !== count($ct['steps'])) return $j(['error' => 'contract_changed'], 409);
+        $price = 0; $days = 0; foreach ($ct['steps'] as $i => $t) { $x = null; foreach ($in['items'] as $it) if ($it['n'] === $i + 1) $x = $it; if ($in['mode'] === 'accept' || !$x) { $price += $t['price']; $days += $t['days']; } elseif (empty($x['excluded'])) { $price += (float)$x['price']; $days += (int)$x['days']; } }
+        if ($price <= 0) return $j(['error' => 'bad_offer', 'detail' => 'Enter a valid offer price.'], 422);
+        if ($dry) return $j(['dry_run' => true, 'would_offer' => ['price' => $price, 'days' => $days]]);
+        $R['offers'][$uidr . '-' . $cid] = ['id' => 900 + count($R['offers']), 'price' => $price, 'days' => $days, 'status' => 'pending', 'url' => 'https://www.bablito.ru/offer/900']; return $j(['offer' => $R['offers'][$uidr . '-' . $cid]], 201);
+    }
     if ($p['path'] === '/api/sysfera/fields') return $j(['sections' => $R['sections']]);
     if ($p['path'] === '/api/sysfera/users' && $m === 'GET') { foreach ($R['users'] as $u) if ($u['email'] === strtolower($q['email'] ?? '')) return $j(['user' => $uj($u)]); return $j(['user' => null]); }
     if ($p['path'] === '/api/sysfera/users') {
@@ -166,9 +181,24 @@ $sync2 = new Sync($st, $mk(), fn() => $R['now'], fn(?array $ids) => $ids === nul
 $u4 = $sync2->goUrl(4, '/contracts'); $l4 = $st->one('links', ['user_id' => 4]);
 ok(count($R['users']) === $before + 1 && $l4 && $l4['how'] === 'created' && str_contains($u4, 'u=' . $l4['remote_id']), 'sign-in: a user without a Bablito account is registered first, then signed in');
 ok(err(fn() => $sync->goUrl(3, '/contracts')) === 'bablito_refused', 'sign-in: an account that belongs to another Sysfera user is refused');
+/* ---------- an offer made from Sysfera (the user stays here) ---------- */
+$people3 = $people2 + [5 => ['id' => 5, 'name' => 'Eve', 'email' => 'eve@x.test', 'lang' => 'en']];
+$sy = new Sync($st, $mk(), fn() => $R['now'], fn(?array $ids) => $ids === null ? $people3 : array_intersect_key($people3, array_flip($ids))); $sy->contracts(false); // copies of the Bablito contracts
+ok($sy->myOffer(2, 501) === null, 'offer: nothing yet');
+$o = $sy->makeOffer(2, 501, ['mode' => 'accept']);
+ok($o['status'] === 'pending' && abs($o['price'] - 350.5) < 0.001 && $o['days'] === 5 && $R['offer_in']['steps_count'] === 2 && $R['users'][$R['offer_in']['user_id']]['email'] === 'zed@x.test', 'offer: "accept as is" goes in as the linked Bablito user with the author\'s own prices');
+ok(err(fn() => $sy->makeOffer(2, 501, ['mode' => 'accept'])) === 'offer_already', 'offer: a second offer on the same contract is refused');
+ok($sy->myOffer(2, 501)['status'] === 'pending', 'offer: the user sees their offer');
+ok(err(fn() => $sy->makeOffer(1, 501, ['mode' => 'accept'])) === 'offer_not_allowed', 'offer: the author of the contract cannot offer on it');
+$o = $sy->makeOffer(5, 501, ['mode' => 'counter', 'payment_type' => 'step', 'notes' => 'hi', 'items' => [1 => ['price' => '90', 'days' => '1'], 2 => ['price' => '999', 'days' => '9', 'excluded' => '1'], 7 => ['price' => '1', 'days' => '1']]]);
+ok(abs($o['price'] - 90.0) < 0.001 && $R['offer_in']['payment_type'] === 'step' && $R['offer_in']['notes'] === 'hi' && count($R['offer_in']['items']) === 2 && $R['offer_in']['items'][1]['excluded'] === true, 'offer: a counteroffer sends price, days, the "unnecessary" mark by step number; unknown steps are dropped');
+ok(err(fn() => $sy->makeOffer(5, 9999, ['mode' => 'accept'])) === 'not_found', 'offer: a contract that is not in the copies is not found');
+$R['contracts'][0]['steps'][] = ['name' => 'Extra', 'description' => '', 'price' => 1, 'days' => 1];
+ok(err(fn() => $sy->makeOffer(4, 501, ['mode' => 'accept'])) === 'offer_changed', 'offer: when Bablito has different steps than our copy the user is asked to reload'); array_pop($R['contracts'][0]['steps']);
+$R['down'] = true; ok($sy->myOffer(2, 501) === null, 'offer: when Bablito cannot be asked the page still opens'); $R['down'] = false;
 /* ---------- everything at once ---------- */
-$all = $sync->all(true); ok(isset($all['pushed']['new']) && isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 3 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
-$all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 3, 'sync all: no failures');
+$all = $sync->all(true);  ok(isset($all['pushed']['new']) && isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 4 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
+$all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 4, 'sync all: no failures');
 
 /* ---------- local edits are stamped (Svc::saveValues) ---------- */
 $clock = strtotime('2026-11-12 09:00:00'); $svc = new Svc($st, function () use (&$clock) { return $clock; }, fn($ids) => [], null, []);

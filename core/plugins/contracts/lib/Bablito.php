@@ -53,6 +53,10 @@ final class Bablito
         $sig = hash_hmac('sha256', "login\n$remoteId\n$exp\n$nonce\n$path", $this->key);
         return rtrim($this->base, '/') . '/sysfera-login?' . http_build_query(['u' => $remoteId, 'e' => $exp, 'n' => $nonce, 'r' => $path, 's' => $sig]);
     }
+    /** Makes an offer as the linked Bablito user (mode accept = the author's own prices; counter = per-step price/days by step number). */
+    public function offer(int $remoteUser, int $contract, array $body): array { return $this->call('POST', '/api/sysfera/offers', ['user_id' => $remoteUser, 'contract_id' => $contract] + $body); }
+    /** The offer of this user on this contract, or null. */
+    public function myOffer(int $remoteUser, int $contract): ?array { return $this->call('GET', '/api/sysfera/offers?user_id=' . $remoteUser . '&contract_id=' . $contract)['offer'] ?? null; }
     public function profile(int $remoteId): array { return $this->call('GET', '/api/sysfera/profile/' . $remoteId); }
     public function pushProfile(int $remoteId, array $types, array $values, bool $dry): array { return $this->call('POST', '/api/sysfera/profile/' . $remoteId, ['types' => $types, 'values' => $values, 'dry_run' => $dry]); }
 }

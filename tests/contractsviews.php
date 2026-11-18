@@ -101,10 +101,10 @@ ok(!array_diff_key($en, $ru) && !array_diff_key($ru, $en), 'lang: en and ru have
 $bad = []; foreach ($en as $k => $s) { if ($ph($s) != $ph($ru[$k] ?? '')) $bad[] = $k; if (trim((string)($ru[$k] ?? '')) === '') $bad[] = $k; } ok(!$bad, 'lang: same placeholders, no empty ru text' . ($bad ? ' (' . implode(',', $bad) . ')' : ''));
 $src = ''; foreach (array_merge(glob("$dir/views/*.php"), ["$dir/plugin.php", "$dir/lib/Svc.php", "$dir/lib/Notice.php", "$dir/lib/Sync.php", "$dir/lib/Bablito.php"]) as $f) $src .= file_get_contents($f) . "\n";
 $used = []; if (preg_match_all("/->t\\('([a-z0-9_]+)'/", $src, $m)) $used = array_merge($used, $m[1]); if (preg_match_all("/\\?\\s*'(flash_[a-z_]+)'\\s*:\\s*'(flash_[a-z_]+)'/", $src, $m)) $used = array_merge($used, $m[1], $m[2]);
-$families = ['st_' => ['draft', 'published', 'active', 'paused', 'fulfilled', 'terminated'], 'pay_' => Svc::PAYMENT_TYPES, 'pt_' => Svc::PARTY_TYPES, 'as_' => Svc::PARTY_TYPES, 'inv_' => Svc::INVOICE_STATUS, 'ft_' => Svc::FIELD_TYPES, 'mine_' => ['created', 'working', 'offers', 'archive', 'watch'], 'nt_' => Notice::KINDS, 'bablito_acc_' => ['created', 'linked', 'exists', 'conflict', 'refused', 'would_create', 'would_link']];
+$families = ['st_' => ['draft', 'published', 'active', 'paused', 'fulfilled', 'terminated'], 'pay_' => Svc::PAYMENT_TYPES, 'pt_' => Svc::PARTY_TYPES, 'as_' => Svc::PARTY_TYPES, 'inv_' => Svc::INVOICE_STATUS, 'ft_' => Svc::FIELD_TYPES, 'mine_' => ['created', 'working', 'offers', 'archive', 'watch'], 'nt_' => Notice::KINDS, 'offer_status_' => ['pending', 'accepted', 'rejected'], 'bablito_acc_' => ['created', 'linked', 'exists', 'conflict', 'refused', 'would_create', 'would_link']];
 foreach ($families as $p => $vals) foreach ($vals as $x) $used[] = $p . $x;
 if (preg_match_all("/new Err\\('([a-z_]+)'/", $src, $m)) foreach ($m[1] as $code) $used[] = 'err_' . $code;
-foreach (['err_bablito_exists', 'err_file_big', 'err_file_fail', 'err_server', 'menu', 'title'] as $x) $used[] = $x;
+foreach (['err_offer_already', 'err_offer_changed', 'err_bablito_exists', 'err_file_big', 'err_file_fail', 'err_server', 'menu', 'title'] as $x) $used[] = $x;
 $used = array_values(array_filter($used, fn($k) => !str_ends_with($k, '_'))); $miss = array_values(array_diff(array_unique($used), array_keys($en))); ok(!$miss, 'lang: every key the code uses exists' . ($miss ? ' (missing: ' . implode(',', $miss) . ')' : ''));
 $unused = array_values(array_filter(array_diff(array_keys($en), array_unique($used)), fn($k) => !str_starts_with($k, 'nt_l_') && !str_starts_with($k, 'mail_') && !str_contains($src, "'$k'"))); ok(!$unused, 'lang: no dead keys' . ($unused ? ' (' . implode(',', $unused) . ')' : ''));
 foreach (Notice::KINDS as $k) { $d = ['who' => 'Anna', 'title' => 'T', 'step' => 'S', 'extra' => 'X', 'comment' => 'C']; $lines = Notice::lines($ru, $k, $d); if (!str_contains($lines[0], 'Anna ') || !str_contains(implode("\n", $lines), 'Шаг: S')) { ok(false, "notice $k"); } }
@@ -137,4 +137,11 @@ ok(!is_file("$dir/.env") && !glob("$dir/*.env"), 'no .env copied from the origin
 $core = dirname(__DIR__) . '/core';
 ok(str_contains(file_get_contents("$core/views/profile.php"), 'profile.cards') && str_contains(file_get_contents("$core/app/routes.php"), 'profile.save') && str_contains($pp, 'profile.cards') && str_contains($pp, 'x_contracts') && str_contains(file_get_contents("$dir/views/profile.php"), 'x_contracts'), 'platform /profile: the component adds its fields there (hooks profile.cards / profile.save)');
 
+$rv = $vars($dan, 'en')['remote'] + ['sf' => new FakeSf($en)];
+$h = $render('remote', $rv + ['mine' => null]);
+ok(str_contains($h, '/remote/77/offer') && str_contains($h, 'Accept contract as is') && str_contains($h, 'items[2][price]') && str_contains($h, 'Send counteroffer'), 'remote: a signed-in user makes an offer here (accept as is or a counteroffer per step)');
+$h = $render('remote', $rv + ['mine' => ['id' => 5, 'price' => 300.0, 'days' => 5, 'status' => 'pending', 'url' => 'x']]);
+ok(str_contains($h, 'Your offer') && str_contains($h, 'waiting for the author') && !str_contains($h, 'Accept contract as is'), 'remote: an existing offer is shown instead of the form');
+$h = $render('remote', ['babOn' => false] + $rv + ['mine' => null]);
+ok(!str_contains($h, '/offer'), 'remote: no offer form while Bablito is not live');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

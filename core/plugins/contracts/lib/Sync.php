@@ -71,7 +71,10 @@ final class Sync
     }
 
     /** The address to open Bablito for this user already signed in, going on to $path. A user without a Bablito account is registered (matched by e-mail, else created; the account has no password, Bablito e-mails a link to choose one). */
-    public function goUrl(int $uid, string $path): string
+    public function goUrl(int $uid, string $path): string { return $this->b->loginUrl($this->remoteUser($uid), $path); }
+
+    /** The Bablito id of this user; an account is registered first when there is none. */
+    private function remoteUser(int $uid): int
     {
         $l = $this->link($uid);
         if (!$l) {
@@ -79,7 +82,29 @@ final class Sync
             if (!in_array($x['status'], ['created', 'linked'], true)) throw new Err($x['status'] === 'exists' ? 'bablito_exists' : 'bablito_refused', $x['detail']);
             $l = $this->link($uid); if (!$l) throw new Err('bablito_refused');
         }
-        return $this->b->loginUrl((int)$l['remote_id'], $path);
+        return (int)$l['remote_id'];
+    }
+
+    /**
+     * The signed-in user makes an offer on a Bablito contract without leaving Sysfera. $in: mode (accept|counter), notes, payment_type, items[n] = [price, days, excluded] (n = step number, 1-based).
+     * @return array{id:int,price:float,days:int,status:string,url:string}
+     */
+    public function makeOffer(int $uid, int $remoteContract, array $in): array
+    {
+        $r = $this->s->one('remote', ['remote_id' => $remoteContract]); if (!$r) throw new Err('not_found', '', 404);
+        $steps = json_decode((string)$r['steps_json'], true); $n = is_array($steps) ? count($steps) : 0;
+        $body = ['mode' => ($in['mode'] ?? '') === 'accept' ? 'accept' : 'counter', 'steps_count' => $n, 'notes' => mb_substr(trim((string)($in['notes'] ?? '')), 0, 4000), 'payment_type' => ($in['payment_type'] ?? '') === 'step' ? 'step' : 'finish', 'items' => []];
+        foreach ((array)($in['items'] ?? []) as $k => $it) if (is_array($it) && (int)$k >= 1 && (int)$k <= $n) $body['items'][] = ['n' => (int)$k, 'price' => trim((string)($it['price'] ?? '')), 'days' => trim((string)($it['days'] ?? '')), 'excluded' => !empty($it['excluded'])];
+        $a = $this->b->offer($this->remoteUser($uid), $remoteContract, $body);
+        if (($a['_status'] ?? 0) === 409) throw new Err(match ($a['error'] ?? '') { 'already_offered' => 'offer_already', 'contract_changed' => 'offer_changed', default => 'offer_not_allowed' }, (string)($a['detail'] ?? ''), 409);
+        return (array)($a['offer'] ?? []);
+    }
+
+    /** The offer this user already has on a Bablito contract (null when none, or when Bablito cannot be asked). */
+    public function myOffer(int $uid, int $remoteContract): ?array
+    {
+        $l = $this->link($uid); if (!$l) return null;
+        try { return $this->b->myOffer((int)$l['remote_id'], $remoteContract); } catch (Err $e) { return null; }
     }
 
     /** Matches every unlinked user by e-mail. @return array{linked:int,would_link:int,unmatched:array,conflicts:array} */
