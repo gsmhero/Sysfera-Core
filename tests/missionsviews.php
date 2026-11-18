@@ -58,7 +58,7 @@ foreach (['en', 'ru'] as $l) {
     $h = render($l, 'mission', ['own' => false, 'author' => 'Bob', 'teams' => [], 'sharedTeams' => [], 'shopLinks' => [], 'announceOn' => false] + $base);
     ok(!str_contains($h, 'task_delete') && !str_contains($h, 'file_add'), "$l: a shared mission is read-only");
     $h = render($l, 'index', ['rows' => [$m + ['cat' => null, 'cat_ru' => null, 'color' => null, 'n' => 3, 'done' => 1, 'total' => 50, 'starred' => 1]], 'withMe' => [['id' => 5, 'title' => 'Team one', 'status' => 'active', 'author' => 'Bob', 'starred' => 0]], 'cats' => [], 'st' => '', 'q' => '', 'cat' => 0, 'bm' => true, 'langs' => ['en' => 'English'], 'cronUrl' => 'https://x/api']);
-    ok(str_contains($h, 'Team one') && str_contains($h, '★'), "$l: list with bookmarks and missions shared with my teams");
+    ok(str_contains($h, 'Team one') && str_contains($h, 'fill="currentColor"'), "$l: list with bookmarks and missions shared with my teams");
     $h = render($l, 'notes', ['rows' => [['id' => 1, 'kind' => 'reminder', 'body' => 'Rem <x>', 'mission_id' => 1, 'read_at' => null, 'created_at' => '2030-01-01 10:00:00'], ['id' => 2, 'kind' => 'team', 'body' => 'Done', 'mission_id' => null, 'read_at' => '2030-01-01 11:00:00', 'created_at' => '2030-01-01 10:00:00']]]);
     ok(str_contains($h, 'Rem &lt;x&gt;'), "$l: notification list");
     $h = render($l, 'setup', ['hub' => false, 'own' => ['yandex_maps_key' => '', 'mapbox_key' => '', 'tactify_url' => ''], 'now' => ['yandex_maps_key' => 'abcdefghij', 'mapbox_key' => '', 'tactify_url' => 'https://www.tactify.ru', '_from_hub' => 1, '_age' => 600], 'keys' => ['yandex_maps_key', 'mapbox_key', 'tactify_url']]);

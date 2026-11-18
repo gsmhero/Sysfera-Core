@@ -119,3 +119,4 @@ html.lb-open{overflow:hidden}
 .tmx .metaline .dot{display:none}
 .tmx .backlink{display:inline-flex;align-items:center;padding:4px 14px 4px 10px;border:1px solid var(--t-border);border-radius:999px;background:var(--t-surface);color:var(--t-text);font-weight:500;text-decoration:none;transition:background .12s,border-color .12s}
 .tmx .backlink:hover{background:var(--t-blue-l);border-color:var(--t-blue-r);color:var(--t-blue)}
+.mi{display:inline-block;vertical-align:-3px;flex:none}.wtabs .mi{vertical-align:-3px;margin-right:2px}.ib .mi,.btn .mi{vertical-align:-3px}

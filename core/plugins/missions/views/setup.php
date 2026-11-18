@@ -8,18 +8,18 @@ $mask = fn(string $v) => $v === '' ? '—' : (strlen($v) > 8 ? substr($v, 0, 4) 
 <section class="card"><h3><?= e($sf->t('setup_current')) ?></h3>
   <div class="row"><?php foreach ($keys as $k): ?><span class="chip"><?= e($sf->t('setup_' . $k)) ?>: <b><?= e($k === 'tactify_url' ? ($now[$k] ?: '—') : $mask((string)$now[$k])) ?></b></span><?php endforeach; ?></div>
   <p class="muted sm"><?= e($now['_from_hub'] ? $sf->t('setup_from_hub', ['min' => (int)max(0, $now['_age']) / 60 | 0]) : $sf->t('setup_no_hub')) ?></p>
-  <form method="post"><?= csrf_field() ?><button class="btn" name="do" value="refresh">↻ <?= e($sf->t('setup_refresh')) ?></button></form></section>
+  <form method="post"><?= csrf_field() ?><button class="btn" name="do" value="refresh"><?= mis_ico('refresh', 14) ?> <?= e($sf->t('setup_refresh')) ?></button></form></section>
 <?php endif; ?>
 <?php if ($hub && $net): $st = $net['status']; ?>
 <section class="card"><h3><?= e($sf->t('setup_net_h')) ?></h3>
   <p class="muted sm"><?= e($sf->t('setup_net_hint')) ?></p>
   <form method="post"><?= csrf_field() ?>
-    <label class="fld"><span><?= e($sf->t('setup_tactify_secret')) ?> <?= $net['has'] ? '✔' : '' ?></span><input name="tactify_secret" type="password" autocomplete="new-password" maxlength="200" placeholder="<?= e($sf->t($net['has'] ? 'setup_secret_set' : 'setup_secret_none')) ?>"></label>
-    <div class="row"><button class="btn primary" name="do" value="save"><?= e($sf->t('save')) ?></button><button class="btn" name="do" value="net_sync">↻ <?= e($sf->t('setup_net_sync')) ?></button></div></form>
+    <label class="fld"><span><?= e($sf->t('setup_tactify_secret')) ?> <?= $net['has'] ? mis_ico('check', 14) : '' ?></span><input name="tactify_secret" type="password" autocomplete="new-password" maxlength="200" placeholder="<?= e($sf->t($net['has'] ? 'setup_secret_set' : 'setup_secret_none')) ?>"></label>
+    <div class="row"><button class="btn primary" name="do" value="save"><?= e($sf->t('save')) ?></button><button class="btn" name="do" value="net_sync"><?= mis_ico('refresh', 14) ?> <?= e($sf->t('setup_net_sync')) ?></button></div></form>
   <p class="muted sm"><?= $st ? e($sf->t('setup_net_status', ['at' => $st['at'], 'a' => (int)$st['pulled'], 'b' => (int)$st['pushed'], 'c' => (int)$st['removed'], 'e' => $st['error'] ?: '—'])) : e($sf->t('setup_net_never')) ?> · <?= e($sf->t('setup_net_total', ['n' => (int)$net['total']])) ?></p>
   <?php foreach ($net['rows'] as $r): ?>
   <form method="post" class="row between sm" style="border-top:1px solid var(--line,#e5e7eb);padding:6px 0"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-    <span><?= $r['hidden'] ? '🚫 ' : '' ?><b><?= e($r['title']) ?></b> <span class="muted">· <?= e($r['source'] === 'tactify' ? 'tactify.ru' : preg_replace('/^site:/', '', (string)$r['source'])) ?> · <?= e($r['author']) ?><?= $r['reports'] ? ' · ⚑ ' . (int)$r['reports'] : '' ?></span></span>
+    <span><?= $r['hidden'] ? mis_ico('ban', 14) . ' ' : '' ?><b><?= e($r['title']) ?></b> <span class="muted">· <?= e($r['source'] === 'tactify' ? 'tactify.ru' : preg_replace('/^site:/', '', (string)$r['source'])) ?> · <?= e($r['author']) ?><?= $r['reports'] ? ' · ' . mis_ico('flag', 13) . ' ' . (int)$r['reports'] : '' ?></span></span>
     <span class="row"><button class="btn" name="do" value="net_hide"><?= e($sf->t($r['hidden'] ? 'net_unhide' : 'net_hide')) ?></button><button class="btn danger" name="do" value="net_delete" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= e($sf->t('delete')) ?></button></span></form>
   <?php endforeach; ?>
 </section>

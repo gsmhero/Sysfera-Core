@@ -10,7 +10,7 @@ $tab = 'categories'; include __DIR__ . '/_nav.php'; ?>
     <label class="fld inline"><span><?= e($sf->t('color')) ?></span><input type="color" name="color" value="<?= e($c['color']) ?>"></label>
     <label class="fld inline"><span>№</span><input name="sort_order" value="<?= (int)$c['sort_order'] ?>" size="3"></label>
     <button class="btn primary" name="do" value="save"><?= e($sf->t('save')) ?></button>
-    <button class="btn danger" name="do" value="delete" data-confirm="<?= e($sf->t('confirm_delete_cat')) ?>">✕</button></div></form>
+    <button class="btn danger" name="do" value="delete" data-confirm="<?= e($sf->t('confirm_delete_cat')) ?>"><?= mis_ico('x') ?></button></div></form>
 <?php endforeach; ?>
 </div>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="add"><h3><?= e($sf->t('add_category')) ?></h3><div class="row">
