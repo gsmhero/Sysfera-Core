@@ -9,7 +9,6 @@ $ctcat = fn(array $k): string => $lang === 'ru' ? (string)($k['category_ru'] ?? 
 $ctuser = fn(int $id, string $name): string => '<a href="' . e($sf->url('/user/' . $id)) . '">' . e($name) . '</a>';
 $ctstars = function (float $avg, int $n): string { $f = (int)round($avg); return '<span class="ct-stars" title="' . e(number_format($avg, 1)) . '">' . str_repeat('★', $f) . str_repeat('☆', 5 - $f) . '</span> <span class="muted">(' . $n . ')</span>'; };
 ?>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;400;500;600;700&family=Fira+Sans+Extra+Condensed:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="<?= e($sf->asset('contracts.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
 <script src="<?= e($sf->asset('contracts.js')) ?>?v=<?= e($sf->manifest['version']) ?>" defer></script>
 <nav class="ct-tabs"><?php foreach ($tabs as $tabKey => [$tabPath, $tabLabel, $tabShow, $tabN]): if (!$tabShow) continue; ?><a href="<?= e($tabKey === 'profile' ? url('/profile') : $sf->url($tabPath)) ?>" class="<?= $tab === $tabKey ? 'on' : '' ?>"><?= e($sf->t($tabLabel)) ?><?= $tabN ? ' <b class="ct-n">' . (int)$tabN . '</b>' : '' ?></a><?php endforeach; ?>

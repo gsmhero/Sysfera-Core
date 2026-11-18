@@ -34,7 +34,7 @@
 .ct-act{display:block;padding:10px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px}.ct-off .ct-pfields{opacity:.5}
 
 /* ===== Bablito.ru look: the same palette, fonts, tabs, buttons, cards and listing layout. Applies to the Contracts pages only (they contain .ct-tabs). ===== */
-.main:has(.ct-tabs){--acc:#00bc1f;--acc-ink:#fff;--ink:#3a3a3a;--mut:#888;--line:#d8d8d8;--bg:#fff;--card:#f7f7f7;--ok:#00bc1f;--okbg:#e6f8e9;--bad:#e00000;--badbg:#fdeaea;--info:#2288cc;--infobg:#e8f3fb;--warn:#e08a00;--warnbg:#fdf3dc;--r:14px;background:#fff;color:var(--ink);font-family:"Fira Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.45;min-height:100vh}
+.main:has(.ct-tabs){--acc:#00bc1f;--acc-ink:#fff;--ink:#3a3a3a;--mut:#888;--line:#d8d8d8;--bg:#fff;--card:#f7f7f7;--ok:#00bc1f;--okbg:#e6f8e9;--bad:#e00000;--badbg:#fdeaea;--info:#2288cc;--infobg:#e8f3fb;--warn:#e08a00;--warnbg:#fdf3dc;--r:14px;background:#fff;color:var(--ink);line-height:1.45;min-height:100vh}
 .main:has(.ct-tabs) a{color:inherit}.main:has(.ct-tabs) a:hover{text-decoration:underline}
 .main:has(.ct-tabs) h1{font-size:2.2rem;font-weight:500;margin:.3em 0}.main:has(.ct-tabs) h2{font-size:1.5rem;font-weight:500}.main:has(.ct-tabs) h3{font-size:1.2rem;font-weight:500}
 .main:has(.ct-tabs) .card{background:#f7f7f7;border:1px solid #e3e3e3;border-radius:14px;padding:14px 18px}
@@ -46,14 +46,14 @@
 .main:has(.ct-tabs) .btn.sm{padding:4px 12px;font-size:.85rem;border-radius:6px}
 .main:has(.ct-tabs) .flash.ok{background:#e6f8e9;border:1px solid #9edda9;color:#3a3a3a}.main:has(.ct-tabs) .flash.bad{background:#fdeaea;border:1px solid #f0aaaa;color:#3a3a3a}
 /* tabs */
-.main:has(.ct-tabs) .ct-tabs{gap:8px;border-bottom:1px solid #aaa;margin:20px 0 18px;font-family:"Fira Sans Extra Condensed","Fira Sans",sans-serif;font-size:1.2rem;overflow:visible;flex-wrap:wrap}
+.main:has(.ct-tabs) .ct-tabs{gap:8px;border-bottom:1px solid #aaa;margin:20px 0 18px;font-size:1.2rem;overflow:visible;flex-wrap:wrap}
 .main:has(.ct-tabs) .ct-tabs a:not(.btn){border:1px solid #aaa;border-bottom:0;border-radius:8px 8px 0 0;padding:4px 16px;margin-bottom:-1px;color:#3a3a3a;font-size:1.2rem;border-bottom-color:transparent}
 .main:has(.ct-tabs) .ct-tabs a:not(.btn):hover{background:#f1f1f1;text-decoration:none}.main:has(.ct-tabs) .ct-tabs a.on{background:#00bc1f;color:#fff;border-color:#00bc1f;font-weight:400}
 .main:has(.ct-tabs) .ct-tabs .ct-new{border-radius:8px;margin-bottom:6px;font-size:1rem}
-.main:has(.ct-tabs) .ct-ptabs{border-bottom:1px solid #aaa;gap:8px}.main:has(.ct-tabs) .ct-ptabs button{border:1px solid #aaa;border-bottom:0;border-radius:8px 8px 0 0;padding:4px 16px;color:#3a3a3a;font-family:"Fira Sans Extra Condensed","Fira Sans",sans-serif;font-size:1.2rem}
+.main:has(.ct-tabs) .ct-ptabs{border-bottom:1px solid #aaa;gap:8px}.main:has(.ct-tabs) .ct-ptabs button{border:1px solid #aaa;border-bottom:0;border-radius:8px 8px 0 0;padding:4px 16px;color:#3a3a3a;font-size:1.2rem}
 .main:has(.ct-tabs) .ct-ptabs button.on{background:#00bc1f;color:#fff;border-color:#00bc1f}
 /* filters */
-.main:has(.ct-tabs) .ct-filters{align-items:center;gap:14px 18px;margin:20px 0}.main:has(.ct-tabs) .ct-filters label{flex-direction:row;align-items:center;gap:8px;font-family:"Fira Sans Extra Condensed","Fira Sans",sans-serif;font-size:1.2rem;color:#3a3a3a;white-space:nowrap}
+.main:has(.ct-tabs) .ct-filters{align-items:center;gap:14px 18px;margin:20px 0}.main:has(.ct-tabs) .ct-filters label{flex-direction:row;align-items:center;gap:8px;font-size:1.2rem;color:#3a3a3a;white-space:nowrap}
 .main:has(.ct-tabs) .ct-filters input,.main:has(.ct-tabs) .ct-filters select{min-width:0;width:auto;padding:5px 8px}.main:has(.ct-tabs) .ct-filters input{width:110px}
 /* listing card (as on Bablito.ru) */
 .ct-listing{display:flex;padding:0!important;overflow:hidden;background:#fff!important;margin:18px 0}
