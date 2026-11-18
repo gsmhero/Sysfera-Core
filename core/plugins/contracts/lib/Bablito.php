@@ -1,0 +1,44 @@
+<?php
+declare(strict_types=1);
+namespace SysferaContracts;
+
+/**
+ * Client of the Bablito.ru machine API (signed requests). signature = hex(HMAC-SHA256(key, ts "\n" METHOD "\n" request-uri "\n" sha256hex(body))),
+ * headers X-Sysfera-Timestamp / X-Sysfera-Signature. The key is never logged or shown. $http(method, url, headers[], body): [status, body] does the transfer.
+ */
+final class Bablito
+{
+    public function __construct(private string $base, private string $key, private $http, private $now) {}
+
+    public static function sig(string $key, string $ts, string $method, string $uri, string $body): string
+    {
+        return hash_hmac('sha256', $ts . "\n" . strtoupper($method) . "\n" . $uri . "\n" . hash('sha256', $body), $key);
+    }
+    public static function validBase(string $url): bool
+    {
+        $p = parse_url($url); return is_array($p) && ($p['scheme'] ?? '') === 'https' && !empty($p['host']) && empty($p['user']) && empty($p['query']) && empty($p['fragment']);
+    }
+
+    /** @return array decoded JSON; throws Err('bablito_*') */
+    public function call(string $method, string $path, ?array $body = null): array
+    {
+        if (!self::validBase($this->base) || strlen($this->key) < 32) throw new Err('bablito_not_configured');
+        $raw = $body === null ? '' : (string)json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $uri = (string)parse_url($this->base, PHP_URL_PATH); $uri = rtrim($uri, '/') . $path; $ts = (string)($this->now)();
+        $headers = ['X-Sysfera-Timestamp: ' . $ts, 'X-Sysfera-Signature: ' . self::sig($this->key, $ts, $method, $uri, $raw), 'Accept: application/json'] + ($raw !== '' ? [3 => 'Content-Type: application/json'] : []);
+        try { [$status, $resp] = ($this->http)($method, rtrim($this->base, '/') . $path, array_values($headers), $raw); }
+        catch (\Throwable $e) { throw new Err('bablito_unreachable', $e->getMessage()); }
+        $j = json_decode((string)$resp, true);
+        if ($status === 401) throw new Err('bablito_bad_key', '', 502);
+        if ($status === 404 && !is_array($j)) throw new Err('bablito_disabled', '', 502);
+        if (!is_array($j) || $status >= 500) throw new Err('bablito_bad_answer', 'HTTP ' . $status, 502);
+        if ($status >= 400 && $status !== 409) throw new Err('bablito_refused', (string)($j['detail'] ?? $j['error'] ?? 'HTTP ' . $status), 502);
+        return $j + ['_status' => $status];
+    }
+    public function ping(): array { return $this->call('GET', '/api/sysfera/ping'); }
+    public function fields(): array { return $this->call('GET', '/api/sysfera/fields')['sections'] ?? []; }
+    public function user(string $email): ?array { return $this->call('GET', '/api/sysfera/users?email=' . rawurlencode(mb_strtolower(trim($email))))['user'] ?? null; }
+    public function account(array $u, bool $link, bool $dry): array { return $this->call('POST', '/api/sysfera/users', ['email' => mb_strtolower(trim((string)$u['email'])), 'name' => $u['name'], 'types' => $u['types'], 'lang' => $u['lang'], 'sysfera_id' => $u['id'], 'link' => $link, 'dry_run' => $dry]); }
+    public function profile(int $remoteId): array { return $this->call('GET', '/api/sysfera/profile/' . $remoteId); }
+    public function pushProfile(int $remoteId, array $types, array $values, bool $dry): array { return $this->call('POST', '/api/sysfera/profile/' . $remoteId, ['types' => $types, 'values' => $values, 'dry_run' => $dry]); }
+}

@@ -5,7 +5,7 @@ namespace SysferaContracts;
 /** Store on the platform database. Table and column names are checked against a whitelist / pattern; values are always bound. */
 final class DbStore implements Store
 {
-    public const TABLES = ['profiles', 'categories', 'contracts', 'todos', 'offers', 'offer_todos', 'offer_extra', 'comments', 'files', 'reviews', 'watch', 'invoices', 'notices', 'psections', 'pfields', 'pvalues'];
+    public const TABLES = ['profiles', 'categories', 'contracts', 'todos', 'offers', 'offer_todos', 'offer_extra', 'comments', 'files', 'reviews', 'watch', 'invoices', 'notices', 'psections', 'pfields', 'pvalues', 'links'];
     private int $depth = 0;
 
     public function __construct(private \Sysfera\Db $db) {}

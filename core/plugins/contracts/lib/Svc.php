@@ -702,6 +702,8 @@ final class Svc
                 if ($f['type'] === 'select' && !in_array($v, self::options($f), true)) throw new Err('field_invalid', $f['label']);
             }
             $row = ['value' => mb_substr($v, 0, 4000), 'is_public' => !empty($in['public']) ? 1 : 0];
+            if (isset($have[$fid]) && (string)$have[$fid]['value'] === $row['value'] && (int)$have[$fid]['is_public'] === $row['is_public']) continue; // unchanged: keep its change time (the newest change wins when syncing with Bablito)
+            $row['updated_at'] = gmdate('Y-m-d H:i:s', ($this->now)());
             if (isset($have[$fid])) $this->s->update('pvalues', (int)$have[$fid]['id'], $row); else $this->s->insert('pvalues', $row + ['user_id' => $uid, 'field_id' => $fid]);
         }
     }

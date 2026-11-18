@@ -4,7 +4,7 @@ declare(strict_types=1);
 final class ContractsMemStore implements SysferaContracts\Store
 {
     public array $t = []; private array $seq = [];
-    private const UNIQ = ['profiles' => [['user_id']], 'categories' => [['name']], 'offers' => [['contract_id', 'user_id']], 'offer_todos' => [['offer_id', 'todo_id']], 'reviews' => [['contract_id', 'reviewer_id']], 'watch' => [['user_id', 'contract_id']], 'invoices' => [['number']], 'pvalues' => [['user_id', 'field_id']]];
+    private const UNIQ = ['links' => [['user_id'], ['remote_id']], 'profiles' => [['user_id']], 'categories' => [['name']], 'offers' => [['contract_id', 'user_id']], 'offer_todos' => [['offer_id', 'todo_id']], 'reviews' => [['contract_id', 'reviewer_id']], 'watch' => [['user_id', 'contract_id']], 'invoices' => [['number']], 'pvalues' => [['user_id', 'field_id']]];
 
     public function insert(string $table, array $row): int
     {

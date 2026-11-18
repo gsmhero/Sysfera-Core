@@ -53,6 +53,7 @@ jobs:
         run: |
           php tests/contracts.php
           php tests/contractsviews.php
+          php tests/contractssync.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

@@ -16,7 +16,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.1.0']; public array $missing = [];
+    public array $manifest = ['version' => '0.2.0']; public array $missing = [];
     public function __construct(private array $l) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'contracts.' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/contracts/' . ltrim($p, '/'); }
@@ -96,12 +96,12 @@ $h = $render('notices', $vars($boris, 'ru')['notices'] + ['sf' => new FakeSf($ru
 $ph = fn(string $s): array => (preg_match_all('/\{[a-z_]+\}/', $s, $m) ? array_unique($m[0]) : []);
 ok(!array_diff_key($en, $ru) && !array_diff_key($ru, $en), 'lang: en and ru have the same keys' . (array_diff_key($en, $ru) ? ' (ru lacks: ' . implode(',', array_keys(array_diff_key($en, $ru))) . ')' : '') . (array_diff_key($ru, $en) ? ' (en lacks: ' . implode(',', array_keys(array_diff_key($ru, $en))) . ')' : ''));
 $bad = []; foreach ($en as $k => $s) { if ($ph($s) != $ph($ru[$k] ?? '')) $bad[] = $k; if (trim((string)($ru[$k] ?? '')) === '') $bad[] = $k; } ok(!$bad, 'lang: same placeholders, no empty ru text' . ($bad ? ' (' . implode(',', $bad) . ')' : ''));
-$src = ''; foreach (array_merge(glob("$dir/views/*.php"), ["$dir/plugin.php", "$dir/lib/Svc.php", "$dir/lib/Notice.php"]) as $f) $src .= file_get_contents($f) . "\n";
+$src = ''; foreach (array_merge(glob("$dir/views/*.php"), ["$dir/plugin.php", "$dir/lib/Svc.php", "$dir/lib/Notice.php", "$dir/lib/Sync.php", "$dir/lib/Bablito.php"]) as $f) $src .= file_get_contents($f) . "\n";
 $used = []; if (preg_match_all("/->t\\('([a-z0-9_]+)'/", $src, $m)) $used = array_merge($used, $m[1]); if (preg_match_all("/\\?\\s*'(flash_[a-z_]+)'\\s*:\\s*'(flash_[a-z_]+)'/", $src, $m)) $used = array_merge($used, $m[1], $m[2]);
-$families = ['st_' => ['draft', 'published', 'active', 'paused', 'fulfilled', 'terminated'], 'pay_' => Svc::PAYMENT_TYPES, 'pt_' => Svc::PARTY_TYPES, 'as_' => Svc::PARTY_TYPES, 'inv_' => Svc::INVOICE_STATUS, 'ft_' => Svc::FIELD_TYPES, 'mine_' => ['created', 'working', 'offers', 'archive', 'watch'], 'nt_' => Notice::KINDS];
+$families = ['st_' => ['draft', 'published', 'active', 'paused', 'fulfilled', 'terminated'], 'pay_' => Svc::PAYMENT_TYPES, 'pt_' => Svc::PARTY_TYPES, 'as_' => Svc::PARTY_TYPES, 'inv_' => Svc::INVOICE_STATUS, 'ft_' => Svc::FIELD_TYPES, 'mine_' => ['created', 'working', 'offers', 'archive', 'watch'], 'nt_' => Notice::KINDS, 'bablito_acc_' => ['created', 'linked', 'exists', 'conflict', 'refused', 'would_create', 'would_link']];
 foreach ($families as $p => $vals) foreach ($vals as $x) $used[] = $p . $x;
 if (preg_match_all("/new Err\\('([a-z_]+)'/", $src, $m)) foreach ($m[1] as $code) $used[] = 'err_' . $code;
-foreach (['err_file_big', 'err_file_fail', 'err_server', 'menu', 'title'] as $x) $used[] = $x;
+foreach (['err_bablito_exists', 'err_file_big', 'err_file_fail', 'err_server', 'menu', 'title'] as $x) $used[] = $x;
 $used = array_values(array_filter($used, fn($k) => !str_ends_with($k, '_'))); $miss = array_values(array_diff(array_unique($used), array_keys($en))); ok(!$miss, 'lang: every key the code uses exists' . ($miss ? ' (missing: ' . implode(',', $miss) . ')' : ''));
 $unused = array_values(array_filter(array_diff(array_keys($en), array_unique($used)), fn($k) => !str_starts_with($k, 'nt_l_') && !str_starts_with($k, 'mail_') && !str_contains($src, "'$k'"))); ok(!$unused, 'lang: no dead keys' . ($unused ? ' (' . implode(',', $unused) . ')' : ''));
 foreach (Notice::KINDS as $k) { $d = ['who' => 'Anna', 'title' => 'T', 'step' => 'S', 'extra' => 'X', 'comment' => 'C']; $lines = Notice::lines($ru, $k, $d); if (!str_contains($lines[0], 'Anna ') || !str_contains(implode("\n", $lines), 'Шаг: S')) { ok(false, "notice $k"); } }
@@ -113,7 +113,7 @@ $kinds = array_unique(array_filter(array_merge(...array_slice($m, 1)))); $unknow
 /* ---------- plugin.php agrees with the rules and the views ---------- */
 $pp = file_get_contents("$dir/plugin.php"); preg_match_all('/\$svc\(\)->([a-zA-Z]+)\(/', $pp . $src, $m); $gone = array_values(array_filter(array_unique($m[1]), fn($x) => !method_exists(Svc::class, $x)));
 ok(!$gone, 'plugin.php and the views call only methods that exist in Svc' . ($gone ? ' (missing: ' . implode(',', $gone) . ')' : ''));
-ok(str_contains($pp, 'use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice}') && !str_contains($pp, 'ReflectionClass'), 'plugin.php: imports');
+ok(str_contains($pp, 'use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice, Bablito, Sync}') && !str_contains($pp, 'ReflectionClass'), 'plugin.php: imports');
 preg_match_all("~\\\$sf->(?:route|api)\\('(GET|POST)', '([^']+)'~", $pp, $rm); $patterns = $rm[2];
 preg_match_all("~sf->url\\('(/[^'?#]*)~", $src, $um); $dead = [];
 foreach (array_unique($um[1]) as $u) { $hit = false; foreach ($patterns as $p) { $re = '~^' . preg_replace('~\\\\\{[a-z]+\\\\\}~', '[^/]+', preg_quote($p, '~')) . '$~'; if (preg_match($re, $u) || str_starts_with($p, $u)) { $hit = true; break; } } if (!$hit) $dead[] = $u; }
@@ -123,7 +123,7 @@ foreach (['/c/' => ['offer', 'comment', 'upload', 'pause', 'fire', 'prepay', 're
 }
 
 /* ---------- migration, manifest, repository ---------- */
-$sql = file_get_contents("$dir/migrations/001_contracts.sql"); preg_match_all('/CREATE TABLE IF NOT EXISTS \{p\}ct_([a-z_]+)/', $sql, $m);
+$sql = file_get_contents("$dir/migrations/001_contracts.sql") . "\n" . file_get_contents("$dir/migrations/002_bablito.sql"); preg_match_all('/CREATE TABLE IF NOT EXISTS \{p\}ct_([a-z_]+)/', $sql, $m);
 ok(!array_diff(\SysferaContracts\DbStore::TABLES, $m[1]) && !array_diff($m[1], \SysferaContracts\DbStore::TABLES), 'migration: exactly the tables the store knows (' . count($m[1]) . ')');
 ok(!preg_match('/\b(DROP|TRUNCATE|DELETE FROM)\b/i', $sql) && substr_count($sql, 'CREATE TABLE') === substr_count($sql, 'IF NOT EXISTS {p}ct_'), 'migration: additive only, every name prefixed');
 $mf = json_decode(file_get_contents("$dir/plugin.json"), true); ok(($mf['slug'] ?? '') === 'contracts' && preg_match('/^\d+\.\d+\.\d+$/', $mf['version'] ?? '') && !empty($mf['name']['en']) && !empty($mf['name']['ru']) && !empty($mf['description']['ru']), 'manifest: slug, version, names and descriptions in en and ru');

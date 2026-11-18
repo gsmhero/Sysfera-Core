@@ -19,5 +19,10 @@ Pages are under `/p/contracts/`. Rules live in `core/plugins/contracts/lib/Svc.p
 Tables `{p}ct_*` (migration `001_contracts.sql`, additive). Users are the Sysfera users; the extra per-user data (statuses, about, e-mail switch, rating) is in `{p}ct_profiles`.
 Uploaded files are kept in `core/storage/contracts/` (not web-reachable) and served by `/p/contracts/file/{id}` after a permission check.
 
+## Bablito.ru synchronisation (0.2.0)
+Administration -> *Bablito.ru*. Accounts of Sysfera users and Bablito are matched **by e-mail**; a match is linked automatically, a user without a Bablito account is only listed and gets one when an administrator (or the user, from their profile) asks. A new Bablito account has **no password**: Bablito e-mails a one-time link to choose it. Sysfera password hashes are never sent.
+Profile **sections and fields are defined on Bablito** and mirrored here (never deleted here); **values** of all three statuses (company, self-employed, personal) are synchronised both ways, **the newest edit wins** (UTC, ties go to Bablito), an empty value never deletes, statuses only accumulate, the *public* / *required* flags travel along. A profile save pushes to Bablito at once (live mode); the administrator's *Sync now* does everything, *Preview* shows what it would do.
+**Dry run is the default**: until *Live mode* is ticked nothing is changed on either side. Requests are HMAC-SHA256 signed (`X-Sysfera-Timestamp`, `X-Sysfera-Signature` = hex HMAC of `ts \n METHOD \n request-uri \n sha256(body)`, 5-minute window). The shared key (32+ characters) is set once as the `SYSFERA_API_KEY` GitHub secret of the Bablito repository and here as the `SYSFERA_BABLITO_KEY` environment variable (or in the write-only field); it is never shown or logged. Tables: `{p}ct_links` (migration `002_bablito.sql`).
+
 ## Not ported from Bablito
 YooKassa service-fee payments, tax calculation, PDF invoices and invoice templates, the VK / OK.ru mini-apps, the stopwatch / work log, comment attachments and live refresh, the Bablito sign-in and its home / static pages. No secret of the original app is used or stored.

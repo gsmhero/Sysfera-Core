@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice};
+use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice, Bablito, Sync};
 
 /**
  * Sysfera Contracts, ported from the standalone Bablito app. The rules live in lib/Svc.php (tested without a database);
@@ -13,7 +13,7 @@ use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice};
  *  - no secrets: nothing of Bablito's .env (database, SMTP, YooKassa, VK / OK keys) is used or stored here.
  */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Err', 'Ctx', 'Store', 'Svc', 'Notice', 'DbStore'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Err', 'Ctx', 'Store', 'Svc', 'Notice', 'DbStore', 'Bablito', 'Sync'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db();
     $L = ['en' => require __DIR__ . '/lang/en.php', 'ru' => require __DIR__ . '/lang/ru.php'];
@@ -32,6 +32,25 @@ return function (\Sysfera\Plugin $sf): void {
     $me = function () use ($sf): Ctx { $u = $sf->auth()->user(); return new Ctx((int)($u['id'] ?? 0), $sf->auth()->isAdmin(), (string)($u['name'] ?? '')); };
     $dir = SF_ROOT . '/storage/contracts';
 
+    /* ---- Bablito.ru: the shared signing key comes from the SYSFERA_BABLITO_KEY environment variable, else from the write-only setting; it is never shown, logged or put in a page ---- */
+    $bUrl = fn(): string => trim((string)$sf->setting('bablito_url', 'https://www.bablito.ru'));
+    $bKey = fn(): string => (string)(getenv('SYSFERA_BABLITO_KEY') ?: $sf->setting('bablito_key', ''));
+    $bLive = fn(): bool => $sf->setting('bablito_live', '0') === '1';
+    $bHttp = function (string $method, string $url, array $headers, string $body): array {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [CURLOPT_CUSTOMREQUEST => $method, CURLOPT_HTTPHEADER => $headers, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 25, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false, CURLOPT_SSL_VERIFYPEER => true, CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_PROTOCOLS => CURLPROTO_HTTPS]);
+        if ($body !== '') curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        $r = curl_exec($ch); if ($r === false) { $m = curl_error($ch); curl_close($ch); throw new \RuntimeException($m); }
+        $st = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE); curl_close($ch); return [$st, (string)$r];
+    };
+    $syncUsers = function (?array $ids) use ($db): array {
+        $w = $ids === null ? '' : ' AND id IN (' . implode(',', array_map('intval', $ids ?: [0])) . ')'; $out = [];
+        foreach ($db->rows("SELECT id, name, email, lang FROM {p}users WHERE status = 'active'$w ORDER BY id LIMIT 5000") as $r) $out[(int)$r['id']] = $r; return $out;
+    };
+    $bablito = fn(): Bablito => new Bablito($bUrl(), $bKey(), $bHttp, fn() => time());
+    $sync = fn(): Sync => new Sync(new DbStore($db), $bablito(), fn() => time(), $syncUsers);
+    $bConfigured = fn(): bool => Bablito::validBase($bUrl()) && strlen($bKey()) >= 32;
+
     $sf->menu('menu', '/', ['order' => 24, 'icon' => 'note', 'badge' => fn() => $sf->auth()->id() ? $svc()->unread($sf->auth()->id()) : 0]);
 
     /* the stale-contract sweep runs at most every 10 minutes, on page loads */
@@ -40,7 +59,7 @@ return function (\Sysfera\Plugin $sf): void {
         $sf->setSetting('last_sweep', (string)time()); try { $svc()->archiveStale(); } catch (\Throwable $e) { \Sysfera\App::log('contracts sweep ' . $e); }
     };
 
-    $errText = function (Err $e) use ($sf): string { $t = $sf->t('err_' . $e->errCode); $t = $t === 'contracts.err_' . $e->errCode ? $e->getMessage() : $t; return in_array($e->errCode, ['field_required', 'field_invalid', 'step_numbers'], true) ? $t . ' (' . $e->getMessage() . ')' : $t; };
+    $errText = function (Err $e) use ($sf): string { $t = $sf->t('err_' . $e->errCode); $t = $t === 'contracts.err_' . $e->errCode ? $e->getMessage() : $t; return in_array($e->errCode, ['field_required', 'field_invalid', 'step_numbers', 'bablito_refused', 'bablito_unreachable', 'bablito_bad_answer'], true) ? $t . ' (' . $e->getMessage() . ')' : $t; };
     $safeBack = function (string $p, string $default): string { return ($p !== '' && $p[0] !== '/' && !str_contains($p, '//') && !str_contains($p, '\\') && !str_contains($p, ':')) ? $p : $default; };
     /** Runs an action; on a refusal shows the message and goes to $back. */
     $act = function (callable $fn, string $back) use ($sf, $errText): void {
@@ -201,12 +220,25 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('POST', '/user/{id}/review', function (array $p) use ($act, $svc, $me, $sf) {
         $id = (int)$p['id']; $act(function () use ($id, $svc, $me, $sf) { $svc()->review($me(), (int)($_POST['contract_id'] ?? 0), $id, (int)($_POST['rating'] ?? 0), (string)($_POST['body'] ?? '')); flash($sf->t('flash_reviewed')); }, 'user/' . $id);
     });
-    $sf->route('GET', '/profile', $page(function () use ($render, $svc, $me, $sf) {
+    $sf->route('GET', '/profile', $page(function () use ($render, $svc, $me, $sf, $bLive, $bConfigured, $sync) {
         $c = $me(); $pr = $svc()->profile($c->uid); $types = $svc()->userTypes($c->uid);
-        $render('profile', ['profile' => $pr, 'types' => $types, 'structure' => $svc()->structure(Svc::PARTY_TYPES), 'values' => $svc()->values($c->uid)], $sf->t('nav_profile'), 'profile');
+        $render('profile', ['profile' => $pr, 'types' => $types, 'structure' => $svc()->structure(Svc::PARTY_TYPES), 'values' => $svc()->values($c->uid), 'bablito' => ['on' => $bLive() && $bConfigured(), 'link' => $bConfigured() ? $sync()->link($c->uid) : null]], $sf->t('nav_profile'), 'profile');
     }));
-    $sf->route('POST', '/profile', function () use ($act, $svc, $me, $sf) {
-        $act(function () use ($svc, $me, $sf) { $svc()->saveProfile($me(), $_POST, (array)($_POST['pf'] ?? [])); flash($sf->t('saved')); }, 'profile');
+    $sf->route('POST', '/profile', function () use ($act, $svc, $me, $sf, $bLive, $bConfigured, $sync) {
+        $act(function () use ($svc, $me, $sf) { $svc()->saveProfile($me(), $_POST, (array)($_POST['pf'] ?? [])); flash($sf->t('saved'));
+            if ($bLive() && $bConfigured()) { try { if ($sync()->link($me()->uid)) $sync()->profile($me()->uid, false); } catch (\Throwable $e) { \Sysfera\App::log('contracts bablito push ' . $e->getMessage()); flash($sf->t('bablito_push_failed')); } } }, 'profile');
+    });
+
+    /* a signed-in user creates / syncs their own Bablito account (live mode only) */
+    $sf->route('POST', '/bablito/{act}', function (array $p) use ($act, $me, $sf, $bLive, $bConfigured, $sync) {
+        $a = (string)$p['act'];
+        $act(function () use ($a, $me, $sf, $bLive, $bConfigured, $sync) {
+            if (!$bLive() || !$bConfigured()) throw new Err('bablito_not_live');
+            $uid = $me()->uid;
+            if ($a === 'create') { $r = $sync()->createAccount($uid, false); if (!in_array($r['status'], ['created', 'linked'], true)) throw new Err($r['status'] === 'exists' ? 'bablito_exists' : 'bablito_refused', $r['detail']); flash($sf->t($r['status'] === 'created' ? 'bablito_created' : 'bablito_linked')); }
+            elseif ($a === 'sync') { $r = $sync()->profile($uid, false); flash(sprintf($sf->t('bablito_synced'), $r['pulled'], $r['pushed'])); }
+            else throw new Err('not_found', '', 404);
+        }, 'profile');
     });
 
     $sf->route('GET', '/file/{id}', function (array $p) use ($svc, $me, $sf, $dir) {
@@ -219,22 +251,39 @@ return function (\Sysfera\Plugin $sf): void {
 
     /* ---------------------------------- administrator ---------------------------------- */
     $admin = fn(callable $fn) => $page(function (array $p = []) use ($fn, $sf) { if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $fn($p); });
-    $sf->route('GET', '/admin', $admin(function () use ($render, $svc, $sf) {
-        $render('admin', ['cats' => $svc()->categories(), 'structure' => $svc()->structure(), 'staleDays' => max(1, (int)$sf->setting('stale_days', '30'))], $sf->t('nav_admin'), 'admin');
+    $sf->route('GET', '/admin', $admin(function () use ($render, $svc, $sf, $bUrl, $bKey, $bLive, $bConfigured, $db) {
+        $last = json_decode((string)$sf->setting('bablito_last', ''), true);
+        $render('admin', ['cats' => $svc()->categories(), 'structure' => $svc()->structure(), 'staleDays' => max(1, (int)$sf->setting('stale_days', '30')),
+            'bab' => ['url' => $bUrl(), 'live' => $bLive(), 'key_set' => $bKey() !== '', 'key_env' => (bool)getenv('SYSFERA_BABLITO_KEY'), 'ok' => $bConfigured(), 'last' => is_array($last) ? $last : null, 'links' => (int)$db->val('SELECT COUNT(*) FROM {p}ct_links')]], $sf->t('nav_admin'), 'admin');
     }));
     $sf->route('GET', '/admin/profile-fields.csv', function () use ($svc, $sf) {
         if (!$sf->auth()->isAdmin()) { http_response_code(403); echo e($sf->t('forbidden')); return; }
         header('Content-Type: text/csv; charset=utf-8'); header('Content-Disposition: attachment; filename="contracts-profile-fields.csv"'); header('Cache-Control: no-store'); echo $svc()->fieldsCsv();
     });
-    $sf->route('POST', '/admin/{what}', function (array $p) use ($act, $svc, $sf) {
+    $sf->route('POST', '/admin/{what}', function (array $p) use ($act, $svc, $sf, $bablito, $sync, $bLive) {
         $what = (string)$p['what'];
-        $act(function () use ($what, $svc, $sf) {
+        $act(function () use ($what, $svc, $sf, $bablito, $sync, $bLive) {
             if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $in = $_POST;
             switch ($what) {
                 case 'category': if (!empty($in['delete'])) $svc()->deleteCategory((int)$in['id']); else $svc()->saveCategory((int)($in['id'] ?? 0), (string)($in['name'] ?? ''), (string)($in['name_ru'] ?? '')); break;
                 case 'section': if (!empty($in['delete'])) $svc()->deleteSection((int)$in['id']); else $svc()->saveSection((int)($in['id'] ?? 0), (string)($in['title'] ?? ''), (string)($in['type'] ?? 'personal'), (int)($in['position'] ?? 0)); break;
                 case 'field': if (!empty($in['delete'])) $svc()->deleteField((int)$in['id']); else $svc()->saveField((int)($in['id'] ?? 0), (int)($in['section_id'] ?? 0), (string)($in['label'] ?? ''), (string)($in['type'] ?? 'text'), (string)($in['options'] ?? ''), !empty($in['required']), !empty($in['default_public']), (int)($in['position'] ?? 0)); break;
                 case 'settings': $sf->setSetting('stale_days', (string)max(1, min(365, (int)($in['stale_days'] ?? 30)))); break;
+                case 'bablito':
+                    $do = (string)($in['do'] ?? '');
+                    if ($do === 'settings') {
+                        $u = trim((string)($in['url'] ?? '')); if (!Bablito::validBase($u)) throw new Err('bablito_url');
+                        $sf->setSetting('bablito_url', rtrim($u, '/')); $sf->setSetting('bablito_live', !empty($in['live']) ? '1' : '0');
+                        if (trim((string)($in['key'] ?? '')) !== '') { if (strlen(trim($in['key'])) < 32) throw new Err('bablito_key_short'); $sf->setSetting('bablito_key', trim($in['key'])); }
+                        elseif (!empty($in['clear_key'])) $sf->setSetting('bablito_key', '');
+                    } elseif ($do === 'test') { $r = $bablito()->ping(); flash(sprintf($sf->t('bablito_ping_ok'), (int)($r['users'] ?? 0))); return; }
+                    elseif ($do === 'preview' || $do === 'sync') {
+                        if ($do === 'sync' && !$bLive()) throw new Err('bablito_not_live');
+                        $rep = $sync()->all($do === 'preview'); $sf->setSetting('bablito_last', (string)json_encode($rep, JSON_UNESCAPED_UNICODE)); flash($sf->t($do === 'preview' ? 'bablito_previewed' : 'bablito_done')); return;
+                    } elseif ($do === 'create') {
+                        $r = $sync()->createAccount((int)($in['user_id'] ?? 0), !$bLive()); $k = 'bablito_acc_' . $r['status']; $m = $sf->t($k); flash($m === 'contracts.' . $k ? $r['status'] : $m); return;
+                    } else throw new Err('not_found', '', 404);
+                    break;
                 default: throw new Err('not_found', '', 404);
             }
             flash($sf->t('saved'));

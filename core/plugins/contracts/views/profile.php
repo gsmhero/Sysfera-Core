@@ -11,3 +11,10 @@ include __DIR__ . '/_nav.php'; ?>
     <?php foreach ($sec['fields'] as $f): $val = $values[(int)$f['id']] ?? null; include __DIR__ . '/_field.php'; endforeach; ?><?php endforeach; ?>
   <p class="muted"><?= e($sf->t('fields_by_status')) ?></p>
   <button class="btn primary"><?= e($sf->t('save')) ?></button></form>
+<?php $bab = $bablito ?? ['on' => false, 'link' => null]; if ($bab['on']): ?>
+<div class="card"><h3><?= e($sf->t('bab_title')) ?></h3>
+<?php if ($bab['link']): ?><p><?= e(sprintf($sf->t('bab_you_linked'), (string)$bab['link']['remote_email'])) ?> <?= $bab['link']['synced_at'] ? e(sprintf($sf->t('bab_synced_at'), (string)$bab['link']['synced_at'])) : '' ?></p>
+  <form method="post" action="<?= e($sf->url('/bablito/sync')) ?>"><?= csrf_field() ?><button class="btn"><?= e($sf->t('bab_sync_me')) ?></button></form>
+<?php else: ?><p class="muted"><?= e($sf->t('bab_create_help')) ?></p>
+  <form method="post" action="<?= e($sf->url('/bablito/create')) ?>"><?= csrf_field() ?><button class="btn primary"><?= e($sf->t('bab_create_me')) ?></button></form><?php endif; ?></div>
+<?php endif; ?>
