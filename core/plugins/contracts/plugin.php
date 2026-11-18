@@ -1,0 +1,243 @@
+<?php
+declare(strict_types=1);
+
+use SysferaContracts\{Err, Ctx, Svc, DbStore, Notice};
+
+/**
+ * Sysfera Contracts, ported from the standalone Bablito app. The rules live in lib/Svc.php (tested without a database);
+ * this file wires them to the platform:
+ *  - users, login, administrators: the Sysfera ones (an administrator may do what an author may and manages categories and profile fields);
+ *  - pages /p/contracts/...; every action is a CSRF-protected POST that redirects back with a flash message;
+ *  - files are kept in core/storage/contracts (not web-reachable) and served through /file/{id} after a permission check;
+ *  - e-mails use the platform mailer (silent until SMTP is set up in Settings); the bell always works;
+ *  - no secrets: nothing of Bablito's .env (database, SMTP, YooKassa, VK / OK keys) is used or stored here.
+ */
+return function (\Sysfera\Plugin $sf): void {
+    foreach (['Err', 'Ctx', 'Store', 'Svc', 'Notice', 'DbStore'] as $c) require_once __DIR__ . "/lib/$c.php";
+
+    $db = $sf->db();
+    $L = ['en' => require __DIR__ . '/lang/en.php', 'ru' => require __DIR__ . '/lang/ru.php'];
+    $users = function (array $ids) use ($db): array {
+        $out = []; foreach ($db->rows('SELECT id, name, email, lang FROM {p}users WHERE status = \'active\' AND id IN (' . implode(',', array_map('intval', $ids)) . ')') as $r) $out[(int)$r['id']] = $r; return $out;
+    };
+    $base = function (): string { $h = preg_replace('/[^A-Za-z0-9.:\-\[\]]/', '', (string)($_SERVER['HTTP_HOST'] ?? '')); return $h === '' ? '' : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . $h); };
+    $mail = function (int $uid, string $kind, array $d, string $path) use ($sf, $users, $L, $base): void {
+        $u = ($users([$uid]))[$uid] ?? null; if (!$u || !filter_var($u['email'], FILTER_VALIDATE_EMAIL)) return;
+        $l = $L[($u['lang'] ?? '') === 'ru' ? 'ru' : 'en']; $lines = Notice::lines($l, $kind, $d); $lines[] = ''; $lines[] = $l['mail_open'] . ': ' . Notice::link($base() . $sf->url(''), $path); $lines[] = ''; $lines[] = $l['mail_why'];
+        $sf->mail($u['email'], Notice::headline($l, $kind, $d), implode("\n", $lines));
+    };
+    $svc = function () use ($db, $users, $mail, $sf): Svc {
+        static $o = null; return $o ??= new Svc(new DbStore($db), fn() => time(), $users, $mail, ['stale_days' => max(1, (int)$sf->setting('stale_days', '30'))]);
+    };
+    $me = function () use ($sf): Ctx { $u = $sf->auth()->user(); return new Ctx((int)($u['id'] ?? 0), $sf->auth()->isAdmin(), (string)($u['name'] ?? '')); };
+    $dir = SF_ROOT . '/storage/contracts';
+
+    $sf->menu('menu', '/', ['order' => 24, 'icon' => 'note', 'badge' => fn() => $sf->auth()->id() ? $svc()->unread($sf->auth()->id()) : 0]);
+
+    /* the stale-contract sweep runs at most every 10 minutes, on page loads */
+    $sweep = function () use ($sf, $svc): void {
+        $last = (int)$sf->setting('last_sweep', '0'); if ($last > time() - 600) return;
+        $sf->setSetting('last_sweep', (string)time()); try { $svc()->archiveStale(); } catch (\Throwable $e) { \Sysfera\App::log('contracts sweep ' . $e); }
+    };
+
+    $errText = function (Err $e) use ($sf): string { $t = $sf->t('err_' . $e->errCode); $t = $t === 'contracts.err_' . $e->errCode ? $e->getMessage() : $t; return in_array($e->errCode, ['field_required', 'field_invalid', 'step_numbers'], true) ? $t . ' (' . $e->getMessage() . ')' : $t; };
+    $safeBack = function (string $p, string $default): string { return ($p !== '' && $p[0] !== '/' && !str_contains($p, '//') && !str_contains($p, '\\') && !str_contains($p, ':')) ? $p : $default; };
+    /** Runs an action; on a refusal shows the message and goes to $back. */
+    $act = function (callable $fn, string $back) use ($sf, $errText): void {
+        sf_session(); try { $r = $fn(); if (is_string($r) && $r !== '') $back = $r; }
+        catch (Err $e) { flash($errText($e), $e->http === 403 || $e->http === 404 ? 'bad' : 'bad'); }
+        catch (\Throwable $e) { \Sysfera\App::log('contracts ' . $e); flash($sf->t('err_server'), 'bad'); }
+        redirect('/p/contracts/' . ltrim($back, '/'));
+    };
+    $page = function (callable $fn) use ($sf, $sweep): callable {
+        return function (array $p = []) use ($fn, $sf, $sweep) {
+            sf_session(); $sweep();
+            try { $fn($p); }
+            catch (Err $e) { http_response_code($e->http); echo '<div class="card"><h3>' . e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')) . '</h3><p><a class="btn" href="' . e($sf->url('/')) . '">' . e($sf->t('nav_list')) . '</a></p></div>'; }
+        };
+    };
+    $render = function (string $view, array $vars, string $title, string $tab) use ($sf, $me, $svc, $L) {
+        $c = $me(); $lang = ($sf->auth()->user()['lang'] ?? '') === 'ru' ? 'ru' : 'en';
+        $sf->render($view, $vars + ['tab' => $tab, 'me' => $c, 'svc' => $svc(), 'unread' => $svc()->unread($c->uid), 'lang' => $lang, 'L' => $L[$lang]], $title);
+    };
+
+    /* ---------------------------------- uploads ---------------------------------- */
+    $store = function (array $f) use ($dir): array {   // -> [stored name, original name] | error key
+        if (($f['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string)$f['tmp_name'])) return ['', 'file_fail'];
+        if ((int)$f['size'] > 8_000_000) return ['', 'file_big'];
+        $orig = Svc::safeName((string)$f['name']); if (!Svc::extOk($orig)) return ['', 'file_type'];
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $name = bin2hex(random_bytes(12)) . '.' . strtolower(pathinfo($orig, PATHINFO_EXTENSION));
+        return @move_uploaded_file($f['tmp_name'], "$dir/$name") ? [$name, $orig] : ['', 'file_fail'];
+    };
+    $uploadMany = function (string $field, int $cid, string $kind) use ($store, $svc, $me, $sf, $dir): void {
+        if (empty($_FILES[$field]['name'])) return; $names = (array)$_FILES[$field]['name'];
+        foreach ($names as $i => $_) {
+            $one = []; foreach (['name', 'tmp_name', 'size', 'error'] as $k) $one[$k] = is_array($_FILES[$field][$k]) ? $_FILES[$field][$k][$i] : $_FILES[$field][$k];
+            if ($one['error'] === UPLOAD_ERR_NO_FILE) continue;
+            [$stored, $orig] = $store($one); if ($stored === '') { flash($sf->t('err_' . $orig), 'bad'); continue; }
+            try { $svc()->addFile($me(), $cid, $kind, $stored, $orig); } catch (Err $e) { @unlink("$dir/$stored"); flash($sf->t('err_' . $e->errCode), 'bad'); }
+        }
+    };
+
+    /* ---------------------------------- pages ---------------------------------- */
+    $sf->route('GET', '/', $page(function () use ($render, $svc, $sf) {
+        $f = array_intersect_key($_GET, array_flip(['category', 'from', 'to', 'q', 'sort', 'page'])); $l = $svc()->listing($f);
+        $render('list', ['list' => $l, 'f' => $f, 'cats' => $svc()->categories()], $sf->t('nav_list'), 'list');
+    }));
+    $sf->route('GET', '/mine', $page(function () use ($render, $svc, $sf, $me) {
+        $tab = in_array($_GET['tab'] ?? '', ['created', 'working', 'offers', 'archive', 'watch'], true) ? $_GET['tab'] : 'created';
+        $render('mine', ['rows' => $svc()->mine($me(), $tab), 'sub' => $tab], $sf->t('nav_mine'), 'mine');
+    }));
+    $sf->route('GET', '/new', $page(function () use ($render, $svc, $sf, $me) {
+        $render('edit', ['k' => null, 'steps' => [], 'locked' => false, 'files' => [], 'cats' => $svc()->categories(), 'myTypes' => $svc()->userTypes($me()->uid), 'form' => $_SESSION['ct_form'] ?? null], $sf->t('contract_new'), 'mine'); unset($_SESSION['ct_form']);
+    }));
+    $sf->route('GET', '/edit/{id}', $page(function (array $p) use ($render, $svc, $sf, $me) {
+        $c = $me(); $k = $svc()->contract((int)$p['id']); if (!$k) throw new Err('not_found', '', 404);
+        if (!$svc()->isOwner($c, $k) && !$c->admin) throw new Err('forbidden', '', 403);
+        if (!in_array($k['status'], ['draft', 'published'], true)) { flash($sf->t('err_locked'), 'bad'); redirect('/p/contracts/view/' . $k['id']); }
+        $locked = (bool)$svc()->offerCount((int)$k['id']);
+        $render('edit', ['k' => $k, 'steps' => $svc()->steps((int)$k['id']), 'locked' => $locked, 'files' => $svc()->page($c, (int)$k['id'])['files'], 'cats' => $svc()->categories(), 'myTypes' => $svc()->userTypes((int)$k['user_id']), 'form' => $_SESSION['ct_form'] ?? null], $sf->t('contract_edit'), 'mine'); unset($_SESSION['ct_form']);
+    }));
+    $sf->route('POST', '/save', function () use ($act, $svc, $me, $sf, $uploadMany, $dir) {
+        $id = (int)($_POST['id'] ?? 0); $in = $_POST; $c = $me();
+        $act(function () use ($id, $in, $svc, $c, $sf, $uploadMany, $dir) {
+            try { $k = $svc()->saveContract($c, $id, $in); }
+            catch (Err $e) { $_SESSION['ct_form'] = $in; throw $e; }
+            foreach ((array)($in['delete_file'] ?? []) as $fid) { $n = $svc()->removeFile($c, (int)$k['id'], (int)$fid); if ($n) @unlink("$dir/$n"); }
+            $uploadMany('images', (int)$k['id'], 'image'); $uploadMany('files', (int)$k['id'], 'file');
+            flash($sf->t('saved')); return 'view/' . $k['id'];
+        }, $id ? 'edit/' . $id : 'new');
+    });
+    $sf->route('GET', '/view/{id}', $page(function (array $p) use ($render, $svc, $me, $sf) {
+        $c = $me(); $id = (int)$p['id']; $d = $svc()->page($c, $id, (int)($_GET['thread'] ?? 0));
+        if (!$d['working'] && !$d['isOwner'] && empty($_SESSION['ct_viewed'][$id])) { $svc()->addView($id); $_SESSION['ct_viewed'][$id] = 1; }
+        $pay = (int)($_GET['pay'] ?? 0);
+        $render('view', $d + ['draft' => $_SESSION['ct_offer'][$id] ?? null, 'payOpen' => $pay], $d['contract']['title'], 'list'); unset($_SESSION['ct_offer'][$id]);
+    }));
+    $sf->route('POST', '/c/{id}/{act}', function (array $p) use ($act, $svc, $me, $sf, $uploadMany) {
+        $id = (int)$p['id']; $a = (string)$p['act']; $c = $me(); $back = 'view/' . $id;
+        $act(function () use ($id, $a, $c, $svc, $sf, $uploadMany, $back) {
+            switch ($a) {
+                case 'offer':
+                    try { $oid = $svc()->makeOffer($c, $id, $_POST, ($_POST['mode'] ?? '') === 'accept'); }
+                    catch (Err $e) { if (!in_array($e->errCode, ['offer_exists', 'offer_not_allowed'], true)) $_SESSION['ct_offer'][$id] = $_POST; throw $e; }
+                    flash($sf->t(($_POST['mode'] ?? '') === 'accept' ? 'flash_offer_asis' : 'flash_offer')); return 'offer/' . $oid;
+                case 'comment':
+                    $cm = $svc()->comment($c, $id, ($svc()->contract($id)['status'] ?? '') === 'published' ? 'public' : 'work', (string)($_POST['body'] ?? ''), (int)($_POST['thread'] ?? 0));
+                    return $back . ($cm && ($svc()->contract($id)['status'] ?? '') === 'published' && (int)($_POST['thread'] ?? 0) ? '?thread=' . (int)$_POST['thread'] : '') . '#comments';
+                case 'upload': $uploadMany('upload', $id, ($_POST['kind'] ?? '') === 'image' ? 'image' : 'file'); return $back;
+                case 'pause': $svc()->pause($c, $id); flash($sf->t('saved')); return $back;
+                case 'fire': $svc()->fire($c, $id); flash($sf->t('flash_fired')); return 'mine?tab=archive';
+                case 'prepay': $svc()->prepay($c, $id); flash($sf->t('flash_prepaid')); return $back;
+                case 'repeat': $n = $svc()->repeat($c, $id); flash($sf->t('flash_repeat')); return 'edit/' . $n;
+                case 'delete': foreach ($svc()->delete($c, $id) as $n) @unlink(SF_ROOT . '/storage/contracts/' . $n); flash($sf->t('flash_deleted')); return 'mine';
+                case 'watch': $svc()->watchToggle($c, $id); return $_POST['return'] ?? $back;
+                default: throw new Err('not_found', '', 404);
+            }
+        }, $back);
+    });
+    $sf->route('GET', '/offer/{id}', $page(function (array $p) use ($render, $svc, $me, $sf) {
+        $id = (int)$p['id']; $d = $svc()->offerPage($me(), $id);
+        $render('offer', $d + ['draft' => $_SESSION['ct_offer']['o' . $id] ?? null, 'edit' => !empty($_GET['edit']), 'myTypes' => $svc()->userTypes($me()->uid)], $sf->t('offer'), 'list'); unset($_SESSION['ct_offer']['o' . $id]);
+    }));
+    $sf->route('POST', '/o/{id}/{act}', function (array $p) use ($act, $svc, $me, $sf) {
+        $id = (int)$p['id']; $a = (string)$p['act']; $c = $me(); $back = 'offer/' . $id;
+        $act(function () use ($id, $a, $c, $svc, $sf, $back) {
+            $o = $svc()->offer($id);
+            switch ($a) {
+                case 'accept': $cid = $svc()->acceptOffer($c, $id); flash($sf->t('flash_accepted')); return 'view/' . $cid;
+                case 'reject': $cid = $svc()->rejectOffer($c, $id); flash($sf->t('flash_rejected')); return 'view/' . $cid;
+                case 'delete': $cid = $svc()->withdrawOffer($c, $id); flash($sf->t('flash_withdrawn')); return 'view/' . $cid;
+                case 'edit':
+                    try { $svc()->editOffer($c, $id, $_POST); } catch (Err $e) { $_SESSION['ct_offer']['o' . $id] = $_POST; flash($sf->t('err_' . $e->errCode), 'bad'); return $back . '?edit=1'; }
+                    flash($sf->t('flash_offer_updated')); return $back;
+                case 'comment': $svc()->comment($c, (int)$o['contract_id'], 'offer', (string)($_POST['body'] ?? ''), 0, $id); return $back . '#comments';
+                default: throw new Err('not_found', '', 404);
+            }
+        }, $back);
+    });
+    $sf->route('POST', '/t/{id}/{act}', function (array $p) use ($act, $svc, $me, $sf) {
+        $id = (int)$p['id']; $a = (string)$p['act']; $c = $me(); $t = $svc()->todo($id); $cid = (int)($t['contract_id'] ?? 0); $back = 'view/' . $cid . '#todo-' . $id;
+        $act(function () use ($id, $a, $c, $svc, $sf, $cid, $back) {
+            switch ($a) {
+                case 'done': $svc()->done($c, $id); return $back;
+                case 'accept': $r = $svc()->accept($c, $id); if ($r['fulfilled']) flash($sf->t('flash_fulfilled')); elseif ($r['invoice']) flash($sf->t('flash_invoiced'));
+                    return $r['invoice'] && ($_POST['pay'] ?? '') === 'now' ? 'view/' . $cid . '?pay=' . $r['invoice'] : $back;
+                case 'comment': $svc()->comment($c, $cid, 'todo', (string)($_POST['body'] ?? ''), 0, 0, $id); return $back;
+                default: throw new Err('not_found', '', 404);
+            }
+        }, $back);
+    });
+    $sf->route('GET', '/invoices', $page(function () use ($render, $svc, $me, $sf) {
+        $tab = ($_GET['tab'] ?? 'pay') === 'receive' ? 'receive' : 'pay'; $sort = ($_GET['sort'] ?? '') === 'contract' ? 'contract' : 'date'; $dir = ($_GET['dir'] ?? '') === 'asc' ? 'asc' : 'desc'; $q = trim((string)($_GET['q'] ?? ''));
+        $render('invoices', ['list' => $svc()->invoices($me(), $tab, $q, $sort, $dir), 'sub' => $tab, 'sort' => $sort, 'dir' => $dir, 'q' => $q, 'counts' => $svc()->invoiceCounts($me())], $sf->t('nav_invoices'), 'invoices');
+    }));
+    $sf->route('GET', '/invoice/{id}', $page(function (array $p) use ($render, $svc, $me, $sf) {
+        $d = $svc()->invoicePage($me(), (int)$p['id']); $render('invoice', $d, $sf->t('invoice') . ' ' . $d['invoice']['number'], 'invoices');
+    }));
+    $sf->route('POST', '/i/{id}/{act}', function (array $p) use ($act, $svc, $me, $sf) {
+        $id = (int)$p['id']; $a = (string)$p['act']; $c = $me(); $back = $_POST['back'] ?? 'invoices';
+        $act(function () use ($id, $a, $c, $svc, $sf, $back) {
+            switch ($a) {
+                case 'pay': $svc()->payInvoice($c, $id); flash($sf->t('flash_paid')); return $back;
+                case 'confirm': $svc()->confirmInvoice($c, $id); flash($sf->t('flash_confirmed')); return $back;
+                case 'number': $svc()->setNumber($c, $id, (string)($_POST['number'] ?? '')); flash($sf->t('saved')); return 'invoice/' . $id;
+                default: throw new Err('not_found', '', 404);
+            }
+        }, 'invoice/' . $id);
+    });
+    $sf->route('GET', '/notices', $page(function () use ($render, $svc, $me, $sf, $L) {
+        $list = $svc()->notices($me()); $svc()->markRead($me());
+        $render('notices', ['list' => $list], $sf->t('nav_notices'), 'notices');
+    }));
+    $sf->route('POST', '/notices/clear', function () use ($act, $svc, $me) { $act(function () use ($svc, $me) { $svc()->clearNotices($me(), (int)($_POST['id'] ?? 0)); }, 'notices'); });
+
+    $sf->route('GET', '/user/{id}', $page(function (array $p) use ($render, $svc, $me, $sf) {
+        $id = (int)$p['id']; $d = $svc()->userPage($id); if (!$svc()->userExists($id)) throw new Err('not_found', '', 404);
+        $c = $me(); $can = []; foreach ($svc()->reviewable($c, $id) as $k) $can[] = $k;
+        $render('user', $d + ['uid' => $id, 'canReview' => $can], $d['user']['name'], 'list');
+    }));
+    $sf->route('POST', '/user/{id}/review', function (array $p) use ($act, $svc, $me, $sf) {
+        $id = (int)$p['id']; $act(function () use ($id, $svc, $me, $sf) { $svc()->review($me(), (int)($_POST['contract_id'] ?? 0), $id, (int)($_POST['rating'] ?? 0), (string)($_POST['body'] ?? '')); flash($sf->t('flash_reviewed')); }, 'user/' . $id);
+    });
+    $sf->route('GET', '/profile', $page(function () use ($render, $svc, $me, $sf) {
+        $c = $me(); $pr = $svc()->profile($c->uid); $types = $svc()->userTypes($c->uid);
+        $render('profile', ['profile' => $pr, 'types' => $types, 'structure' => $svc()->structure(Svc::PARTY_TYPES), 'values' => $svc()->values($c->uid)], $sf->t('nav_profile'), 'profile');
+    }));
+    $sf->route('POST', '/profile', function () use ($act, $svc, $me, $sf) {
+        $act(function () use ($svc, $me, $sf) { $svc()->saveProfile($me(), $_POST, (array)($_POST['pf'] ?? [])); flash($sf->t('saved')); }, 'profile');
+    });
+
+    $sf->route('GET', '/file/{id}', function (array $p) use ($svc, $me, $sf, $dir) {
+        try { $f = $svc()->file($me(), (int)$p['id']); } catch (Err $e) { http_response_code($e->http); echo e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')); return; }
+        $path = "$dir/" . basename($f['stored_name']); if (!is_file($path)) { http_response_code(404); echo e($sf->t('not_found')); return; }
+        $ext = strtolower(pathinfo($f['stored_name'], PATHINFO_EXTENSION)); $img = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp'];
+        header('X-Content-Type-Options: nosniff'); header('Content-Type: ' . ($img[$ext] ?? 'application/octet-stream')); header('Content-Length: ' . filesize($path));
+        header('Content-Disposition: ' . (isset($img[$ext]) ? 'inline' : 'attachment') . '; filename="' . str_replace(['"', "\r", "\n"], '_', $f['original_name']) . '"'); readfile($path);
+    });
+
+    /* ---------------------------------- administrator ---------------------------------- */
+    $admin = fn(callable $fn) => $page(function (array $p = []) use ($fn, $sf) { if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $fn($p); });
+    $sf->route('GET', '/admin', $admin(function () use ($render, $svc, $sf) {
+        $render('admin', ['cats' => $svc()->categories(), 'structure' => $svc()->structure(), 'staleDays' => max(1, (int)$sf->setting('stale_days', '30'))], $sf->t('nav_admin'), 'admin');
+    }));
+    $sf->route('GET', '/admin/profile-fields.csv', function () use ($svc, $sf) {
+        if (!$sf->auth()->isAdmin()) { http_response_code(403); echo e($sf->t('forbidden')); return; }
+        header('Content-Type: text/csv; charset=utf-8'); header('Content-Disposition: attachment; filename="contracts-profile-fields.csv"'); header('Cache-Control: no-store'); echo $svc()->fieldsCsv();
+    });
+    $sf->route('POST', '/admin/{what}', function (array $p) use ($act, $svc, $sf) {
+        $what = (string)$p['what'];
+        $act(function () use ($what, $svc, $sf) {
+            if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $in = $_POST;
+            switch ($what) {
+                case 'category': if (!empty($in['delete'])) $svc()->deleteCategory((int)$in['id']); else $svc()->saveCategory((int)($in['id'] ?? 0), (string)($in['name'] ?? ''), (string)($in['name_ru'] ?? '')); break;
+                case 'section': if (!empty($in['delete'])) $svc()->deleteSection((int)$in['id']); else $svc()->saveSection((int)($in['id'] ?? 0), (string)($in['title'] ?? ''), (string)($in['type'] ?? 'personal'), (int)($in['position'] ?? 0)); break;
+                case 'field': if (!empty($in['delete'])) $svc()->deleteField((int)$in['id']); else $svc()->saveField((int)($in['id'] ?? 0), (int)($in['section_id'] ?? 0), (string)($in['label'] ?? ''), (string)($in['type'] ?? 'text'), (string)($in['options'] ?? ''), !empty($in['required']), !empty($in['default_public']), (int)($in['position'] ?? 0)); break;
+                case 'settings': $sf->setSetting('stale_days', (string)max(1, min(365, (int)($in['stale_days'] ?? 30)))); break;
+                default: throw new Err('not_found', '', 404);
+            }
+            flash($sf->t('saved'));
+        }, 'admin');
+    });
+};

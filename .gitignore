@@ -15,6 +15,7 @@ core/plugins/*
 !core/plugins/missions/
 !core/plugins/goodsissue/
 !core/plugins/hr/
+!core/plugins/contracts/
 .DS_Store
 Thumbs.db
 *.log

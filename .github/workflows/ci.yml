@@ -49,6 +49,10 @@ jobs:
         run: |
           php tests/hr.php
           php tests/hrviews.php
+      - name: Contracts tests
+        run: |
+          php tests/contracts.php
+          php tests/contractsviews.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

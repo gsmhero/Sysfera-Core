@@ -1,0 +1,16 @@
+{
+    "slug": "contracts",
+    "version": "0.1.0",
+    "name": {
+        "en": "Contracts",
+        "ru": "Контракты"
+    },
+    "description": {
+        "en": "A marketplace of contracts: an author describes a job as steps with a price and days, freelancers send offers or counteroffers, the author accepts one, both sides work in the contract (steps done / accepted, comments, files, pause, dismiss), every accepted step or the whole contract issues an invoice, then reviews. Notifications (bell + e-mail), search and sorting, admin-defined profile fields with a CSV download. Ported from the standalone Bablito app onto Sysfera users and permissions.",
+        "ru": "Биржа контрактов: автор описывает работу шагами с ценой и сроком, исполнители присылают предложения и встречные предложения, автор выбирает одно, стороны работают в контракте (шаги выполнены / приняты, комментарии, файлы, пауза, увольнение), каждый принятый шаг или весь контракт выставляет счёт, затем отзывы. Уведомления (колокольчик и почта), поиск и сортировка, поля профиля, заданные администратором, с выгрузкой в CSV. Перенесено из отдельного приложения Bablito на пользователей и права Sysfera."
+    },
+    "requires": {
+        "core": ">=0.1.44"
+    },
+    "capabilities": []
+}
