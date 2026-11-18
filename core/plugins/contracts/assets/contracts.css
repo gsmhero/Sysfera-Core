@@ -33,57 +33,21 @@
 .ct-js [data-panel][hidden]{display:none}.ct-js .ct-ptabs{display:flex}.ct-form:not(.ct-js) .ct-ptabs{display:none}
 .ct-act{display:block;padding:10px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px}.ct-off .ct-pfields{opacity:.5}
 
-/* ===== Bablito.ru look: the same palette, fonts, tabs, buttons, cards and listing layout. Applies to the Contracts pages only (they contain .ct-tabs). ===== */
-.main:has(.ct-tabs){--acc:#00bc1f;--acc-ink:#fff;--ink:#3a3a3a;--mut:#888;--line:#d8d8d8;--bg:#fff;--card:#f7f7f7;--ok:#00bc1f;--okbg:#e6f8e9;--bad:#e00000;--badbg:#fdeaea;--info:#2288cc;--infobg:#e8f3fb;--warn:#e08a00;--warnbg:#fdf3dc;--r:14px;background:#fff;color:var(--ink);line-height:1.45;min-height:100vh}
-.main:has(.ct-tabs) a{color:inherit}.main:has(.ct-tabs) a:hover{text-decoration:underline}
-.main:has(.ct-tabs) h1{font-size:2.2rem;font-weight:500;margin:.3em 0}.main:has(.ct-tabs) h2{font-size:1.5rem;font-weight:500}.main:has(.ct-tabs) h3{font-size:1.2rem;font-weight:500}
-.main:has(.ct-tabs) .card{background:#f7f7f7;border:1px solid #e3e3e3;border-radius:14px;padding:14px 18px}
-.main:has(.ct-tabs) input:not([type=checkbox]):not([type=radio]):not([type=file]),.main:has(.ct-tabs) select,.main:has(.ct-tabs) textarea{background:#fff;border:1px solid #d4d4d4;border-radius:8px;color:#3a3a3a}
-.main:has(.ct-tabs) input[type=checkbox],.main:has(.ct-tabs) input[type=radio]{accent-color:#00bc1f}
-.main:has(.ct-tabs) .btn{border:1px solid #666;background:#fff;color:#222;border-radius:8px}.main:has(.ct-tabs) .btn:hover{background:#f1f1f1;border-color:#666;text-decoration:none}
-.main:has(.ct-tabs) .btn.primary{background:#00bc1f;border-color:#00bc1f;color:#fff}.main:has(.ct-tabs) .btn.primary:hover{background:#009a19;border-color:#009a19}
-.main:has(.ct-tabs) .btn.danger{border-color:#e00000;color:#e00000;background:#fff}.main:has(.ct-tabs) .btn.danger:hover{background:#fdeaea}
-.main:has(.ct-tabs) .btn.sm{padding:4px 12px;font-size:.85rem;border-radius:6px}
-.main:has(.ct-tabs) .flash.ok{background:#e6f8e9;border:1px solid #9edda9;color:#3a3a3a}.main:has(.ct-tabs) .flash.bad{background:#fdeaea;border:1px solid #f0aaaa;color:#3a3a3a}
-/* tabs */
-.main:has(.ct-tabs) .ct-tabs{gap:8px;border-bottom:1px solid #aaa;margin:20px 0 18px;font-size:1.2rem;overflow:visible;flex-wrap:wrap}
-.main:has(.ct-tabs) .ct-tabs a:not(.btn){border:1px solid #aaa;border-bottom:0;border-radius:8px 8px 0 0;padding:4px 16px;margin-bottom:-1px;color:#3a3a3a;font-size:1.2rem;border-bottom-color:transparent}
-.main:has(.ct-tabs) .ct-tabs a:not(.btn):hover{background:#f1f1f1;text-decoration:none}.main:has(.ct-tabs) .ct-tabs a.on{background:#00bc1f;color:#fff;border-color:#00bc1f;font-weight:400}
-.main:has(.ct-tabs) .ct-tabs .ct-new{border-radius:8px;margin-bottom:6px;font-size:1rem}
-.main:has(.ct-tabs) .ct-ptabs{border-bottom:1px solid #aaa;gap:8px}.main:has(.ct-tabs) .ct-ptabs button{border:1px solid #aaa;border-bottom:0;border-radius:8px 8px 0 0;padding:4px 16px;color:#3a3a3a;font-size:1.2rem}
-.main:has(.ct-tabs) .ct-ptabs button.on{background:#00bc1f;color:#fff;border-color:#00bc1f}
-/* filters */
-.main:has(.ct-tabs) .ct-filters{align-items:center;gap:14px 18px;margin:20px 0}.main:has(.ct-tabs) .ct-filters label{flex-direction:row;align-items:center;gap:8px;font-size:1.2rem;color:#3a3a3a;white-space:nowrap}
-.main:has(.ct-tabs) .ct-filters input,.main:has(.ct-tabs) .ct-filters select{min-width:0;width:auto;padding:5px 8px}.main:has(.ct-tabs) .ct-filters input{width:110px}
-/* listing card (as on Bablito.ru) */
-.ct-listing{display:flex;padding:0!important;overflow:hidden;background:#fff!important;margin:18px 0}
-.ct-thumb{width:180px;flex:none;background:#d9f4fc;display:flex;align-items:center;justify-content:center;color:#6f98a5;font-size:1.2rem;text-align:center;padding:8px;text-decoration:none!important}.ct-thumb span{overflow-wrap:anywhere}
-.ct-body{flex:1;padding:12px 16px;min-width:0}.ct-body h3{margin:0;font-size:1.3rem}.ct-body h3 a{text-decoration:none}.ct-body h3 a:hover{color:#00bc1f}
-.ct-date{font-size:.9rem;color:#888;white-space:nowrap}.ct-author{font-size:.9rem}.ct-author a{color:#00bc1f}.ct-loc{font-size:.9rem;color:#888}.ct-small{font-size:.78rem}
-.ct-desc{color:#444;margin:.5em 0;overflow-wrap:anywhere;white-space:pre-line}
-.ct-listing .ct-foot{border-top:1px solid #d8d8d8;border-bottom:1px solid #d8d8d8;padding:6px 0;margin:8px 0;align-items:flex-end}
-.ct-steps b{display:block;font-size:1.8rem;color:#00bc1f;line-height:1}.ct-steps span{font-size:.9rem}
-.ct-pbox{text-align:right}.ct-pbox .ct-price{display:inline-block;font-size:2.2rem;line-height:1;margin-left:10px}.ct-pbox .ct-cur{font-size:.75rem}
-.main:has(.ct-tabs) .ct-price{color:#00bc1f;font-weight:700}.main:has(.ct-tabs) .ct-price small{color:#888;font-weight:400}
-.ct-pill{display:inline-block;border-radius:12px;padding:1px 12px;font-size:.8rem;color:#fff;background:#888}.ct-pill.ok{background:#00bc1f}.ct-pill.info{background:#2288cc}.ct-pill.bad{background:#e00000}.ct-pill.warn{background:#e08a00}
-.main:has(.ct-tabs) .ct-chip{background:#c9d3f5;color:#334;border:0;border-radius:10px;padding:1px 10px;font-size:.75rem}
-.main:has(.ct-tabs) .ct-st{border:0;color:#fff;background:#888;border-radius:12px;padding:1px 12px;font-weight:400;font-size:.8rem}.main:has(.ct-tabs) .ct-st.ok{background:#00bc1f;color:#fff}.main:has(.ct-tabs) .ct-st.info{background:#2288cc;color:#fff}.main:has(.ct-tabs) .ct-st.warn{background:#e08a00;color:#fff}.main:has(.ct-tabs) .ct-st.bad{background:#e00000;color:#fff}
-.main:has(.ct-tabs) .ct-stars{color:#00bc1f}
-.main:has(.ct-tabs) .ct-bar{height:10px;background:#ccc;border-radius:5px}.main:has(.ct-tabs) .ct-bar span{background:#0a9be8}
-.main:has(.ct-tabs) .ct-pager a{border:1px solid #d8d8d8;border-radius:6px;color:#3a3a3a}.main:has(.ct-tabs) .ct-pager a.cur{background:#00bc1f;border-color:#00bc1f;color:#fff}
-.main:has(.ct-tabs) .ct-n{background:#00bc1f;color:#fff}
-/* contract pages: steps, comments, hints, tables */
-.main:has(.ct-tabs) .ct-two{grid-template-columns:1fr 1fr;gap:40px}@media(max-width:860px){.main:has(.ct-tabs) .ct-two{grid-template-columns:1fr;gap:16px}}
-.main:has(.ct-tabs) .ct-step{background:#fff;border:1px solid #d8d8d8;border-radius:10px}.main:has(.ct-tabs) .ct-step.done{border-color:#2288cc}.main:has(.ct-tabs) .ct-step.acc{border-color:#00bc1f}
-.main:has(.ct-tabs) .ct-msg{border-left:0;background:#f7f7f7;border-radius:8px;padding:6px 10px}.main:has(.ct-tabs) .ct-msg.mine{background:#e4f6c8}.main:has(.ct-tabs) .ct-msg small{color:#2a7}
-.main:has(.ct-tabs) .ct-hint{background:#e8f3fb;color:#3a3a3a;border-radius:8px}
-.main:has(.ct-tabs) .ct-tbl th,.main:has(.ct-tabs) .tbl th{color:#888}.main:has(.ct-tabs) .ct-notice a.item{background:#fff;border-radius:8px}.main:has(.ct-tabs) .ct-notice a.item.unread{border-left-color:#00bc1f}
-.main:has(.ct-tabs) .ct-act{background:#fff}
-@media(max-width:800px){.ct-listing{display:block}.ct-thumb{width:100%;height:56px}}
-
+/* ===== Layouts of Bablito.ru (listing card with picture block, steps and price, two columns, icon menu) in the colours and fonts of the platform ===== */
+.ct-listing{display:flex;padding:0!important;overflow:hidden;margin:0 0 14px}
+.ct-thumb{width:180px;flex:none;background:var(--infobg);display:flex;align-items:center;justify-content:center;color:var(--info);font-size:15px;text-align:center;padding:8px;text-decoration:none!important}.ct-thumb span{overflow-wrap:anywhere}
+.ct-body{flex:1;padding:14px 18px;min-width:0}.ct-body h3{margin:0;font-size:17px}.ct-body h3 a{color:inherit;text-decoration:none}.ct-body h3 a:hover{color:var(--acc)}
+.ct-date{font-size:13px;color:var(--mut);white-space:nowrap}.ct-author{font-size:13.5px}.ct-author a{color:var(--acc);text-decoration:none}.ct-loc{font-size:13px;color:var(--mut)}.ct-small{font-size:12.5px}
+.ct-listing .ct-desc{margin:8px 0}
+.ct-listing .ct-foot{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 0;margin:8px 0;align-items:flex-end}
+.ct-steps b{display:block;font-size:26px;color:var(--acc);line-height:1}.ct-steps span{font-size:13px;color:var(--mut)}
+.ct-pbox{text-align:right}.ct-pbox .ct-price{display:inline-block;font-size:26px;line-height:1;margin-left:10px;color:var(--acc)}.ct-pbox .ct-cur{font-size:12px;color:var(--mut)}
+.ct-pill{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600;background:var(--bg);color:var(--mut)}.ct-pill.ok{background:var(--okbg);color:var(--ok)}.ct-pill.info{background:var(--infobg);color:var(--info)}.ct-pill.warn{background:var(--warnbg);color:var(--warn)}.ct-pill.bad{background:var(--badbg);color:var(--bad)}
+.ct-two{grid-template-columns:1fr 1fr;gap:24px}
 .ct-nav-r{margin-left:auto;display:flex;align-items:center;gap:10px;padding-bottom:6px}.ct-tabs .ct-nav-r .ct-new{margin:0}
-.ct-ico{position:relative;display:inline-flex;align-items:center;padding:4px;color:inherit;cursor:pointer;list-style:none;border-radius:6px}.ct-ico:hover{background:#0000000d;text-decoration:none!important}summary.ct-ico::-webkit-details-marker{display:none}
-.ct-bell-n{position:absolute;top:-4px;right:-6px;min-width:17px;height:17px;border-radius:9px;background:#00bc1f;color:#fff;font-size:11px;line-height:17px;text-align:center;padding:0 4px}
-.ct-menu{position:relative}.ct-menu-pop{position:absolute;right:0;top:34px;z-index:30;background:#fff;color:#3a3a3a;border:1px solid #d8d8d8;border-radius:8px;min-width:190px;padding:6px 12px;box-shadow:0 4px 14px #00000014}
-.ct-menu-pop a,.ct-menu-pop .linkbtn{display:block;padding:7px 0;border-bottom:1px solid #eee;text-align:left;width:100%;color:inherit;text-decoration:none}.ct-menu-pop>:last-child,.ct-menu-pop>form:last-child .linkbtn{border-bottom:0}.ct-menu-pop a:hover,.ct-menu-pop .linkbtn:hover{color:#00bc1f}
+.ct-ico{position:relative;display:inline-flex;align-items:center;padding:5px;color:var(--mut);cursor:pointer;list-style:none;border-radius:6px}.ct-ico:hover{background:var(--bg);color:var(--ink);text-decoration:none!important}summary.ct-ico::-webkit-details-marker{display:none}
+.ct-bell-n{position:absolute;top:-4px;right:-6px;min-width:17px;height:17px;border-radius:9px;background:var(--acc);color:var(--acc-ink);font-size:11px;line-height:17px;text-align:center;padding:0 4px}
+.ct-menu{position:relative}.ct-menu-pop{position:absolute;right:0;top:36px;z-index:30;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--r);min-width:200px;padding:6px 14px;box-shadow:0 6px 18px #00000022}
+.ct-menu-pop a,.ct-menu-pop .linkbtn{display:block;padding:8px 0;border-bottom:1px solid var(--line);text-align:left;width:100%;color:inherit;text-decoration:none}.ct-menu-pop>:last-child,.ct-menu-pop>form:last-child .linkbtn{border-bottom:0}.ct-menu-pop a:hover,.ct-menu-pop .linkbtn:hover{color:var(--acc)}
 .linkbtn{background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit}
+@media(max-width:800px){.ct-listing{display:block}.ct-thumb{width:100%;height:56px}}
