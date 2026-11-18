@@ -30,6 +30,19 @@ final class Svc
         return $c;
     }
 
+    /**
+     * Normalises a date to YYYY-MM-DD ('' = none). Accepts what <input type=date> submits (2026-12-01) and what a browser without a date picker lets people type
+     * (01.12.2026, 1/12/2026 = day first, 2026/12/01), each with an optional time after it. Anything else, or an impossible day, is date_invalid.
+     */
+    public static function date(mixed $v): string
+    {
+        $s = trim((string)$v); if ($s === '') return '';
+        if (!preg_match('~^(?:(\d{4})[-./](\d{1,2})[-./](\d{1,2})|(\d{1,2})[./-](\d{1,2})[./-](\d{4}))(?:[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$~', $s, $m)) throw new Err('date_invalid');
+        [$y, $mo, $d] = ($m[1] ?? '') !== '' ? [(int)$m[1], (int)$m[2], (int)$m[3]] : [(int)$m[6], (int)$m[5], (int)$m[4]];
+        if (!checkdate($mo, $d, $y) || $y < 1900) throw new Err('date_invalid');
+        return sprintf('%04d-%02d-%02d', $y, $mo, $d);
+    }
+
     /** Cards of the user with their logs, newest first. */
     public function cards(int $uid): array
     {
@@ -55,8 +68,7 @@ final class Svc
         $name = self::clean($in['name'] ?? '', 100); if ($name === '') throw new Err('name_required');
         $email = self::clean($in['email'] ?? '', 190); if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) throw new Err('email_invalid');
         $status = (string)($in['status'] ?? self::STATUSES[0]); if (!in_array($status, self::STATUSES, true)) throw new Err('status_invalid');
-        $next = self::clean($in['next_call'] ?? '', 10);
-        if ($next !== '') { $d = \DateTimeImmutable::createFromFormat('!Y-m-d', $next); if (!$d || $d->format('Y-m-d') !== $next) throw new Err('date_invalid'); }
+        $next = self::date($in['next_call'] ?? '');
         $row = ['name' => $name, 'second_name' => self::clean($in['second_name'] ?? '', 100), 'surname' => self::clean($in['surname'] ?? '', 100), 'mobile' => self::clean($in['mobile'] ?? '', 40),
             'messenger' => self::clean($in['messenger'] ?? '', 100), 'email' => $email, 'status' => $status, 'theme' => self::clean($in['theme'] ?? '', 190), 'notes' => self::clean($in['notes'] ?? '', 4000),
             'next_call' => $next === '' ? null : $next, 'updated_at' => ($this->now)()];

@@ -14,7 +14,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.1.0']; public array $missing = [];
+    public array $manifest = ['version' => '0.1.1']; public array $missing = [];
     public function __construct(private array $l) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'contactlog.' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/contactlog/' . ltrim($p, '/'); }
@@ -29,7 +29,7 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) foreach ([['admin', true], [
     try {
         $html = $render($sf, ['sf' => $sf, 'lang' => $lang, 'L' => $L, 'cards' => $cards, 'copyEmail' => 'c@d.co', 'ownEmail' => 'o@p.co', 'userName' => 'Olga', 'isAdmin' => $adm, 'api' => '/p/contactlog/api/']); $n++;
         ok(strlen($html) > 500 && !$sf->missing && !preg_match('~(?<![/\w])contactlog\.(?!css|js)[a-z_]~', $html), "$lang/$who/" . count($cards) . ' cards renders' . ($sf->missing ? ' (missing: ' . implode(',', array_unique($sf->missing)) . ')' : ''));
-        ok(str_contains($html, 'id="clBoot"') && !str_contains($html, '</script><b>') && str_contains($html, 'contactlog.js?v=0.1.0'), "$lang/$who: data embedded as escaped JSON, script loaded");
+        ok(str_contains($html, 'id="clBoot"') && !str_contains($html, '</script><b>') && str_contains($html, 'contactlog.js?v=0.1.1'), "$lang/$who: data embedded as escaped JSON, script loaded");
         ok(str_contains($html, '/settings') === $adm, "$lang/$who: the e-mail settings shortcut is for administrators only");
         preg_match('~<script type="application/json" id="clBoot">(.*?)</script>~s', $html, $m); $j = json_decode($m[1] ?? '', true);
         ok(is_array($j) && $j['L'] === $L && $j['cards'] === $cards && $j['statuses'] === Svc::STATUSES && $j['token'] === 'tok', "$lang/$who: boot JSON round-trips");

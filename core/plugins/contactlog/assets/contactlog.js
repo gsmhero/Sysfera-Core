@@ -86,6 +86,7 @@
   var F = { name: 'clName', second_name: 'clSecond', surname: 'clSurname', mobile: 'clMobile', messenger: 'clMessenger', email: 'clEmail', status: 'clStatus', theme: 'clTheme2', notes: 'clNotes', next_call: 'clNext' };
   function showErr(id, msg) { var el = $(id); el.textContent = msg || ''; el.style.display = msg ? 'block' : 'none'; }
   function openCard(c) {
+    if ($('clNext').type !== 'date') $('clNext').placeholder = 'YYYY-MM-DD / DD.MM.YYYY';   // a browser without a date picker: the server accepts both
     showErr('clCardErr', ''); $('clId').value = c ? c.id : ''; $('clModalTitle').textContent = t(c ? 'modal_edit' : 'modal_add');
     for (var k in F) $(F[k]).value = c ? c[k] : (k === 'status' ? boot.statuses[0] : '');
     $('clCardModal').classList.remove('cl-hide'); $('clName').focus();

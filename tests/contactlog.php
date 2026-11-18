@@ -61,6 +61,15 @@ $mailAnswer = 'not_configured'; ok(refused(fn() => $svc->sendReport($A, $card['i
 $mailAnswer = 'TLS handshake failed'; try { $svc->sendReport($A, $card['id'], 'me@example.com', $en); ok(false, 'smtp failure surfaced'); } catch (Err $e) { ok($e->errCode === 'mail_failed' && $e->http === 502 && $e->getMessage() === 'TLS handshake failed', 'SMTP failure is an error (no fallback that pretends to deliver); detail kept for the log'); }
 $rep = Report::build($svc->cards($A)[0], $en, $now); ok(str_contains($rep['html'], '</html>') && Report::when(0, 'Nowhere/Land') === '1970-01-01 00:00', 'report html is complete; a bad time zone falls back to UTC');
 
+/* ---------- regression: "date error" when creating a contact ---------- */
+// exactly what the page posts for a new card (every field a string; id empty; the date as <input type=date> gives it)
+$form = ['id' => '', 'name' => 'Olga', 'second_name' => '', 'surname' => '', 'mobile' => '', 'messenger' => '', 'email' => '', 'status' => 'busy', 'theme' => '', 'notes' => '', 'next_call' => '2026-12-01'];
+$r = $svc->save($A, (int)$form['id'], $form); ok($r['next_call'] === '2026-12-01' && $r['id'] > 0, 'the form as the page posts it (ISO date, empty id) creates the card');
+$r = $svc->save($A, (int)$form['id'], ['next_call' => ''] + $form); ok($r['next_call'] === '' && $st->t['cards'][$r['id']]['next_call'] === null, 'the form with no date stores NULL (not an empty string, which MySQL DATE rejects)');
+foreach (['01.12.2026', '1.12.2026', '01/12/2026', '2026/12/01', '2026-12-01T00:00', '2026-12-01 09:30', '2026-12-01T09:30:00Z', ' 2026-12-01 ', '1-12-2026'] as $v) ok($svc->save($A, 0, ['next_call' => $v] + $form)['next_call'] === '2026-12-01', "date typed or sent as " . json_encode($v) . ' is normalised to 2026-12-01');
+foreach (['2026-02-30', '31.04.2026', '2026-13-01', 'tomorrow', '12/2026', '2026-12-01junk', '0000-00-00', '1850-01-01', "2026-12-01\n2026-12-02"] as $v) ok(refused(fn() => $svc->save($A, 0, ['next_call' => $v] + $form), 'date_invalid'), 'refused: ' . json_encode($v));
+ok(Svc::date(null) === '' && Svc::date('2028-02-29') === '2028-02-29' && refused(fn() => Svc::date('2027-02-29'), 'date_invalid'), 'leap days are checked');
+
 /* ---------- the pieces the page needs ---------- */
 ok(count(Svc::STATUSES) === 10 && !array_diff(Svc::STATUSES, array_keys(Svc::COLORS)) && !array_diff(array_map(fn($s) => "st_$s", Svc::STATUSES), array_keys($en)) && !array_diff(array_map(fn($s) => "log_$s", Svc::ACTIONS), array_keys($ru)), 'every status has a colour and a name, every action a log text (en and ru)');
 
