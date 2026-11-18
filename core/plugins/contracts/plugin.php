@@ -51,6 +51,13 @@ return function (\Sysfera\Plugin $sf): void {
     $sync = fn(): Sync => new Sync(new DbStore($db), $bablito(), fn() => time(), $syncUsers, function (int $id) use ($base, $sf): ?string { $b = $base(); return str_starts_with($b, 'https://') ? $b . $sf->url('/view/' . $id) : null; });
     $bConfigured = fn(): bool => Bablito::validBase($bUrl()) && strlen($bKey()) >= 32;
 
+    /* dashboard widget: the three newest contracts and the statement of "My contracts" */
+    $sf->on('dashboard.widgets', function (array $w) use ($sf, $svc, $me) {
+        if (\Sysfera\Demo::on() || $me()->uid <= 0) return $w;
+        try { $g = $svc()->glance($me(), 3); } catch (\Throwable $e) { return $w; }
+        $w['contracts'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'g' => $g]);
+        return $w;
+    });
     $sf->menu('menu', '/', ['order' => 24, 'icon' => 'note', 'badge' => fn() => $sf->auth()->id() ? $svc()->unread($sf->auth()->id()) : 0]);
 
     /* the stale-contract sweep runs at most every 10 minutes, on page loads */

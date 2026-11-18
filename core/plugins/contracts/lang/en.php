@@ -110,4 +110,5 @@ return [
     'err_offer_already' => 'You have already made an offer on this contract.',
     'err_offer_changed' => 'The steps of this contract changed. Reload the page and try again.',
     'err_offer_not_allowed' => 'You cannot make an offer on this contract.',
+    'w_open' => 'Open', 'w_new' => 'Newest contracts', 'w_none' => 'No published contracts yet.', 'w_created' => 'Created', 'w_working' => 'Working', 'w_offers' => 'My offers', 'w_archive' => 'Archive', 'w_new_offers' => '{n} new offer(s) on your contracts', 'w_unpaid' => '{n} unpaid invoice(s)', 'w_lang' => 'en',
 ];

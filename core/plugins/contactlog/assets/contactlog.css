@@ -61,3 +61,10 @@
   .cl-logrow{flex-direction:column;gap:0;padding:3px 0;border-bottom:1px solid var(--line)}.cl-logrow:last-child{border-bottom:0}.cl-logrow time{font-size:11.5px}
   .cl-foot .btn span{font-size:12.5px}
 }
+
+/* dashboard widget */
+.clw-h{margin:12px 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.clw-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}.clw-l li{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.clw-dot{flex:none;width:9px;height:9px;border-radius:50%}.clw-n{flex:1;min-width:0;display:grid}.clw-n b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.clw-n small{font-size:12px}
+.clw-d{font-size:12.5px;color:var(--mut);white-space:nowrap}.clw-d.bad{color:var(--bad);font-weight:600}.clw-d.warn{color:var(--warn);font-weight:600}.clw-i{display:inline-flex;vertical-align:middle}
+.clw-a{display:flex;gap:4px}

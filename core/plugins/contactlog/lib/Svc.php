@@ -52,6 +52,19 @@ final class Svc
         if ($cards) foreach ($this->st->find('logs', ['card_id' => array_map(fn($c) => (int)$c['id'], $cards)], 'id', 500000) as $l) $logs[(int)$l['card_id']][] = self::logView($l);
         return array_map(fn($c) => self::view($c, $logs[(int)$c['id']] ?? []), $cards);
     }
+    /** For the dashboard: the next contacts planned (a date set, overdue ones first) and the latest contacts (by the last logged action). Only the user's own cards. */
+    public function glance(int $uid, string $today, int $n = 3): array
+    {
+        $cards = $this->cards($uid); $next = []; $recent = [];
+        foreach ($cards as $c) {
+            if ($c['next_call'] !== '') $next[] = $c;
+            $last = $c['logs'] ? max(array_column($c['logs'], 'at')) : 0;
+            if ($last > 0) { $acts = $c['logs']; usort($acts, fn($a, $b) => [$a['at'], $a['id']] <=> [$b['at'], $b['id']]); $recent[] = $c + ['last_at' => $last, 'last_action' => (string)end($acts)['action']]; }
+        }
+        usort($next, fn($a, $b) => [$a['next_call'], $a['id']] <=> [$b['next_call'], $b['id']]);
+        usort($recent, fn($a, $b) => [$b['last_at'], $b['id']] <=> [$a['last_at'], $a['id']]);
+        return ['next' => array_slice($next, 0, $n), 'recent' => array_slice($recent, 0, $n), 'today' => $today];
+    }
     private static function logView(array $l): array { return ['id' => (int)$l['id'], 'action' => (string)$l['action'], 'at' => (int)$l['created_at']]; }
     private static function view(array $c, array $logs): array
     {

@@ -35,4 +35,5 @@ return [
     'err_msg_unavailable' => 'Sysfera Messenger is not connected on this site.',
     'err_msg_notfound' => 'This contact was not found on Sysfera Messenger. Type their Sysfera ID (like 12@site.ru) into the Messenger field, or ask them to register there and allow search by e-mail.',
     'err_msg_failed' => 'The message could not be delivered',
+    'w_title' => 'Contact Log', 'w_open' => 'Open', 'w_upcoming' => 'Upcoming contacts and actions', 'w_recent' => 'Recent contacts', 'w_none_next' => 'No contact is planned. Set a date on a card.', 'w_none_recent' => 'No contacts logged yet.', 'w_overdue' => 'Overdue since {date}', 'w_today' => 'Today', 'w_on' => '{date}', 'w_call' => 'Call', 'w_email' => 'E-mail',
 ];

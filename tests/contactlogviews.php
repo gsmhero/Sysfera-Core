@@ -41,7 +41,7 @@ ok($n === 8, "rendered $n pages");
 $ph = fn(string $s): array => (preg_match_all('/\{[a-z_]+\}/', $s, $m) ? array_unique($m[0]) : []);
 ok(!array_diff_key($en, $ru) && !array_diff_key($ru, $en), 'lang: en and ru have the same keys' . (array_diff_key($en, $ru) ? ' (ru lacks: ' . implode(',', array_keys(array_diff_key($en, $ru))) . ')' : '') . (array_diff_key($ru, $en) ? ' (en lacks: ' . implode(',', array_keys(array_diff_key($ru, $en))) . ')' : ''));
 $bad = []; foreach ($en as $k => $s) { if ($ph($s) != $ph($ru[$k] ?? '')) $bad[] = $k; if (trim((string)($ru[$k] ?? '')) === '') $bad[] = $k; } ok(!$bad, 'lang: same placeholders, no empty ru text' . ($bad ? ' (' . implode(',', $bad) . ')' : ''));
-$view = file_get_contents("$dir/views/index.php"); $js = file_get_contents("$dir/assets/contactlog.js"); $pp = file_get_contents("$dir/plugin.php"); $svcSrc = file_get_contents("$dir/lib/Svc.php"); $rep = file_get_contents("$dir/lib/Report.php");
+$view = file_get_contents("$dir/views/index.php") . file_get_contents("$dir/views/widget.php"); $js = file_get_contents("$dir/assets/contactlog.js"); $pp = file_get_contents("$dir/plugin.php"); $svcSrc = file_get_contents("$dir/lib/Svc.php"); $rep = file_get_contents("$dir/lib/Report.php");
 $used = [];
 foreach ([[$view, "/->t\\('([a-z0-9_]+)'/"], [$js, "/\\bt\\('([a-z0-9_]+)'/"], [$js, "/t\\([a-z]+ \\? '([a-z_]+)' : '([a-z_]+)'\\)/"], [$js, "/t\\('(?:st|log)_'/"], [$rep, "/\\\$L\\['([a-z_]+)'\\]/"], [$svcSrc . $pp, "/new Err\\('([a-z_]+)'/"]] as [$src, $re]) if (preg_match_all($re, $src, $m)) foreach (array_slice($m, 1) as $col) foreach ($col as $x) { if ($x !== '') $used[] = (str_contains($re, 'Err') ? 'err_' : '') . $x; }
 preg_match_all("/t\\(\\w+ \\? '(\\w+)' : '(\\w+)'\\)/", $js, $m); foreach (array_merge($m[1], $m[2]) as $x) $used[] = $x;
@@ -73,4 +73,11 @@ ok(str_contains(file_get_contents(dirname(__DIR__) . '/.gitignore'), '!core/plug
 ok(!preg_match('/(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*[\'"][^\'"\s]{6,}/i', $pp . $svcSrc . $rep . $js . $view . $sql), 'no credentials in the plugin sources');
 ok(!glob("$dir/*.log") && !glob("$dir/*.env") && !is_file("$dir/send-report-minimal.php") && !is_file("$dir/index.html"), 'the source files (mailer endpoint, debug log, html) were not copied in');
 
+/* dashboard widget (en and ru, empty and filled) */
+foreach (['en' => $en, 'ru' => $ru] as $lang => $L) foreach ([false, true] as $filled) {
+    $sf = new FakeSf($L); $c1 = ['id' => 1, 'name' => 'Anna <b>', 'surname' => 'S', 'mobile' => '+7 (900) 1', 'email' => 'a@b.co', 'status' => 'busy', 'theme' => 'T', 'next_call' => '2026-11-10', 'last_at' => 1_800_000_000, 'last_action' => 'call'];
+    $g = $filled ? ['next' => [$c1, ['next_call' => '2026-11-17', 'mobile' => '', 'email' => '', 'theme' => '', 'status' => 'actual'] + $c1, ['next_call' => '2026-12-01'] + $c1], 'recent' => [$c1], 'today' => '2026-11-17'] : ['next' => [], 'recent' => [], 'today' => '2026-11-17'];
+    ob_start(); $colors = Svc::COLORS; require "$dir/views/widget.php"; $h = (string)ob_get_clean();
+    ok(!$sf->missing && !preg_match('~contactlog\.(?!css)[a-z_]~', $h) && !str_contains($h, 'Anna <b>') && ($filled ? str_contains($h, 'tel:+79001') && str_contains($h, 'mailto:a@b.co') && str_contains($h, 'clw-d bad') && str_contains($h, 'clw-d warn') : str_contains($h, $L['w_none_next']) && str_contains($h, $L['w_none_recent'])), "widget $lang " . ($filled ? 'filled' : 'empty') . ': renders, escaped, no missing text' . ($sf->missing ? ' (' . implode(',', $sf->missing) . ')' : ''));
+}
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

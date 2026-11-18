@@ -87,4 +87,12 @@ $ans = 'not_configured'; try { $sv2->sendMail($A, $k['id'], 'x', 'y', 'me@exampl
 ok($sv2->peerQuery($A, $k['id']) === 'target@example.com', 'messenger look-up: by e-mail when no Sysfera ID is given');
 $sid = $sv2->save($A, 0, ['name' => 'Has Sid', 'email' => 'a@b.co', 'messenger' => ' 12@Site.RU ']); ok($sv2->peerQuery($A, $sid['id']) === '12@site.ru', 'messenger look-up: a Sysfera ID in the Messenger field wins');
 ok($sv2->peerQuery($A, $nm['id']) === '', 'messenger look-up: nothing to look up without an ID or an e-mail');
+/* dashboard glance: next planned contacts (overdue first) and the latest logged contacts, own cards only */
+$g0 = $svc->glance(77, '2026-11-17'); ok($g0['next'] === [] && $g0['recent'] === [], 'glance: a user without cards gets nothing');
+$g1 = $svc->save(77, 0, ['name' => 'Late', 'next_call' => '2026-11-10', 'mobile' => '1']); $g2 = $svc->save(77, 0, ['name' => 'Soon', 'next_call' => '2026-11-20']); $g3 = $svc->save(77, 0, ['name' => 'Later', 'next_call' => '2026-12-31']); $g4 = $svc->save(77, 0, ['name' => 'Nodate']); $g5 = $svc->save(77, 0, ['name' => 'Fifth', 'next_call' => '2027-01-01']);
+$svc->save(78, 0, ['name' => 'Other user', 'next_call' => '2026-01-01']);
+$gl = $svc->glance(77, '2026-11-17'); ok(array_column($gl['next'], 'name') === ['Late', 'Soon', 'Later'] && $gl['recent'] === [], 'glance: three nearest dates, overdue first; cards without a date or log are left out; nobody else\'s cards');
+$now += 10; $svc->addLog(77, $g2['id'], 'email'); $now += 10; $svc->addLog(77, $g4['id'], 'call'); $now += 10; $svc->addLog(77, $g2['id'], 'messenger'); $now += 10; $svc->addLog(77, $g1['id'], 'call'); $now += 10; $svc->addLog(77, $g3['id'], 'call'); $now += 10; $svc->addLog(77, $g5['id'], 'success');
+$gl = $svc->glance(77, '2026-11-17'); ok(array_column($gl['recent'], 'name') === ['Fifth', 'Later', 'Late'] && $gl['recent'][0]['last_action'] === 'success', 'glance: the three latest contacts by the last logged action');
+$gl2 = $svc->glance(77, '2026-11-17', 1); ok(count($gl2['next']) === 1 && count($gl2['recent']) === 1, 'glance: the size can be limited');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

@@ -53,3 +53,11 @@
 @media(max-width:800px){.ct-listing{display:block}.ct-thumb{width:100%;height:56px}}
 
 .ct-offerform{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}.ct-counter{flex:1 1 100%}.ct-counter summary{display:inline-block;cursor:pointer;list-style:none}.ct-counter label{display:block;margin:10px 0}.ct-counter textarea{width:100%}.ct-offer-mine{padding:10px 12px;border:1px solid var(--line,#d8d8d8);border-radius:8px}
+
+/* dashboard widget */
+.ctw-h{margin:12px 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.ctw-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}.ctw-l li{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.ctw-t{flex:1;min-width:0;display:grid}.ctw-t a{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.ctw-t small{font-size:12px}.ctw-p{white-space:nowrap;font-weight:600}
+.ctw-g{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.ctw-c{display:grid;text-align:center;padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}.ctw-c b{font-size:20px;line-height:1.2}.ctw-c small{font-size:11.5px;color:var(--mut)}.ctw-c.warn{border-color:var(--warn)}
+.ctw-note{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 0}
+@media (max-width:480px){.ctw-g{grid-template-columns:repeat(2,1fr)}}

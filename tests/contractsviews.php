@@ -144,4 +144,14 @@ $h = $render('remote', $rv + ['mine' => ['id' => 5, 'price' => 300.0, 'days' => 
 ok(str_contains($h, 'Your offer') && str_contains($h, 'waiting for the author') && !str_contains($h, 'Accept contract as is'), 'remote: an existing offer is shown instead of the form');
 $h = $render('remote', ['babOn' => false] + $rv + ['mine' => null]);
 ok(!str_contains($h, '/offer'), 'remote: no offer form while Bablito is not live');
+/* dashboard widget */
+foreach (['en' => $en, 'ru' => $ru] as $lang => $L) foreach ([[$anna, 'author'], [$dan, 'outsider']] as [$cx, $who]) {
+    $sf = new FakeSf($L); $g = $svc->glance($cx, 3); $sf->manifest['version'] = '0.7.0';
+    ob_start(); require dirname(__DIR__) . '/core/plugins/contracts/views/widget.php'; $h = (string)ob_get_clean();
+    ok(!$sf->missing && !preg_match('~contracts\.(?!css)[a-z_]~', $h) && count($g['new']) <= 3 && count($g['new']) >= 1 && str_contains($h, '/view/') && str_contains($h, 'ctw-g'), "widget $lang/$who: renders, three newest at most" . ($sf->missing ? ' (' . implode(',', $sf->missing) . ')' : ''));
+}
+$ga = $svc->glance($anna, 3); $gd = $svc->glance($dan, 3);
+ok($ga['st']['created'] >= 2 && $ga['st']['archive'] >= 1 && $gd['st']['created'] === 0 && $gd['st']['working'] === 0 && $gd['st']['offers'] === 0, 'widget: the statement counts only the user\'s own contracts');
+$gb = $svc->glance($boris, 3); ok($gb['st']['working'] >= 1, 'widget: contracts I work on are counted');
+$gz = $svc->glance(new Ctx(0, false, ''), 3); ok(array_sum($gz['st']) === 0, 'widget: a visitor has an empty statement');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

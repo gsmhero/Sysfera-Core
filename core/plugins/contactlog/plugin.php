@@ -24,6 +24,13 @@ return function (\Sysfera\Plugin $sf): void {
 
     $sf->menu('menu', '/', ['order' => 26, 'icon' => 'chat']);
 
+    /* dashboard widget: the next planned contacts and the latest ones (the user's own cards only) */
+    $sf->on('dashboard.widgets', function (array $w) use ($sf, $svc, $uid) {
+        if (\Sysfera\Demo::on() || $uid() <= 0) return $w;
+        $w['contactlog'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'g' => $svc()->glance($uid(), date('Y-m-d')), 'colors' => Svc::COLORS]);
+        return $w;
+    });
+
     $sf->route('GET', '/', function () use ($sf, $svc, $uid, $lang, $L, $ownEmail) {
         $l = $lang();
         $sf->render('index', [

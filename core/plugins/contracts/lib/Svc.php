@@ -265,6 +265,24 @@ final class Svc
         usort($l, fn($a, $b) => [$b['updated_at'] ?? '', $b['id']] <=> [$a['updated_at'] ?? '', $a['id']]);
         return $this->cards($l);
     }
+    /** For the dashboard: the newest published contracts (own and copied from Bablito.ru) and the statement of the user's contracts. Counts only, one query each. */
+    public function glance(Ctx $c, int $n = 3): array
+    {
+        $new = $this->listing(['per' => max(1, $n)])['rows'];
+        $st = ['created' => 0, 'working' => 0, 'offers' => 0, 'archive' => 0, 'new_offers' => 0, 'unpaid' => 0];
+        if ($c->uid > 0) {
+            foreach ($this->s->find('contracts', ['user_id' => $c->uid]) as $k) {
+                if (in_array($k['status'], ['draft', 'published', 'active', 'paused'], true)) $st['created']++;
+                elseif (in_array($k['status'], ['fulfilled', 'terminated'], true)) $st['archive']++;
+            }
+            $st['working'] = count($this->s->find('contracts', ['contractor_id' => $c->uid, 'status' => ['active', 'paused']]));
+            $st['offers'] = count($this->s->find('offers', ['user_id' => $c->uid, 'status' => 'pending']));
+            foreach ($this->s->find('contracts', ['user_id' => $c->uid, 'status' => 'published']) as $k)
+                $st['new_offers'] += count($this->s->find('offers', ['contract_id' => $k['id'], 'status' => 'pending', 'seen_at' => null]));
+            $st['unpaid'] = $this->invoiceCounts($c)['pay'];
+        }
+        return ['new' => $new, 'st' => $st];
+    }
     public function watchToggle(Ctx $c, int $id): bool
     {
         $k = $this->load($id); if ($k['status'] !== 'published') $this->deny();
