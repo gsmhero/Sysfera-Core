@@ -46,6 +46,8 @@ final class Sync
         return $r;
     }
 
+    private function hasCategory(string $name): bool { $n = mb_strtolower($name); foreach ($this->s->find('categories') as $c) if (mb_strtolower((string)$c['name']) === $n || mb_strtolower((string)($c['name_ru'] ?? '')) === $n) return true; return false; }
+
     private function member(int $uid): ?array
     {
         $u = ($this->users)([$uid])[$uid] ?? null; if (!$u) return null;
@@ -66,6 +68,18 @@ final class Sync
         $a = $this->b->account($u, $link, $dry); $st = (string)($a['status'] ?? 'refused');
         if (!$dry && in_array($st, ['created', 'linked'], true) && !empty($a['user']['id'])) $this->store($uid, $a['user'], $st === 'created' ? 'created' : 'email');
         return ['status' => $st, 'detail' => (string)($a['detail'] ?? '')];
+    }
+
+    /** The address to open Bablito for this user already signed in, going on to $path. A user without a Bablito account is registered (matched by e-mail, else created; the account has no password, Bablito e-mails a link to choose one). */
+    public function goUrl(int $uid, string $path): string
+    {
+        $l = $this->link($uid);
+        if (!$l) {
+            $x = $this->createAccount($uid, false, true);
+            if (!in_array($x['status'], ['created', 'linked'], true)) throw new Err($x['status'] === 'exists' ? 'bablito_exists' : 'bablito_refused', $x['detail']);
+            $l = $this->link($uid); if (!$l) throw new Err('bablito_refused');
+        }
+        return $this->b->loginUrl((int)$l['remote_id'], $path);
     }
 
     /** Matches every unlinked user by e-mail. @return array{linked:int,would_link:int,unmatched:array,conflicts:array} */
@@ -140,6 +154,7 @@ final class Sync
                     'author_name' => mb_substr(trim((string)($c['author']['name'] ?? '')), 0, 120), 'author_remote_id' => (int)($c['author']['id'] ?? 0), 'total_price' => number_format($sum, 2, '.', ''), 'total_days' => $days,
                     'steps_json' => (string)json_encode($steps, JSON_UNESCAPED_UNICODE), 'created_at' => preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cr) ? $cr : $this->stamp()];
                 $seen[$rid] = 1; $r['total']++; $old = $have[$rid] ?? null;
+                if (!$dry && $row['category'] !== '' && !$this->hasCategory($row['category'])) $this->s->insert('categories', ['name' => $row['category'], 'name_ru' => null]);
                 if (!$old) { $r['new']++; if (!$dry) $this->s->insert('remote', $row + ['synced_at' => $this->stamp()]); }
                 else {
                     $diff = false; foreach ($row as $k => $v) if ((string)($old[$k] ?? '') !== (string)($v ?? '')) $diff = true;

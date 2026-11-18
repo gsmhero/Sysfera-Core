@@ -141,8 +141,8 @@ ok($cs->listing(['q' => 'kazan'])['total'] === 1 && $cs->listing(['from' => '300
 ok(err(fn() => $cs->remote(9999)) === 'not_found' && $cs->remote(501)['step_list'][1]['name'] === 'Final', 'remote contract: its own page, unknown id is not found');
 
 /* ---------- contracts created here are pushed to Bablito ---------- */
-$st->insert('categories', ['name' => 'Repair', 'name_ru' => 'Ремонт']);
-$st->insert('contracts', ['user_id' => 1, 'title' => 'Paint a fence', 'category_id' => 2, 'location' => 'Tver', 'description' => 'Two coats', 'status' => 'published', 'currency' => 'RUB', 'payment_type' => 'step', 'prepay_required' => 1, 'deadline' => '2026-12-20', 'published_at' => '2026-11-12 10:00:00', 'created_at' => '2026-11-11 10:00:00']);
+$repairId = $st->insert('categories', ['name' => 'Repair', 'name_ru' => 'Ремонт']);
+$st->insert('contracts', ['user_id' => 1, 'title' => 'Paint a fence', 'category_id' => $repairId, 'location' => 'Tver', 'description' => 'Two coats', 'status' => 'published', 'currency' => 'RUB', 'payment_type' => 'step', 'prepay_required' => 1, 'deadline' => '2026-12-20', 'published_at' => '2026-11-12 10:00:00', 'created_at' => '2026-11-11 10:00:00']);
 $st->insert('contracts', ['user_id' => 2, 'title' => 'A draft', 'category_id' => 1, 'location' => '', 'description' => '', 'status' => 'draft', 'currency' => 'RUB', 'payment_type' => 'finish', 'prepay_required' => 0, 'deadline' => null, 'published_at' => null, 'created_at' => '2026-11-11 11:00:00']);
 $st->insert('todos', ['contract_id' => 1, 'position' => 2, 'name' => 'Second coat', 'description' => '', 'price' => 40, 'days' => 2]); $st->insert('todos', ['contract_id' => 1, 'position' => 1, 'name' => 'First coat', 'description' => 'primer', 'price' => 60, 'days' => 1]);
 $ps = new Sync($st, $mk(), fn() => $R['now'], $users, fn(int $id) => 'https://core.sysfera.ru/p/contracts/view/' . $id);
@@ -154,9 +154,21 @@ $np = new Sync($st, $mk(), fn() => $R['now'], $users, null); $R['pushed'] = 'unt
 ok($R['pushed'] === 'untouched' && $z['skipped'] === 1, 'push: without a public https address nothing is sent (Bablito keeps what it has)');
 $http2 = null; $bad = new Sync($st, $mk(), fn() => $R['now'], $users, fn(int $id) => 'http://plain.example/' . $id); $R['pushed'] = 'untouched'; $bad->pushContracts(false); ok($R['pushed'] === 'untouched', 'push: only https addresses are accepted');
 
+/* ---------- sign in on Bablito from Sysfera ---------- */
+$url = $sync->goUrl(1, '/contract/501'); $q = []; parse_str((string)parse_url($url, PHP_URL_QUERY), $q);
+ok(str_starts_with($url, 'https://www.bablito.ru/sysfera-login?') && (int)$q['u'] === 10 && $q['r'] === '/contract/501' && $q['e'] > $R['now'] && $q['e'] <= $R['now'] + 180 && preg_match('/^[a-f0-9]{32}$/', $q['n']), 'sign-in link: the linked Bablito user, short life, one-time number, target path');
+ok($q['s'] === hash_hmac('sha256', "login\n10\n{$q['e']}\n{$q['n']}\n/contract/501", $key) && !str_contains($url, $key), 'sign-in link: signed with the shared key, the key itself is not in it');
+ok($sync->goUrl(1, '/contract/501') !== $url, 'sign-in link: every link has its own number');
+ok(str_contains($mk()->loginUrl(10, '//evil.example'), 'r=%2Fcontracts'), 'sign-in link: only a path on Bablito is accepted as the target');
+$st->insert('profiles', ['user_id' => 3, 'user_types' => 'personal', 'about' => '', 'notify_email' => 1, 'rating_avg' => 0, 'rating_count' => 0]);
+$people2 = $people + [4 => ['id' => 4, 'name' => 'New Person', 'email' => 'newbie@x.test', 'lang' => 'en']]; $before = count($R['users']);
+$sync2 = new Sync($st, $mk(), fn() => $R['now'], fn(?array $ids) => $ids === null ? $people2 : array_intersect_key($people2, array_flip($ids)));
+$u4 = $sync2->goUrl(4, '/contracts'); $l4 = $st->one('links', ['user_id' => 4]);
+ok(count($R['users']) === $before + 1 && $l4 && $l4['how'] === 'created' && str_contains($u4, 'u=' . $l4['remote_id']), 'sign-in: a user without a Bablito account is registered first, then signed in');
+ok(err(fn() => $sync->goUrl(3, '/contracts')) === 'bablito_refused', 'sign-in: an account that belongs to another Sysfera user is refused');
 /* ---------- everything at once ---------- */
-$all = $sync->all(true); ok(isset($all['pushed']['new']) && isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 2 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
-$all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 2, 'sync all: no failures');
+$all = $sync->all(true); ok(isset($all['pushed']['new']) && isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 3 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
+$all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 3, 'sync all: no failures');
 
 /* ---------- local edits are stamped (Svc::saveValues) ---------- */
 $clock = strtotime('2026-11-12 09:00:00'); $svc = new Svc($st, function () use (&$clock) { return $clock; }, fn($ids) => [], null, []);

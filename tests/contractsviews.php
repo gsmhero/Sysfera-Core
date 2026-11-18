@@ -66,7 +66,7 @@ $vars = function (Ctx $c, string $lang) use ($svc, $pub, $draft, $work, $done, $
     $v['user'] = ['tab' => 'list', 'uid' => 3, 'canReview' => $svc->reviewable($c, 3)] + $svc->userPage(3);
     if (!$st->one('remote', ['remote_id' => 77])) $st->insert('remote', ['remote_id' => 77, 'title' => 'From Bablito', 'category' => 'Design', 'location' => 'Moscow', 'description' => "Line one
 Line two", 'currency' => 'RUB', 'payment_type' => 'finish', 'prepay_required' => 1, 'deadline' => '2026-12-01', 'author_name' => 'Remote Author', 'author_remote_id' => 5, 'total_price' => '300.00', 'total_days' => 5, 'steps_json' => json_encode([['name' => 'S1', 'description' => 'd', 'price' => 100.0, 'days' => 2], ['name' => 'S2', 'description' => '', 'price' => 200.0, 'days' => 3]]), 'created_at' => '2026-11-16 10:00:00', 'synced_at' => '2026-11-17 10:00:00']);
-    $v['remote'] = ['tab' => 'list', 'k' => $svc->remote(77)];
+    $v['remote'] = ['tab' => 'list', 'k' => $svc->remote(77), 'babOn' => true, 'platformAdmin' => true];
     $v['profile'] = ['tab' => 'profile', 'profile' => $svc->profile($c->uid), 'types' => $svc->userTypes($c->uid), 'structure' => $svc->structure(Svc::PARTY_TYPES), 'values' => $svc->values($c->uid)];
     if ($c->admin) $v['admin'] = ['tab' => 'admin', 'cats' => $svc->categories(), 'structure' => $svc->structure(), 'staleDays' => 30];
     foreach ($v as $k => $vars) $v[$k] = $vars + $base; return $v;

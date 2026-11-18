@@ -29,7 +29,7 @@ return function (\Sysfera\Plugin $sf): void {
     $svc = function () use ($db, $users, $mail, $sf): Svc {
         static $o = null; return $o ??= new Svc(new DbStore($db), fn() => time(), $users, $mail, ['stale_days' => max(1, (int)$sf->setting('stale_days', '30')), 'bablito_base' => trim((string)$sf->setting('bablito_url', 'https://www.bablito.ru'))]);
     };
-    $me = function () use ($sf): Ctx { $u = $sf->auth()->user(); return new Ctx((int)($u['id'] ?? 0), $sf->auth()->isAdmin(), (string)($u['name'] ?? '')); };
+    $me = function () use ($sf): Ctx { $u = $sf->auth()->user(); return new Ctx((int)($u['id'] ?? 0), false, (string)($u['name'] ?? '')); /* Bablito has its own main administrator: a Sysfera administrator has no special rights here */ };
     $dir = SF_ROOT . '/storage/contracts';
 
     /* ---- Bablito.ru: the shared signing key comes from the SYSFERA_BABLITO_KEY environment variable, else from the write-only setting; it is never shown, logged or put in a page ---- */
@@ -79,9 +79,9 @@ return function (\Sysfera\Plugin $sf): void {
             catch (Err $e) { http_response_code($e->http); echo '<div class="card"><h3>' . e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')) . '</h3><p><a class="btn" href="' . e($sf->url('/')) . '">' . e($sf->t('nav_list')) . '</a></p></div>'; }
         };
     };
-    $render = function (string $view, array $vars, string $title, string $tab) use ($sf, $me, $svc, $L) {
+    $render = function (string $view, array $vars, string $title, string $tab) use ($sf, $me, $svc, $L, $bLive, $bConfigured) {
         $c = $me(); $lang = ($sf->auth()->user()['lang'] ?? '') === 'ru' ? 'ru' : 'en';
-        $sf->render($view, $vars + ['tab' => $tab, 'me' => $c, 'svc' => $svc(), 'unread' => $svc()->unread($c->uid), 'lang' => $lang, 'L' => $L[$lang]], $title);
+        $sf->render($view, $vars + ['babOn' => $bLive() && $bConfigured(), 'platformAdmin' => $sf->auth()->isAdmin(), 'tab' => $tab, 'me' => $c, 'svc' => $svc(), 'unread' => $svc()->unread($c->uid), 'lang' => $lang, 'L' => $L[$lang]], $title);
     };
 
     /* ---------------------------------- uploads ---------------------------------- */
@@ -242,6 +242,21 @@ return function (\Sysfera\Plugin $sf): void {
             if ($bLive() && $bConfigured()) { try { if ($sync()->link($me()->uid)) $sync()->profile($me()->uid, false); } catch (\Throwable $e) { \Sysfera\App::log('contracts bablito push ' . $e->getMessage()); flash($sf->t('bablito_push_failed')); } }
         } catch (Err $e) { flash($errText($e), 'bad'); }
     });
+    /* Open Bablito already signed in (the account is registered first when needed): the way to make an offer on a contract that lives there */
+    $sf->route('POST', '/bablito/go', function () use ($sf, $me, $svc, $bLive, $bConfigured, $sync) {
+        sf_session();
+        try {
+            if (!$bLive() || !$bConfigured()) throw new Err('bablito_not_live');
+            $to = (int)($_POST['to'] ?? 0); $path = '/contracts';
+            if ($to > 0) { $svc()->remote($to); $path = '/contract/' . $to; }
+            elseif (($_POST['page'] ?? '') === 'my') $path = '/my';
+            $url = $sync()->goUrl($me()->uid, $path);
+            header('Cache-Control: no-store'); header('Referrer-Policy: no-referrer'); header('Location: ' . $url, true, 302); exit;
+        } catch (Err $e) { flash($e->errCode === 'bablito_refused' || $e->errCode === 'bablito_unreachable' ? $sf->t('err_' . $e->errCode) . ' (' . $e->getMessage() . ')' : $sf->t('err_' . $e->errCode), 'bad'); }
+        catch (\Throwable $e) { \Sysfera\App::log('contracts bablito go ' . $e->getMessage()); flash($sf->t('err_server'), 'bad'); }
+        redirect('/p/contracts/');
+    });
+
     /* a signed-in user creates / syncs their own Bablito account (live mode only) */
     $sf->route('POST', '/bablito/{act}', function (array $p) use ($act, $me, $sf, $bLive, $bConfigured, $sync) {
         $a = (string)$p['act'];
@@ -266,7 +281,7 @@ return function (\Sysfera\Plugin $sf): void {
     $admin = fn(callable $fn) => $page(function (array $p = []) use ($fn, $sf) { if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $fn($p); });
     $sf->route('GET', '/admin', $admin(function () use ($render, $svc, $sf, $bUrl, $bKey, $bLive, $bConfigured, $db) {
         $last = json_decode((string)$sf->setting('bablito_last', ''), true);
-        $render('admin', ['cats' => $svc()->categories(), 'structure' => $svc()->structure(), 'staleDays' => max(1, (int)$sf->setting('stale_days', '30')),
+        $render('admin', ['staleDays' => max(1, (int)$sf->setting('stale_days', '30')),
             'bab' => ['url' => $bUrl(), 'live' => $bLive(), 'key_set' => $bKey() !== '', 'key_env' => (bool)getenv('SYSFERA_BABLITO_KEY'), 'ok' => $bConfigured(), 'last' => is_array($last) ? $last : null, 'links' => (int)$db->val('SELECT COUNT(*) FROM {p}ct_links')]], $sf->t('nav_admin'), 'admin');
     }));
     $sf->route('GET', '/admin/profile-fields.csv', function () use ($svc, $sf) {
@@ -278,9 +293,6 @@ return function (\Sysfera\Plugin $sf): void {
         $act(function () use ($what, $svc, $sf, $bablito, $sync, $bLive) {
             if (!$sf->auth()->isAdmin()) throw new Err('forbidden', '', 403); $in = $_POST;
             switch ($what) {
-                case 'category': if (!empty($in['delete'])) $svc()->deleteCategory((int)$in['id']); else $svc()->saveCategory((int)($in['id'] ?? 0), (string)($in['name'] ?? ''), (string)($in['name_ru'] ?? '')); break;
-                case 'section': if (!empty($in['delete'])) $svc()->deleteSection((int)$in['id']); else $svc()->saveSection((int)($in['id'] ?? 0), (string)($in['title'] ?? ''), (string)($in['type'] ?? 'personal'), (int)($in['position'] ?? 0)); break;
-                case 'field': if (!empty($in['delete'])) $svc()->deleteField((int)$in['id']); else $svc()->saveField((int)($in['id'] ?? 0), (int)($in['section_id'] ?? 0), (string)($in['label'] ?? ''), (string)($in['type'] ?? 'text'), (string)($in['options'] ?? ''), !empty($in['required']), !empty($in['default_public']), (int)($in['position'] ?? 0)); break;
                 case 'settings': $sf->setSetting('stale_days', (string)max(1, min(365, (int)($in['stale_days'] ?? 30)))); break;
                 case 'bablito':
                     $do = (string)($in['do'] ?? '');

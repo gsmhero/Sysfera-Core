@@ -44,6 +44,15 @@ final class Bablito
     public function contracts(int $after): array { return $this->call('GET', '/api/sysfera/contracts?after=' . max(0, $after) . '&limit=100'); }
     /** Sends the full list of the published Sysfera contracts; Bablito shows them as read-only copies and drops the ones that are missing. */
     public function pushContracts(array $items, bool $dry): array { return $this->call('POST', '/api/sysfera/contracts', ['contracts' => $items, 'dry_run' => $dry]); }
+    /** Address that signs the Bablito user in (valid 2 minutes, works once) and goes on to $path (a path on Bablito). */
+    public function loginUrl(int $remoteId, string $path): string
+    {
+        if (!self::validBase($this->base) || strlen($this->key) < 32) throw new Err('bablito_not_configured');
+        if (!preg_match('#^/(?!/)[A-Za-z0-9/_\-.?=&%]{0,200}$#', $path)) $path = '/contracts';
+        $exp = ($this->now)() + 120; $nonce = bin2hex(random_bytes(16));
+        $sig = hash_hmac('sha256', "login\n$remoteId\n$exp\n$nonce\n$path", $this->key);
+        return rtrim($this->base, '/') . '/sysfera-login?' . http_build_query(['u' => $remoteId, 'e' => $exp, 'n' => $nonce, 'r' => $path, 's' => $sig]);
+    }
     public function profile(int $remoteId): array { return $this->call('GET', '/api/sysfera/profile/' . $remoteId); }
     public function pushProfile(int $remoteId, array $types, array $values, bool $dry): array { return $this->call('POST', '/api/sysfera/profile/' . $remoteId, ['types' => $types, 'values' => $values, 'dry_run' => $dry]); }
 }
