@@ -33,7 +33,7 @@
 .cl-meta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--mut)}.cl-meta span{display:inline-flex;align-items:center;gap:6px}
 .cl-log{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12.5px;max-height:112px;overflow-y:auto;color:var(--mut)}
 .cl-logrow{display:flex;gap:8px;padding:2px 0}.cl-logrow time{flex:none;font-variant-numeric:tabular-nums}.cl-logrow span{color:var(--ink)}
-.cl-foot{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.cl-foot .btn{padding:7px 8px;font-size:13px;min-width:0}.cl-foot .btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cl-foot{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px}.cl-foot .cl-icon{width:40px;padding:7px 0}.cl-foot .btn{padding:7px 8px;font-size:13px;min-width:0}.cl-foot .btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cl-app .cl-del{position:absolute;top:10px;right:10px;width:26px;height:26px;padding:0;border-radius:50%;color:var(--mut)}.cl-app .cl-del:hover{color:var(--bad);border-color:var(--bad)}
 
 .cl-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:12px}

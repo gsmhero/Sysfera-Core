@@ -82,9 +82,9 @@
       h('div', { 'class': 'cl-meta' }, [h('span', {}, [ico('cal'), ' ' + t('lbl_next') + ' ' + (c.next_call || t('not_set'))]), h('span', {}, [ico('clock'), ' ' + t('lbl_created') + ' ' + new Date(c.created_at * 1000).toLocaleDateString()])]),
       logs,
       h('div', { 'class': 'cl-foot' }, [
-        btn('', t('btn_clear'), function () { if (confirm(t('confirm_clear'))) run(this, function () { return call('clearlog', { id: c.id }).then(function () { c.logs = []; render(); }); }); }, '', 'trash'),
+        btn('cl-icon', '', function () { if (confirm(t('confirm_clear'))) run(this, function () { return call('clearlog', { id: c.id }).then(function () { c.logs = []; render(); }); }); }, t('btn_clear'), 'trash'),
         btn('', t('btn_report'), function () { sendReport(this, c); }, '', 'send'),
-        btn('primary', t('btn_edit'), function () { openCard(c); }, '', 'edit')
+        btn('primary cl-icon', '', function () { openCard(c); }, t('btn_edit'), 'edit')
       ])
     ]);
   }
