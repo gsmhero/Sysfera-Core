@@ -131,18 +131,24 @@ return function (\Sysfera\Plugin $sf): void {
     $user = fn(): array => (array)($sf->auth()->user() ?? []);
     $open = function () use ($svc, $user): array { static $o = null; return $o ??= $svc()['rec']->openPublished((string)($user()['email'] ?? '')); };
     $sf->route('POST', '/apply/{uuid}', function (array $p) use ($sf, $svc, $ctx, $seed, $user, $errText) {
-        $u = $user(); $back = ($_POST['return'] ?? '') === 'dashboard' ? '/' : '/p/activity/';
+        $u = $user(); $ret = (string)($_POST['return'] ?? ''); $back = $ret === 'dashboard' ? '/' : ($ret === 'preview' ? '/p/hr/v/' . preg_replace('/[^0-9a-f-]/i', '', (string)$p['uuid']) : '/p/activity/');
         if (empty($u['id']) || \Sysfera\Demo::on()) { flash($sf->t('forbidden'), 'bad'); redirect($back); }
         try { $seed(); $svc()['rec']->apply($ctx(), (string)$p['uuid'], ['full_name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? ''), 'phone' => (string)($u['phone'] ?? '')]); flash($sf->t('applied')); }
         catch (Err $e) { flash($e->errCode === 'duplicate' ? $sf->t('applied_already') : $errText($e), 'bad'); }
         catch (\Throwable $e) { \Sysfera\App::log('hr ' . $e); flash($sf->t('err_server'), 'bad'); }
         redirect($back);
     });
+    $sf->route('GET', '/v/{uuid}', function (array $p) use ($sf, $svc, $ctx, $seed, $user, $errText) {
+        if (empty($user()['id'])) { http_response_code(403); echo '<div class="card empty"><h3>' . e($sf->t('forbidden')) . '</h3></div>'; return; }
+        try { $seed(); $v = $svc()['rec']->preview($ctx(), (string)$p['uuid'], (string)($user()['email'] ?? '')); }
+        catch (Err $e) { http_response_code($e->http === 404 ? 404 : 403); echo '<div class="card empty"><h3>' . e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')) . '</h3></div>'; return; }
+        $sf->render('preview', ['v' => $v, 'lang' => ($user()['lang'] ?? '') === 'ru' ? 'ru' : 'en', 'manage' => $ctx()->can('hr.vacancies.manage'), 'back' => (string)($_GET['from'] ?? '')], $v['title']);
+    });
     /* the button under the vacancy's post in the Activity feed (the post is found by the reference saved when the vacancy was published) */
     $sf->on('activity.post.actions', function (string $html, array $post) use ($sf, $open, $user) {
         if (empty($user()['id']) || \Sysfera\Demo::on() || empty($post['id'])) return $html;
         foreach ($open() as $v) if ($v['post_ref'] === 'activity:' . (int)$post['id'])
-            return $html . ($v['applied'] ? '<span class="hr-st ok">' . e($sf->t('applied_badge')) . '</span> '
+            return $html . '<a class="btn sm" href="' . e($sf->url('/v/' . $v['uuid'] . '?from=activity')) . '">' . e($sf->t('act_preview')) . '</a> ' . ($v['applied'] ? '<span class="hr-st ok">' . e($sf->t('applied_badge')) . '</span> '
                 : '<form method="post" action="' . e($sf->url('/apply/' . $v['uuid'])) . '" class="inline">' . csrf_field() . '<button class="btn sm primary">' . e($sf->t('act_apply')) . '</button></form> ');
         return $html;
     });

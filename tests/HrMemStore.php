@@ -61,7 +61,7 @@ final class HrSpy
                 public function kpi(int $u, string $f, string $t): array { return $this->s->kpi[$u] ?? ['issues' => 0, 'receipts' => 0, 'returns' => 0, 'counts' => 0]; } },
             new class($s) implements SysferaHr\Notifier { public function __construct(private HrSpy $s) {} public function notify(int $u, string $t): void { $this->s->notes[] = [$u, $t]; } },
             new class($s) implements SysferaHr\MissionsFeed { public function __construct(private HrSpy $s) {} public function completed(int $u, string $f, string $t): int { return $this->s->missions[$u] ?? 0; } },
-            new class($s) implements SysferaHr\ActivityFeed { public function __construct(private HrSpy $s) {} public function publish(string $t, string $b, string $a): ?string { $this->s->posts[] = [$t, $a]; return 'post-' . count($this->s->posts); } },
+            new class($s) implements SysferaHr\ActivityFeed { public function __construct(private HrSpy $s) {} public function publish(string $t, string $b, string $a): ?string { $this->s->posts[] = [$t, $a, $b]; return 'post-' . count($this->s->posts); } },
             $nul->files,
         );
     }

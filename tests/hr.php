@@ -278,4 +278,21 @@ $hr->setMember($oleg, $tm['uuid'], $e1['uuid'], 'member', true); $last = end($se
 $words = fn(string $s, int $n, int $c) => SysferaHr\ActivityPoster::words($s, $n, $c);
 ok($words('one two three', 20, 400) === 'one two three' && $words(implode(' ', range(1, 80)), 50, 1200) === implode(' ', range(1, 50)) . '…' && SysferaMsg\Text::words($words(implode(' ', range(1, 80)), 50, 1200)) === 50 && strlen($words(str_repeat('word ', 20), 50, 30)) <= 30, 'activity post: a long vacancy is cut to the 20 / 50 word limits instead of being refused');
 
+/* ---------- salary range and the visitor preview ---------- */
+$sv = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Courier', 'description' => 'Deliver things', 'salary_from' => '100 000', 'salary_to' => '150000', 'salary_cur' => 'usd']);
+ok((int)$sv['salary_from'] === 100000 && (int)$sv['salary_to'] === 150000 && $sv['salary_cur'] === 'USD' && Recruit::salaryText($sv) === '100 000 – 150 000 $', 'salary: a range with a currency, spaces allowed, formatted');
+ok(Recruit::salaryText(['salary_from' => 90000, 'salary_to' => null, 'salary_cur' => 'RUB']) === '≥ 90 000 ₽' && Recruit::salaryText(['salary_from' => null, 'salary_to' => 5, 'salary_cur' => 'EUR']) === '≤ 5 €' && Recruit::salaryText(['salary_from' => null, 'salary_to' => null]) === '', 'salary: one-sided ranges and none');
+ok(refused(fn() => $rec->saveVacancy($oleg, ['uuid' => $sv['uuid'], 'title' => 'Courier', 'salary_from' => '200', 'salary_to' => '100']), 'bad_salary') && refused(fn() => $rec->saveVacancy($oleg, ['uuid' => $sv['uuid'], 'title' => 'Courier', 'salary_from' => '12abc']), 'bad_salary'), 'salary: "from" above "to" and non-numbers are refused');
+$sv2 = $rec->saveVacancy($oleg, ['uuid' => $sv['uuid'], 'title' => 'Courier 2']); ok((int)$sv2['salary_from'] === 100000 && $sv2['salary_cur'] === 'USD', 'salary: an edit that does not send it keeps it');
+$sv3 = $rec->saveVacancy($oleg, ['uuid' => $sv['uuid'], 'title' => 'Courier 2', 'salary_from' => '', 'salary_to' => '']); ok($sv3['salary_from'] === null && $sv3['salary_to'] === null, 'salary: empty fields clear it');
+$rec->saveVacancy($oleg, ['uuid' => $sv['uuid'], 'title' => 'Courier 2', 'salary_from' => '100000', 'salary_to' => '150000']); $rec->approve($oleg, $sv['uuid']); $spy->posts = []; $rec->publish($oleg, $sv['uuid']);
+ok(count($spy->posts) === 1 && str_contains(json_encode($spy->posts[0], JSON_UNESCAPED_UNICODE), '100 000 – 150 000'), 'salary: the post in the Activity feed starts with the range');
+$visitor = new Ctx(5, 'anna', [], false, null); $pv = $rec->preview($visitor, $sv['uuid'], 'nobody@x.ru');
+ok($pv['title'] === 'Courier 2' && $pv['salary'] !== '' && $pv['open'] === true && $pv['applied'] === false && !isset($pv['created_by']) && !isset($pv['approved_by']) && !isset($pv['external']), 'preview: a visitor reads the public facts only');
+$rec->apply($visitor, $sv['uuid'], ['full_name' => 'Anna', 'email' => 'anna2@x.ru']); ok($rec->preview($visitor, $sv['uuid'], 'anna2@x.ru')['applied'] === true, 'preview: knows who already applied');
+$dr = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Hidden draft', 'description' => 'x']);
+ok(refused(fn() => $rec->preview($visitor, $dr['uuid']), 'not_found') && $rec->preview($oleg, $dr['uuid'])['open'] === false, 'preview: a draft is hidden from visitors, HR managers still see it');
+$rec->closeVacancy($oleg, $sv['uuid']); ok(refused(fn() => $rec->preview($visitor, $sv['uuid']), 'not_found'), 'preview: a closed vacancy is gone for visitors');
+$mig2 = (string)file_get_contents($dir . '/migrations/002_vacancy_salary.sql'); ok(str_contains($mig2, 'salary_from') && str_contains($mig2, 'salary_to') && str_contains($mig2, 'salary_cur') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig2), 'migration 002: three new columns, nothing destructive');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

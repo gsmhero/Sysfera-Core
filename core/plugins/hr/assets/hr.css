@@ -30,3 +30,8 @@
 .hrw-h{margin:12px 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
 .hrw-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}.hrw-l li{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
 .hrw-t{flex:1;min-width:0;display:grid}.hrw-t a,.hrw-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.hrw-t small{font-size:12px}.hrw-new{color:var(--warn);font-weight:600}
+
+/* vacancy preview */
+.hr-pv-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.hr-pv-facts>div{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 12px}.hr-pv-facts small{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}.hr-pv-facts b{font-weight:600}
+.hr-pv-text{line-height:1.6;margin:0 0 16px;word-break:break-word}
+.hrw-s{white-space:nowrap}.hrw-a{display:flex;gap:6px;align-items:center}

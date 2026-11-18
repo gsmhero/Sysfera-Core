@@ -17,6 +17,34 @@ final class Recruit
         $c->need('hr.vacancies.manage'); $w = []; foreach (['status', 'wf'] as $k) if (!empty($in[$k])) $w[$k] = (string)$in[$k];
         return array_map(fn($v) => $this->shape($v), $this->e->s->find('vacancies', $w, 'id DESC'));
     }
+    public const CURRENCIES = ['RUB' => '₽', 'USD' => '$', 'EUR' => '€'];
+    /** the salary range from the input: whole numbers, both ends optional, from <= to. Only the keys that were sent change an existing vacancy. */
+    private function salary(array $in, ?array $ex): array
+    {
+        if ($ex && !array_key_exists('salary_from', $in) && !array_key_exists('salary_to', $in) && !array_key_exists('salary_cur', $in)) return [];
+        $n = function ($v): ?int { $v = preg_replace('/[\s\x{00A0}]/u', '', (string)$v); if ($v === '') return null; if (!preg_match('/^\d{1,9}$/', $v)) throw new Err('bad_salary', 'the salary must be a whole number', 422); return (int)$v; };
+        $from = $n($in['salary_from'] ?? ($ex['salary_from'] ?? '')); $to = $n($in['salary_to'] ?? ($ex['salary_to'] ?? ''));
+        if ($from !== null && $to !== null && $from > $to) throw new Err('bad_salary', 'the salary "from" is above "to"', 422);
+        $cur = strtoupper((string)($in['salary_cur'] ?? ($ex['salary_cur'] ?? 'RUB'))); if (!isset(self::CURRENCIES[$cur])) $cur = 'RUB';
+        return ['salary_from' => $from, 'salary_to' => $to, 'salary_cur' => $cur];
+    }
+    /** "100 000 – 150 000 ₽", "≥ 100 000 ₽", "≤ 150 000 ₽" or '' */
+    public static function salaryText(array $v): string
+    {
+        $f = $v['salary_from'] ?? null; $t = $v['salary_to'] ?? null; $f = $f === null || $f === '' ? null : (int)$f; $t = $t === null || $t === '' ? null : (int)$t; if ($f === null && $t === null) return '';
+        $fmt = fn(int $n) => number_format($n, 0, '.', ' '); $cur = self::CURRENCIES[$v['salary_cur'] ?? 'RUB'] ?? '₽';
+        return ($f !== null && $t !== null ? $fmt($f) . ' – ' . $fmt($t) : ($f !== null ? '≥ ' . $fmt($f) : '≤ ' . $fmt($t))) . ' ' . $cur;
+    }
+    /** What a visitor may read about a published, open vacancy (HR managers may also see the others): no permission needed, nothing internal. */
+    public function preview(Ctx $c, string $uuid, string $email = ''): array
+    {
+        $v = $this->e->row('vacancies', $uuid);
+        if (!($v['status'] === 'open' && $v['wf'] === 'published') && !$c->can('hr.vacancies.manage')) throw new Err('not_found', 'no such vacancy', 404);
+        $s = $this->shape($v); $role = $this->e->s->one('roles', ['id' => (int)$v['role_id']]); $team = !empty($v['team_id']) ? $this->e->s->one('teams', ['id' => (int)$v['team_id']]) : null; $email = strtolower(trim($email));
+        return ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'description' => (string)$s['description'], 'role' => (string)($role['name'] ?? ''), 'role_ru' => (string)(($role['name_ru'] ?? '') ?: ($role['name'] ?? '')), 'team' => (string)($team['name'] ?? ''),
+            'salary' => self::salaryText($v), 'published_at' => (string)($v['published_at'] ?? ''), 'open' => $v['status'] === 'open' && $v['wf'] === 'published', 'applications' => $s['candidates'],
+            'applied' => $email !== '' && (bool)$this->e->s->one('candidates', ['vacancy_id' => (int)$v['id'], 'email' => $email])];
+    }
     private function shape(array $v): array
     {
         $v['team_uuid'] = !empty($v['team_id']) ? ($this->e->s->one('teams', ['id' => (int)$v['team_id']])['uuid'] ?? null) : null;
@@ -33,13 +61,14 @@ final class Recruit
         $c->need('hr.vacancies.manage'); $uuid = $this->e->uuidOrNew($in); $ex = $this->e->s->one('vacancies', ['uuid' => $uuid]);
         $role = $this->e->row('roles', (string)($in['role_uuid'] ?? $this->e->s->one('roles', ['id' => (int)($ex['role_id'] ?? 0)])['uuid'] ?? ''));
         if (!(int)$role['active']) throw new Err('inactive', 'the role is deactivated', 409);
+        $sal = $this->salary($in, $ex);
         $title = $this->e->str($in, 'title', 160, true); $desc = $this->e->str($in, 'description', 20000, !$ex);
         $team = !empty($in['team_uuid']) ? (int)$this->e->row('teams', (string)$in['team_uuid'])['id'] : ($ex['team_id'] ?? null);
         if ($ex) {
             if ($ex['status'] !== 'open') throw new Err('closed', 'a closed vacancy cannot be edited', 409);
-            $this->e->s->update('vacancies', (int)$ex['id'], ['title' => $title, 'role_id' => (int)$role['id'], 'team_id' => $team]);
+            $this->e->s->update('vacancies', (int)$ex['id'], ['title' => $title, 'role_id' => (int)$role['id'], 'team_id' => $team] + $sal);
         } else {
-            $this->e->s->insert('vacancies', ['uuid' => $uuid, 'role_id' => (int)$role['id'], 'team_id' => $team, 'title' => $title, 'status' => 'open', 'wf' => 'draft', 'version' => 0, 'post_ref' => null, 'external' => null, 'created_by' => $c->actor(), 'created_at' => $this->e->now(), 'published_at' => null]);
+            $this->e->s->insert('vacancies', ['uuid' => $uuid, 'role_id' => (int)$role['id'], 'team_id' => $team, 'title' => $title, 'status' => 'open', 'wf' => 'draft', 'version' => 0, 'post_ref' => null, 'external' => null, 'created_by' => $c->actor(), 'created_at' => $this->e->now(), 'published_at' => null] + $sal);
             $this->e->log($c, 'vacancy.created', 'vacancy', $uuid, ['title' => $title]);
         }
         $v = $this->e->row('vacancies', $uuid); $last = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1);
@@ -70,7 +99,7 @@ final class Recruit
         if ($v['wf'] === 'published') return $this->shape($v);   // idempotent
         if (!Pipeline::canWf((string)$v['wf'], 'published')) throw new Err('bad_state', 'approve the vacancy first', 409);
         $ver = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1)[0]; $ext = [];
-        $ref = $this->e->b->feed->publish((string)$v['title'], (string)$ver['description'], in_array($audience, ['global', 'users', 'admins'], true) ? $audience : 'global');
+        $sal = self::salaryText($v); $ref = $this->e->b->feed->publish((string)$v['title'], ($sal !== '' ? $sal . '. ' : '') . (string)$ver['description'], in_array($audience, ['global', 'users', 'admins'], true) ? $audience : 'global');
         foreach ($this->boards as $name => $fn) { try { $ext[$name] = $fn($v, $ver); } catch (\Throwable $x) { $ext[$name] = 'error: ' . substr($x->getMessage(), 0, 80); } }
         try { \Sysfera\Hooks::do('hr.vacancy.published', $v, $ver); } catch (\Throwable) {}
         return $this->wf($c, $v, 'published', ['post_ref' => $ref, 'external' => $ext ? json_encode($ext) : null, 'published_at' => $this->e->now()]);
@@ -81,7 +110,7 @@ final class Recruit
         $email = strtolower(trim($email)); $out = [];
         foreach ($this->e->s->find('vacancies', ['status' => 'open', 'wf' => 'published'], 'id DESC') as $v) {
             $cands = $this->e->s->find('candidates', ['vacancy_id' => (int)$v['id']]);
-            $out[] = ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'post_ref' => (string)($v['post_ref'] ?? ''), 'published_at' => (string)($v['published_at'] ?? ''), 'applications' => count($cands),
+            $out[] = ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'salary' => self::salaryText($v), 'post_ref' => (string)($v['post_ref'] ?? ''), 'published_at' => (string)($v['published_at'] ?? ''), 'applications' => count($cands),
                 'new' => count(array_filter($cands, fn($x) => $x['stage'] === 'new')), 'applied' => $email !== '' && (bool)array_filter($cands, fn($x) => strtolower((string)$x['email']) === $email)];
         }
         return $out;
