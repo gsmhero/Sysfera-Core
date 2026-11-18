@@ -12,7 +12,8 @@ if (!function_exists('url')) { function url(string $p = '/'): string { return '/
 $dir = dirname(__DIR__) . '/core/plugins/crm';
 if (!function_exists('t')) { function t(string $k, array $v = []): string { return $k; } }
 require dirname(__DIR__) . '/core/app/TaskTypes.php'; require dirname(__DIR__) . '/core/app/I18n.php'; require dirname(__DIR__) . '/core/app/Hooks.php'; require dirname(__DIR__) . '/core/app/Attach.php';
-require $dir . '/lib/Fields.php'; require $dir . '/lib/Pipe.php';
+require $dir . '/lib/Fields.php'; require $dir . '/lib/Pipe.php'; require $dir . '/lib/Discuss.php';
+if (!function_exists('human_size')) { function human_size(int $b): string { return $b . ' B'; } }
 $en = require $dir . '/lang/en.php';
 
 set_error_handler(function (int $no, string $msg, string $file, int $line): bool { throw new ErrorException("$msg in " . basename($file) . ":$line"); });
@@ -64,7 +65,7 @@ foreach (['full' => $full, 'none' => $none] as $label => $prof) {
         'deal' => ['d' => $deal, 'contact' => $contact, 'stages' => $stages, 'defs' => $defs, 'users' => $users, 'reasons' => ['x'], 'cur' => 'RUB', 'tasks' => [$task], 'timeline' => $tl, 'pipeline' => $pipes[0], 'nowTs' => $now, 'pipelines' => $pipes],
         'contacts' => ['rows' => [$contact + ['deals' => 2]], 'total' => 1, 'pg' => 1, 'pages' => 2, 'f' => ['q' => 'j', 'type' => 'person']],
         'contact' => ['c' => $contact, 'crm' => $contact['custom']['crm'], 'defs' => [$defs[2], $defs[3]], 'deals' => [$deal], 'tasks' => [$task], 'timeline' => $tl, 'nowTs' => $now],
-        'taskview' => ['task' => $task, 'curContact' => $contact, 'deal' => ['id' => 7, 'title' => 'Big'], 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now],
+        'taskview' => ['comments' => [['id' => 1, 'task_id' => 5, 'user_id' => 1, 'user_name' => 'Ann <b>', 'body' => "hello <i>x</i>\nline2", 'created_at' => '2026-11-12 10:00:00', 'files' => [['id' => 9, 'original_name' => 'shot.png', 'stored_name' => 'aa.png', 'size' => 2048], ['id' => 10, 'original_name' => 'a <b>.pdf', 'stored_name' => 'bb.pdf', 'size' => 5000000]]], ['id' => 2, 'task_id' => 5, 'user_id' => 2, 'user_name' => null, 'body' => null, 'created_at' => '2026-11-12 11:00:00', 'files' => []]], 'task' => $task, 'curContact' => $contact, 'deal' => ['id' => 7, 'title' => 'Big'], 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now],
         'taskedit' => ['task' => $task, 'curContact' => $contact, 'users' => $users, 'listBack' => '/p/crm/tasks', 'backTo' => '/p/crm/task/5?back=%2Fp%2Fcrm%2Ftasks'],
         'tasks' => ['rows' => [$task, ['done_at' => '2026-11-01 10:00:00'] + $task, ['due_at' => null] + $task], 'show' => 'mine', 'users' => $users, 'nowTs' => $now, 'assignee' => 0],
         'reports' => ['pl' => $pipes, 'pid' => 1, 'from' => '2026-01-01', 'to' => '2026-11-13', 'sum' => $sum, 'perStage' => $stages, 'byOwner' => ['Ann' => ['won_n' => 1, 'won_sum' => 5.0, 'lost_n' => 1]], 'reasons' => ['Price' => 2], 'byMonth' => ['2026-10' => 100.0], 'closedSum' => $sum],
@@ -85,5 +86,10 @@ $hc = render('contact', $cases['contact'] + ['tab' => 'contacts', 'prof' => $ful
 ok(str_contains($hc, 'name="f[tags][]"') && str_contains($hc, 'name="f[vip]"') && str_contains($hc, 'value="a" checked'), 'contact form shows multiselect and checkbox fields with values');
 ok(!str_contains(render('tasks', $cases['tasks'] + ['tab' => 'tasks', 'prof' => $full]), 'Call <John>'), 'task titles are escaped');
 
+$h = render('taskview', ['comments' => [['id' => 1, 'task_id' => 5, 'user_id' => 1, 'user_name' => 'Ann <b>', 'body' => "hi <i>x</i>\nl2", 'created_at' => '2026-11-12 10:00:00', 'files' => [['id' => 9, 'original_name' => 'shot.png', 'stored_name' => 'aa.png', 'size' => 2048], ['id' => 10, 'original_name' => 'a <b>.pdf', 'stored_name' => 'bb.pdf', 'size' => 5000]]]], 'task' => $task, 'curContact' => $contact, 'deal' => null, 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now, 'tab' => 'tasks', 'prof' => $full]);
+ok(str_contains($h, 'id="discuss"') && str_contains($h, '/p/crm/task/5/comment') && str_contains($h, 'enctype="multipart/form-data"') && str_contains($h, 'name="files[]"') && str_contains($h, '/p/crm/task/5/file/9') && str_contains($h, '<img src="/p/crm/task/5/file/9"'), 'task view: the discussion with the form, the files and an inline image');
+ok(!str_contains($h, '<i>x</i>') && str_contains($h, 'Ann &lt;b&gt;') && !str_contains($h, 'a <b>.pdf') && str_contains($h, '/comment/1/delete'), 'task view: comment text, names and file names are escaped; the author can delete');
+$h = render('taskview', ['comments' => [], 'task' => $task, 'curContact' => $contact, 'deal' => null, 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now, 'tab' => 'tasks', 'prof' => $none]);
+ok(str_contains($h, 'No comments yet') && str_contains($h, '/p/crm/task/5/comment'), 'task view: empty discussion still offers the form');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

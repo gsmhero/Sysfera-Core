@@ -2,11 +2,11 @@
 declare(strict_types=1);
 
 use Sysfera\TaskTypes;
-use SysferaCrm\{Fields, Pipe};
+use SysferaCrm\{Discuss, Fields, Pipe};
 
 /** Sysfera CRM — clients, deals (kanban), tasks, reports; pipelines, fields and permission profiles are configurable. */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Fields', 'Pipe'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Fields', 'Pipe', 'Discuss'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db();
     $uid = fn() => $sf->auth()->id();
@@ -326,7 +326,10 @@ return function (\Sysfera\Plugin $sf): void {
     $route('GET', '/task/{id}', function (array $p) use ($page, $sf, $db, $self, $taskOf, $listBack, $taskContact, $getDeal) {
         $t = $taskOf((int)$p['id']); if (!$t) redirect($self('tasks'));
         $deal = $t['deal_id'] ? $getDeal((int)$t['deal_id']) : null;
-        $page('taskview', ['task' => $t, 'curContact' => $taskContact($t), 'deal' => $deal, 'assignee' => $t['assignee_id'] ? (string)$db->val('SELECT name FROM {p}users WHERE id = ?', [$t['assignee_id']]) : '',
+        $cm = $db->rows('SELECT c.*, u.name AS user_name FROM {p}crm_task_comments c LEFT JOIN {p}users u ON u.id = c.user_id WHERE c.task_id = ? ORDER BY c.id', [$t['id']]); $byC = [];
+        foreach ($db->rows('SELECT * FROM {p}crm_task_files WHERE task_id = ? ORDER BY id', [$t['id']]) as $fl) $byC[(int)$fl['comment_id']][] = $fl;
+        foreach ($cm as $i => $c) $cm[$i]['files'] = $byC[(int)$c['id']] ?? [];
+        $page('taskview', ['comments' => $cm, 'task' => $t, 'curContact' => $taskContact($t), 'deal' => $deal, 'assignee' => $t['assignee_id'] ? (string)$db->val('SELECT name FROM {p}users WHERE id = ?', [$t['assignee_id']]) : '',
             'listBack' => $listBack(), 'nowTs' => time()], (string)$t['title'], 'tasks');
     });
 
@@ -361,9 +364,60 @@ return function (\Sysfera\Plugin $sf): void {
         $back($self('tasks'));
     });
 
-    $route('POST', '/task/{id}/delete', function (array $p) use ($db, $need, $uid, $profile, $self, $back) {
+    /* ---------- the discussion under a task: comments with attachments (files are kept outside the web root and served after the same access check as the task) ---------- */
+    $tdir = SF_ROOT . '/storage/crm-tasks';
+    $taskUrl = function (int $id) use ($self): string { $b = (string)($_POST['back'] ?? $_GET['back'] ?? ''); return $self('task/' . $id) . (str_starts_with($b, '/p/crm/') && !str_starts_with($b, '/p/crm/task/') ? '?back=' . rawurlencode($b) : ''); };
+    $dropFiles = function (array $rows) use ($tdir): void { foreach ($rows as $r) { $f = $tdir . '/' . basename((string)$r['stored_name']); if (is_file($f)) @unlink($f); } };
+    $route('POST', '/task/{id}/comment', function (array $p) use ($db, $sf, $uid, $now, $txt, $self, $taskOf, $taskUrl, $tdir) {
+        $t = $taskOf((int)$p['id']); if (!$t) redirect($self('tasks'));
+        $url = $taskUrl((int)$t['id']); $body = $txt('body', Discuss::MAX_BODY); $files = Discuss::list($_FILES['files'] ?? null);
+        if ($body === '' && !$files) { flash($sf->t('e_comment_empty'), 'bad'); redirect($url . '#discuss'); }
+        if (($e = Discuss::check($files)) !== null) { flash($sf->t($e), 'bad'); redirect($url . '#discuss'); }
+        foreach ($files as $f) if (!is_uploaded_file($f['tmp_name'])) { flash($sf->t('e_file_fail'), 'bad'); redirect($url . '#discuss'); }
+        if ($files && !is_dir($tdir)) @mkdir($tdir, 0775, true);
+        $db->q('INSERT INTO {p}crm_task_comments (task_id, user_id, body, created_at) VALUES (?,?,?,?)', [$t['id'], $uid(), $body !== '' ? $body : null, $now()]); $cid = (int)$db->insertId(); $bad = 0;
+        foreach ($files as $f) {
+            $orig = Discuss::safeName($f['name']); $stored = bin2hex(random_bytes(12)) . '.' . Discuss::ext($orig);
+            if (@move_uploaded_file($f['tmp_name'], "$tdir/$stored")) $db->q('INSERT INTO {p}crm_task_files (comment_id, task_id, original_name, stored_name, size) VALUES (?,?,?,?,?)', [$cid, $t['id'], $orig, $stored, (int)$f['size']]); else $bad++;
+        }
+        // tell the others in the discussion (assignee, author of the task, earlier commenters) by e-mail; silent when e-mail is not set up
+        try {
+            $ids = array_unique(array_filter(array_map('intval', array_merge([$t['assignee_id'], $t['created_by']], array_column($db->rows('SELECT DISTINCT user_id FROM {p}crm_task_comments WHERE task_id = ?', [$t['id']]), 'user_id')))));
+            $ids = array_values(array_diff($ids, [$uid()])); $me = (string)($sf->auth()->user()['name'] ?? '');
+            if ($ids) {
+                $to = array_column($db->rows('SELECT email FROM {p}users WHERE status = \'active\' AND id IN (' . implode(',', $ids) . ')'), 'email');
+                $link = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . (string)($_SERVER['HTTP_HOST'] ?? '') . $url;
+                if ($to) $sf->mail($to, $sf->t('mail_subject', ['t' => $t['title']]), $sf->t('mail_text', ['who' => $me, 't' => $t['title'], 'body' => $body !== '' ? $body : '(' . count($files) . ' ' . $sf->t('files_n') . ')', 'url' => $link]));
+            }
+        } catch (\Throwable $e) { \Sysfera\App::log('crm task comment mail ' . $e->getMessage()); }
+        flash($bad ? $sf->t('e_file_fail') : $sf->t('comment_added'), $bad ? 'bad' : 'ok'); redirect($url . '#discuss');
+    });
+    $route('GET', '/task/{id}/file/{fid}', function (array $p) use ($db, $taskOf, $tdir) {
+        $t = $taskOf((int)$p['id']); $f = $t ? $db->row('SELECT * FROM {p}crm_task_files WHERE id = ? AND task_id = ?', [(int)$p['fid'], $t['id']]) : null;
+        $path = $f ? $tdir . '/' . basename((string)$f['stored_name']) : '';
+        if (!$f || !is_file($path)) { http_response_code(404); echo 'Not found'; return; }
+        $ext = Discuss::ext((string)$f['stored_name']); $img = Discuss::IMAGES[$ext] ?? null;
+        header('X-Content-Type-Options: nosniff'); header('Content-Type: ' . ($img ?? 'application/octet-stream')); header('Content-Length: ' . filesize($path)); header('Cache-Control: private, max-age=3600');
+        header("Content-Security-Policy: sandbox; default-src 'none'; img-src 'self'");
+        header('Content-Disposition: ' . ($img ? 'inline' : 'attachment') . '; filename="' . str_replace(['"', "\r", "\n"], '_', (string)$f['original_name']) . '"'); readfile($path);
+    });
+    $route('POST', '/task/{id}/comment/{cid}/delete', function (array $p) use ($db, $sf, $uid, $profile, $self, $taskOf, $taskUrl, $dropFiles) {
+        $t = $taskOf((int)$p['id']); if (!$t) redirect($self('tasks'));
+        $c = $db->row('SELECT * FROM {p}crm_task_comments WHERE id = ? AND task_id = ?', [(int)$p['cid'], $t['id']]);
+        if ($c && ((int)$c['user_id'] === $uid() || $profile()['delete'])) {
+            $dropFiles($db->rows('SELECT stored_name FROM {p}crm_task_files WHERE comment_id = ?', [$c['id']]));
+            $db->q('DELETE FROM {p}crm_task_files WHERE comment_id = ?', [$c['id']]); $db->q('DELETE FROM {p}crm_task_comments WHERE id = ?', [$c['id']]); flash($sf->t('comment_deleted'));
+        }
+        redirect($taskUrl((int)$t['id']) . '#discuss');
+    });
+
+    $route('POST', '/task/{id}/delete', function (array $p) use ($db, $need, $uid, $profile, $self, $back, $dropFiles) {
         $need('delete'); $t = $db->row('SELECT * FROM {p}crm_tasks WHERE id = ?', [(int)$p['id']]);
-        if ($t && ($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) $db->q('DELETE FROM {p}crm_tasks WHERE id = ?', [$t['id']]);
+        if ($t && ($profile()['scope'] === 'all' || (int)$t['assignee_id'] === $uid())) {
+            $dropFiles($db->rows('SELECT stored_name FROM {p}crm_task_files WHERE task_id = ?', [$t['id']]));
+            $db->q('DELETE FROM {p}crm_task_files WHERE task_id = ?', [$t['id']]); $db->q('DELETE FROM {p}crm_task_comments WHERE task_id = ?', [$t['id']]);
+            $db->q('DELETE FROM {p}crm_tasks WHERE id = ?', [$t['id']]);
+        }
         $back($self('tasks'));
     });
 

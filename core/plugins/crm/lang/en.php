@@ -43,4 +43,24 @@ return [
     'prof_manager' => 'Manager', 'prof_team_lead' => 'Team lead', 'prof_observer' => 'Observer',
     'lr_price' => 'Too expensive', 'lr_competitor' => 'Chose a competitor', 'lr_no_budget' => 'No budget', 'lr_no_answer' => 'No answer', 'lr_other' => 'Other',
     'fd_source' => 'Lead source', 'fd_position' => 'Position', 'src_web' => 'Website', 'src_call' => 'Phone call', 'src_referral' => 'Referral', 'src_ads' => 'Advertising',
+    'discuss' => 'Discussion',
+    'discuss_empty' => 'No comments yet. Write the first one.',
+    'comment_ph' => 'Write a comment…',
+    'comment_send' => 'Send',
+    'comment_added' => 'Comment added.',
+    'comment_deleted' => 'Comment deleted.',
+    'comment_confirm' => 'Delete this comment and its files?',
+    'file_hint' => 'Up to {n} files, {mb} MB each (images, PDF, Office, text, zip).',
+    'files_n' => 'file(s)',
+    'e_comment_empty' => 'Write a comment or attach a file.',
+    'e_files_many' => 'Too many files at once.',
+    'e_file_big' => 'A file is too big.',
+    'e_file_type' => 'This file type is not allowed.',
+    'e_file_fail' => 'A file could not be saved.',
+    'mail_subject' => 'New comment on the task: {t}',
+    'mail_text' => '{who} wrote on the task "{t}":
+
+{body}
+
+{url}',
 ];

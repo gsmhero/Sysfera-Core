@@ -73,6 +73,19 @@ ok(count($rows) === 3 && $rows[1][0] === 'Smith; John' && $rows[1][2] === "said 
 ok(Pipe::csvParse("a,b\n1,2")[1] === ['1', '2'] && Pipe::csvParse("a\tb\n1\t2")[1] === ['1', '2'], 'CSV: comma and tab delimiters are detected');
 ok(Pipe::csvLine(['a;b', 'x"y', '=SUM(A1)', '-5', '+7 900', 'ok']) === '"a;b";"x""y";\'=SUM(A1);-5;\'+7 900;ok', 'CSV line: quoting and formula-injection guard (numbers stay numbers)');
 
+/* task discussion: the rules for attached files */
+require_once $dir . '/lib/Discuss.php';
+use SysferaCrm\Discuss;
+ok(Discuss::safeName("..\\..\\evil\"\r\n.php") === 'evil_ .php' || !str_contains(Discuss::safeName("../../a\"b\r\n.png"), '/'), 'files: a name has no path, quotes or line breaks');
+ok(Discuss::extOk('Report.PDF') && Discuss::extOk('a.docx') && !Discuss::extOk('x.php') && !Discuss::extOk('x.phtml') && !Discuss::extOk('x.html') && !Discuss::extOk('x.svg') && !Discuss::extOk('x.exe') && !Discuss::extOk('noext') && !Discuss::extOk('x.php.jpg.exe'), 'files: documents and images only; scripts, html, svg and executables are refused');
+$one = fn(string $n, int $size = 100, int $err = UPLOAD_ERR_OK) => ['name' => $n, 'tmp_name' => '/tmp/x', 'size' => $size, 'error' => $err];
+ok(Discuss::check([$one('a.png'), $one('b.pdf')]) === null && Discuss::check([]) === null, 'files: a normal list is fine');
+ok(Discuss::check([$one('a.png', Discuss::MAX_BYTES + 1)]) === 'e_file_big' && Discuss::check([$one('a.png', 1, UPLOAD_ERR_INI_SIZE)]) === 'e_file_big' && Discuss::check([$one('a.php')]) === 'e_file_type' && Discuss::check([$one('a.png', 1, UPLOAD_ERR_PARTIAL)]) === 'e_file_fail', 'files: too big, bad type and a failed upload are told apart');
+ok(Discuss::check(array_fill(0, Discuss::MAX_FILES + 1, $one('a.png'))) === 'e_files_many', 'files: at most ' . Discuss::MAX_FILES . ' at a time');
+$multi = ['name' => ['a.png', '', 'b.pdf'], 'tmp_name' => ['/t/1', '', '/t/3'], 'size' => [5, 0, 7], 'error' => [0, UPLOAD_ERR_NO_FILE, 0]];
+$l = Discuss::list($multi); ok(count($l) === 2 && $l[1]['name'] === 'b.pdf' && $l[1]['size'] === 7 && Discuss::list(null) === [] && Discuss::list(['name' => '', 'error' => UPLOAD_ERR_NO_FILE]) === [], 'files: the multiple-file shape of $_FILES becomes a list, empty slots are dropped');
+$sql = (string)file_get_contents($dir . '/migrations/004_task_comments.sql');
+ok(str_contains($sql, '{p}crm_task_comments') && str_contains($sql, '{p}crm_task_files') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $sql), 'migration 004: two new tables, nothing destructive');
 /* language files: same keys, and every key the code uses exists */
 $en = require $dir . '/lang/en.php'; $ru = require $dir . '/lang/ru.php';
 ok(array_diff_key($en, $ru) === [] && array_diff_key($ru, $en) === [], 'en and ru have the same keys');

@@ -21,3 +21,4 @@ $data = (array)(json_decode((string)($task['type_data'] ?? ''), true) ?: []); $s
   <?php if (!empty($task['notes'])): ?><div class="att-blk"><h4><?= e($sf->t('f_notes')) ?></h4><p><?= nl2br(e($task['notes'])) ?></p></div><?php endif; ?>
   <?php $report = (string)($task['report'] ?? ''); $links = \Sysfera\Attach::decode($task['links'] ?? null); $docIds = \Sysfera\Attach::decode($task['wdocs'] ?? null); $fileIds = \Sysfera\Attach::decode($task['tfiles'] ?? null); require dirname(__DIR__, 3) . '/views/_attach_view.php'; ?>
 </div>
+<?php require __DIR__ . '/_taskcomments.php'; ?>
