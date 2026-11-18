@@ -143,6 +143,7 @@ $rolesHtml = ''; $sf = new FakeSf(); $c = $root; $tab = 'roles'; $me = null; $ro
 ok(substr_count($rolesHtml, '<details class="card hr-acc">') === count($roles) && !str_contains($rolesHtml, '<details class="card hr-acc" open'), 'roles: every role is a closed accordion item with its permissions inside');
 $sf = new FakeSf(); $vv = $call('vacancies.list')[0]; $board = $call('candidates.board', ['uuid' => $vv['uuid']]); $vars = ['v' => $call('vacancies.get', ['uuid' => $vv['uuid']]), 'board' => $board, 'versions' => $call('vacancies.versions', ['uuid' => $vv['uuid']]), 'roles' => $call('roles.list'), 'teams' => $call('teams.list'), 'users' => [['id' => 4, 'name' => 'Ivan']], 'interviews' => []];
 extract($vars); $tab = 'vacancies'; $me = null; ob_start(); require "$dir/views/vacancy.php"; $vh = (string)ob_get_clean();
+ok(str_contains($vh, 'hr-sk') && str_contains($vh, $en['f_skills']) && str_contains($vh, 'name="skills[]"') === !empty($v['skills']), 'vacancy editor: the Skills block is there');
 ok(str_contains($vh, '<label>' . $en['iv_candidate']) && str_contains($vh, '<label>' . $en['iv_interviewer']) && str_contains($vh, '<label>' . $en['iv_starts']) && str_contains($vh, '<label>' . $en['iv_ends']), 'interview form: every field has a name');
 /* vacancy preview page */
 foreach (['en' => $en, 'ru' => $ru] as $pl2 => $PL) foreach ([['open' => true, 'applied' => false], ['open' => true, 'applied' => true], ['open' => false, 'applied' => false]] as $st2) {

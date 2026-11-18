@@ -9,6 +9,7 @@
     <?php if ($v['published_at'] !== ''): ?><div><small><?= e($sf->t('pv_published')) ?></small><b><?= e(substr($v['published_at'], 0, 10)) ?></b></div><?php endif; ?>
     <div><small><?= e($sf->t('pv_applications')) ?></small><b><?= (int)$v['applications'] ?></b></div>
   </div>
+  <?php if (!empty($v['skills'])): ?><div class="hr-pv-sk"><small><?= e($sf->t('f_skills')) ?></small><p class="hr-chips"><?php foreach ($v['skills'] as $s): ?><span class="hr-chip"><i><?= e($s) ?></i></span><?php endforeach; ?></p></div><?php endif; ?>
   <div class="hr-pv-text"><?= nl2br(e($v['description'])) ?></div>
   <div class="row"><?php if (!$v['open']): ?><span class="hr-st bad"><?= e($sf->t('pv_closed')) ?></span>
     <?php elseif ($v['applied']): ?><span class="hr-st ok"><?= e($sf->t('applied_badge')) ?></span>

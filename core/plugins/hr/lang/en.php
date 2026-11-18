@@ -68,4 +68,5 @@ return [
  'act_apply' => 'Apply', 'applied' => 'Your application was sent.', 'applied_already' => 'You have already applied to this vacancy.', 'applied_badge' => 'Applied',
  'w_title' => 'HR Department', 'w_open' => 'Open', 'w_vacancies' => 'Open vacancies', 'w_none' => 'No published vacancies.', 'w_applications' => '{n} application(s)', 'w_new' => '{n} new',
     'f_salary' => 'Salary', 'f_salary_from' => 'Salary from', 'f_salary_to' => 'Salary to', 'f_currency' => 'Currency', 'err_bad_salary' => 'The salary must be a whole number, and "from" cannot be above "to".', 'act_preview' => 'Preview', 'pv_back' => 'Dashboard', 'pv_back_activity' => 'Activity', 'pv_manage' => 'Manage vacancy', 'pv_published' => 'Published', 'pv_applications' => 'Applications', 'pv_closed' => 'This vacancy is closed.',
+    'f_skills' => 'Skills', 'sk_ph' => 'Add a skill, press Enter', 'sk_add' => 'Add', 'sk_remove' => 'Remove skill', 'sk_hint' => 'The skills a candidate needs, up to {n}. Commas add several at once.',
 ];

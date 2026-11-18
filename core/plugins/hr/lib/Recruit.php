@@ -28,6 +28,21 @@ final class Recruit
         $cur = strtoupper((string)($in['salary_cur'] ?? ($ex['salary_cur'] ?? 'RUB'))); if (!isset(self::CURRENCIES[$cur])) $cur = 'RUB';
         return ['salary_from' => $from, 'salary_to' => $to, 'salary_cur' => $cur];
     }
+    public const MAX_SKILLS = 30, SKILL_LEN = 40;
+    /** The skills of a vacancy: a list (or a comma / line separated text) of short names, trimmed, without repeats (case does not matter), at most 30. Sent only when the key is present. */
+    private function skillsIn(array $in, ?array $ex): array
+    {
+        if (!array_key_exists('skills', $in)) return $ex ? [] : ['skills' => null];
+        $raw = $in['skills']; if (!is_array($raw)) $raw = preg_split('/[,\n\r;]+/u', (string)$raw); $out = []; $seen = [];
+        foreach ($raw as $x) {
+            $x = trim(preg_replace('/\s+/u', ' ', (string)$x)); if ($x === '') continue;
+            $x = function_exists('mb_substr') ? mb_substr($x, 0, self::SKILL_LEN) : (string)preg_replace('/^(.{' . self::SKILL_LEN . '}).*$/us', '$1', $x);
+            $k = function_exists('mb_strtolower') ? mb_strtolower($x) : strtolower($x); if (isset($seen[$k])) continue; $seen[$k] = true; $out[] = $x;
+            if (count($out) >= self::MAX_SKILLS) break;
+        }
+        return ['skills' => $out ? json_encode($out, JSON_UNESCAPED_UNICODE) : null];
+    }
+    public static function skillList(array $v): array { $j = $v['skills'] ?? null; if (is_array($j)) return array_values($j); $a = is_string($j) && $j !== '' ? json_decode($j, true) : []; return is_array($a) ? array_values(array_map('strval', $a)) : []; }
     /** "100 000 – 150 000 ₽", "≥ 100 000 ₽", "≤ 150 000 ₽" or '' */
     public static function salaryText(array $v): string
     {
@@ -42,11 +57,12 @@ final class Recruit
         if (!($v['status'] === 'open' && $v['wf'] === 'published') && !$c->can('hr.vacancies.manage')) throw new Err('not_found', 'no such vacancy', 404);
         $s = $this->shape($v); $role = $this->e->s->one('roles', ['id' => (int)$v['role_id']]); $team = !empty($v['team_id']) ? $this->e->s->one('teams', ['id' => (int)$v['team_id']]) : null; $email = strtolower(trim($email));
         return ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'description' => (string)$s['description'], 'role' => (string)($role['name'] ?? ''), 'role_ru' => (string)(($role['name_ru'] ?? '') ?: ($role['name'] ?? '')), 'team' => (string)($team['name'] ?? ''),
-            'salary' => self::salaryText($v), 'published_at' => (string)($v['published_at'] ?? ''), 'open' => $v['status'] === 'open' && $v['wf'] === 'published', 'applications' => $s['candidates'],
+            'salary' => self::salaryText($v), 'skills' => $s['skills'], 'published_at' => (string)($v['published_at'] ?? ''), 'open' => $v['status'] === 'open' && $v['wf'] === 'published', 'applications' => $s['candidates'],
             'applied' => $email !== '' && (bool)$this->e->s->one('candidates', ['vacancy_id' => (int)$v['id'], 'email' => $email])];
     }
     private function shape(array $v): array
     {
+        $v['skills'] = self::skillList($v);
         $v['team_uuid'] = !empty($v['team_id']) ? ($this->e->s->one('teams', ['id' => (int)$v['team_id']])['uuid'] ?? null) : null;
         $v['role_uuid'] = $this->e->s->one('roles', ['id' => (int)$v['role_id']])['uuid'] ?? null;
         $cur = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1); $v['description'] = $cur[0]['description'] ?? '';
@@ -61,7 +77,7 @@ final class Recruit
         $c->need('hr.vacancies.manage'); $uuid = $this->e->uuidOrNew($in); $ex = $this->e->s->one('vacancies', ['uuid' => $uuid]);
         $role = $this->e->row('roles', (string)($in['role_uuid'] ?? $this->e->s->one('roles', ['id' => (int)($ex['role_id'] ?? 0)])['uuid'] ?? ''));
         if (!(int)$role['active']) throw new Err('inactive', 'the role is deactivated', 409);
-        $sal = $this->salary($in, $ex);
+        $sal = $this->salary($in, $ex) + $this->skillsIn($in, $ex);
         $title = $this->e->str($in, 'title', 160, true); $desc = $this->e->str($in, 'description', 20000, !$ex);
         $team = !empty($in['team_uuid']) ? (int)$this->e->row('teams', (string)$in['team_uuid'])['id'] : ($ex['team_id'] ?? null);
         if ($ex) {

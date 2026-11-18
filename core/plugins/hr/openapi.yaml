@@ -117,7 +117,7 @@ paths:
     post:
       operationId: vacancies.save
       summary: "Create or edit a vacancy; a changed description is a new version and sends approved/published back to draft"
-      description: "Permission: hr.vacancies.manage. body: uuid?, role_uuid, title, description, team_uuid?"
+      description: "Permission: hr.vacancies.manage. body: uuid?, role_uuid, title, description, team_uuid?, salary_from?, salary_to?, salary_cur? (RUB|USD|EUR), skills? (list of short texts, up to 30)"
       requestBody:
         content:
           application/json:

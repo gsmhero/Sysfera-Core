@@ -295,4 +295,14 @@ ok(refused(fn() => $rec->preview($visitor, $dr['uuid']), 'not_found') && $rec->p
 $rec->closeVacancy($oleg, $sv['uuid']); ok(refused(fn() => $rec->preview($visitor, $sv['uuid']), 'not_found'), 'preview: a closed vacancy is gone for visitors');
 $mig2 = (string)file_get_contents($dir . '/migrations/002_vacancy_salary.sql'); ok(str_contains($mig2, 'salary_from') && str_contains($mig2, 'salary_to') && str_contains($mig2, 'salary_cur') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig2), 'migration 002: three new columns, nothing destructive');
 
+/* ---------- skills of a vacancy ---------- */
+$ks = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Skilled', 'description' => 'x', 'skills' => ['  PHP ', 'php', 'MySQL', '', 'Работа  в команде', str_repeat('x', 80)]]);
+ok(array_slice($ks['skills'], 0, 3) === ['PHP', 'MySQL', 'Работа в команде'] && count($ks['skills']) === 4 && strlen($ks['skills'][3]) <= Recruit::SKILL_LEN, 'skills: trimmed, spaces squeezed, repeats (any case) dropped, long names cut');
+$ks2 = $rec->saveVacancy($oleg, ['uuid' => $ks['uuid'], 'title' => 'Skilled']); ok(count($ks2['skills']) === 4, 'skills: an edit that does not send them keeps them');
+$ks3 = $rec->saveVacancy($oleg, ['uuid' => $ks['uuid'], 'title' => 'Skilled', 'skills' => "Go, Rust\nSQL;Go"]); ok($ks3['skills'] === ['Go', 'Rust', 'SQL'], 'skills: a comma / line separated text works too (API)');
+$ks4 = $rec->saveVacancy($oleg, ['uuid' => $ks['uuid'], 'title' => 'Skilled', 'skills' => []]); ok($ks4['skills'] === [], 'skills: an empty list clears them');
+$many = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Many', 'description' => 'x', 'skills' => array_map(fn($i) => "s$i", range(1, 60))]); ok(count($many['skills']) === Recruit::MAX_SKILLS, 'skills: at most ' . Recruit::MAX_SKILLS);
+ok($rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'None', 'description' => 'x'])['skills'] === [], 'skills: a new vacancy without them has an empty list');
+$mig3 = (string)file_get_contents($dir . '/migrations/003_vacancy_skills.sql'); ok(str_contains($mig3, 'skills') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig3), 'migration 003: one new column, nothing destructive');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

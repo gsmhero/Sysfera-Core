@@ -35,3 +35,9 @@
 .hr-pv-facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}.hr-pv-facts>div{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:9px 12px}.hr-pv-facts small{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}.hr-pv-facts b{font-weight:600}
 .hr-pv-text{line-height:1.6;margin:0 0 16px;word-break:break-word}
 .hrw-s{white-space:nowrap}.hrw-a{display:flex;gap:6px;align-items:center}
+
+/* skills */
+.hr-sk{display:grid;gap:6px;margin:8px 0}.hr-sk-t{font-size:13px;color:var(--mut)}.hr-sk-chips,.hr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0}.hr-sk-chips:empty{display:none}
+.hr-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:13px}.hr-chip i{font-style:normal}
+.hr-sk-x{border:0;background:none;color:var(--mut);cursor:pointer;font-size:16px;line-height:1;padding:0 0 0 2px}.hr-sk-x:hover{color:var(--bad)}
+.hr-sk .row .hr-sk-in{flex:1;min-width:0}.hr-pv-sk{margin:0 0 14px}.hr-pv-sk small{display:block;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);margin-bottom:6px}
