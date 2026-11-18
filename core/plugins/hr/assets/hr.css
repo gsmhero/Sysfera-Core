@@ -21,3 +21,12 @@
 .hr-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.hr-cal div{border:1px solid var(--line);border-radius:6px;min-height:64px;padding:3px 5px;font-size:12px}.hr-cal b{font-size:11px;color:var(--mut)}.hr-cal .away{background:var(--warnbg);border-radius:4px;padding:0 3px;margin-top:2px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hr-pre{background:var(--bg);border-radius:8px;padding:8px 10px;font-size:12.5px;white-space:pre-wrap;word-break:break-word;margin:6px 0;max-height:240px;overflow:auto}
 @media print{.hr-noprint{display:none!important}}
+
+/* roles accordion, interview form, dashboard widget */
+.hr-acc{padding:0}.hr-acc>summary{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;cursor:pointer;list-style:none}.hr-acc>summary::-webkit-details-marker{display:none}
+.hr-acc>summary::before{content:'';flex:none;width:7px;height:7px;border-right:2px solid var(--mut);border-bottom:2px solid var(--mut);transform:rotate(-45deg);transition:transform .15s;margin-right:4px}.hr-acc[open]>summary::before{transform:rotate(45deg)}
+.hr-acc-t{flex:1;min-width:0;display:flex;gap:8px;align-items:baseline}.hr-acc-m{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.hr-acc-b{padding:4px 16px 14px;border-top:1px solid var(--line)}
+.hr-grid .hr-act{justify-content:flex-end}
+.hrw-h{margin:12px 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut)}
+.hrw-l{list-style:none;margin:0;padding:0;display:grid;gap:6px}.hrw-l li{display:flex;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.hrw-t{flex:1;min-width:0;display:grid}.hrw-t a,.hrw-t b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}.hrw-t small{font-size:12px}.hrw-new{color:var(--warn);font-weight:600}

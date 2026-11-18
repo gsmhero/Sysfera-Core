@@ -30,7 +30,13 @@ return function (\Sysfera\Plugin $sf): void {
         $hr = new Hr($env); $rec = new Recruit($env, $hr); $lv = new Leave($env, $hr);
         return $o = ['rbac' => $rbac, 'env' => $env, 'hr' => $hr, 'rec' => $rec, 'lv' => $lv, 'ops' => Api::ops($env, $hr, $rec, $lv)];
     };
-    $seed = function () use ($sf, $svc) { if ($sf->setting('seed_v1') !== '1') { $svc()['rbac']->ensureBuiltin(); $sf->setSetting('seed_v1', '1'); } };
+    $seed = function () use ($sf, $svc, $db) {
+        if ($sf->setting('seed_v1') !== '1') { $svc()['rbac']->ensureBuiltin(); $sf->setSetting('seed_v1', '1'); }
+        if ($sf->setting('teams_sync_v1') !== '1' && DbBridges::has($db, 'teams_teams')) {   // once: show the teams that existed before the Teams app was connected
+            foreach ($svc()['env']->s->find('teams') as $t) $svc()['hr']->syncTeam((string)$t['uuid']);
+            $sf->setSetting('teams_sync_v1', '1');
+        }
+    };
 
     /** who is asking, resolved by the session */
     $ctx = function () use ($sf, $svc, $seed): Ctx {
@@ -44,7 +50,11 @@ return function (\Sysfera\Plugin $sf): void {
     };
 
     $errText = fn(Err $e): string => ($t = $sf->t('err_' . $e->errCode)) !== 'hr.err_' . $e->errCode ? $t : $e->getMessage();
-    $sf->menu('menu', '/', ['order' => 22, 'icon' => 'users']);
+    /* new applications waiting for HR: a badge on the menu item (only for those who handle candidates) */
+    $sf->menu('menu', '/', ['order' => 22, 'icon' => 'users', 'badge' => function () use ($sf, $svc, $ctx) {
+        if ($sf->auth()->id() <= 0) return 0;
+        try { if (!$ctx()->can('hr.candidates.manage')) return 0; return count(array_filter($svc()['env']->s->find('candidates', ['stage' => 'new']), fn($x) => $x['source'] === 'apply')); } catch (\Throwable) { return 0; }
+    }]);
 
     /* =============================== machine API (signed) =============================== */
     $out = function (int $status, array $data, ?string $key = null): void {
@@ -115,6 +125,34 @@ return function (\Sysfera\Plugin $sf): void {
         } catch (Err $e) { flash($errText($e), 'bad'); }
         catch (\Throwable $e) { \Sysfera\App::log('hr ' . $e); flash($sf->t('err_server'), 'bad'); }
         redirect('/p/hr' . ($back === '/' ? '/' : $back));
+    });
+
+    /* =============================== Apply: from the Activity post and from the dashboard =============================== */
+    $user = fn(): array => (array)($sf->auth()->user() ?? []);
+    $open = function () use ($svc, $user): array { static $o = null; return $o ??= $svc()['rec']->openPublished((string)($user()['email'] ?? '')); };
+    $sf->route('POST', '/apply/{uuid}', function (array $p) use ($sf, $svc, $ctx, $seed, $user, $errText) {
+        $u = $user(); $back = ($_POST['return'] ?? '') === 'dashboard' ? '/' : '/p/activity/';
+        if (empty($u['id']) || \Sysfera\Demo::on()) { flash($sf->t('forbidden'), 'bad'); redirect($back); }
+        try { $seed(); $svc()['rec']->apply($ctx(), (string)$p['uuid'], ['full_name' => (string)($u['name'] ?? ''), 'email' => (string)($u['email'] ?? ''), 'phone' => (string)($u['phone'] ?? '')]); flash($sf->t('applied')); }
+        catch (Err $e) { flash($e->errCode === 'duplicate' ? $sf->t('applied_already') : $errText($e), 'bad'); }
+        catch (\Throwable $e) { \Sysfera\App::log('hr ' . $e); flash($sf->t('err_server'), 'bad'); }
+        redirect($back);
+    });
+    /* the button under the vacancy's post in the Activity feed (the post is found by the reference saved when the vacancy was published) */
+    $sf->on('activity.post.actions', function (string $html, array $post) use ($sf, $open, $user) {
+        if (empty($user()['id']) || \Sysfera\Demo::on() || empty($post['id'])) return $html;
+        foreach ($open() as $v) if ($v['post_ref'] === 'activity:' . (int)$post['id'])
+            return $html . ($v['applied'] ? '<span class="hr-st ok">' . e($sf->t('applied_badge')) . '</span> '
+                : '<form method="post" action="' . e($sf->url('/apply/' . $v['uuid'])) . '" class="inline">' . csrf_field() . '<button class="btn sm primary">' . e($sf->t('act_apply')) . '</button></form> ');
+        return $html;
+    });
+    /* dashboard widget: published vacancies with the number of applications */
+    $sf->on('dashboard.widgets', function (array $w) use ($sf, $open, $user, $ctx, $seed) {
+        if (\Sysfera\Demo::on() || empty($user()['id'])) return $w;
+        try { $seed(); $list = $open(); $manage = $ctx()->can('hr.candidates.manage'); } catch (\Throwable) { return $w; }
+        if (!$list && !$manage) return $w;
+        $w['hr'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'list' => array_slice($list, 0, 5), 'total' => count($list), 'manage' => $manage]);
+        return $w;
     });
 
     /* =============================== pages =============================== */

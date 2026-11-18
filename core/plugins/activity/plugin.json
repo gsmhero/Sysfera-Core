@@ -1,6 +1,6 @@
 {
   "slug": "activity",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "name": { "en": "Sysfera Activity", "ru": "Sysfera Activity" },
   "description": {
     "en": "A public feed for users of all Sysfera installations: short posts (title up to 20 words, text up to 50 words) with a button to write to the author in Messenger. Needs Sysfera Messenger.",

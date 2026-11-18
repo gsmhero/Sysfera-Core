@@ -19,6 +19,7 @@ final class Recruit
     }
     private function shape(array $v): array
     {
+        $v['team_uuid'] = !empty($v['team_id']) ? ($this->e->s->one('teams', ['id' => (int)$v['team_id']])['uuid'] ?? null) : null;
         $v['role_uuid'] = $this->e->s->one('roles', ['id' => (int)$v['role_id']])['uuid'] ?? null;
         $cur = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1); $v['description'] = $cur[0]['description'] ?? '';
         $v['candidates'] = count($this->e->s->find('candidates', ['vacancy_id' => (int)$v['id']])); return $v;
@@ -73,6 +74,34 @@ final class Recruit
         foreach ($this->boards as $name => $fn) { try { $ext[$name] = $fn($v, $ver); } catch (\Throwable $x) { $ext[$name] = 'error: ' . substr($x->getMessage(), 0, 80); } }
         try { \Sysfera\Hooks::do('hr.vacancy.published', $v, $ver); } catch (\Throwable) {}
         return $this->wf($c, $v, 'published', ['post_ref' => $ref, 'external' => $ext ? json_encode($ext) : null, 'published_at' => $this->e->now()]);
+    }
+    /** Published, open vacancies with the number of applications. Nothing personal and no permission: it feeds the dashboard and the Activity button. $email marks the ones that person already applied to. */
+    public function openPublished(string $email = ''): array
+    {
+        $email = strtolower(trim($email)); $out = [];
+        foreach ($this->e->s->find('vacancies', ['status' => 'open', 'wf' => 'published'], 'id DESC') as $v) {
+            $cands = $this->e->s->find('candidates', ['vacancy_id' => (int)$v['id']]);
+            $out[] = ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'post_ref' => (string)($v['post_ref'] ?? ''), 'published_at' => (string)($v['published_at'] ?? ''), 'applications' => count($cands),
+                'new' => count(array_filter($cands, fn($x) => $x['stage'] === 'new')), 'applied' => $email !== '' && (bool)array_filter($cands, fn($x) => strtolower((string)$x['email']) === $email)];
+        }
+        return $out;
+    }
+    /** "Apply": a signed-in user answers a published vacancy; they become a candidate in the stage NEW. HR managers are told. */
+    public function apply(Ctx $c, string $vacUuid, array $in): array
+    {
+        if (!$c->uid) throw new Err('forbidden', 'sign in to apply', 403);
+        $v = $this->e->row('vacancies', $vacUuid);
+        if ($v['status'] !== 'open' || $v['wf'] !== 'published') throw new Err('closed', 'the vacancy is not open for applications', 409);
+        $email = $this->e->email((string)($in['email'] ?? ''), true);
+        if ($this->e->s->one('candidates', ['vacancy_id' => (int)$v['id'], 'email' => $email])) throw new Err('duplicate', 'this candidate already applied', 409);
+        $phone = $this->e->str($in, 'phone', 40); $uuid = $this->e->uuidOrNew([]);
+        $id = $this->e->s->insert('candidates', ['uuid' => $uuid, 'vacancy_id' => (int)$v['id'], 'full_name' => $this->e->str($in, 'full_name', 160, true), 'email' => $email, 'phone_enc' => $phone === '' ? '' : $this->e->seal($phone), 'source' => 'apply', 'stage' => 'new', 'employee_id' => null, 'created_at' => $this->e->now(), 'updated_at' => $this->e->now()]);
+        $this->e->s->insert('stage_log', ['candidate_id' => $id, 'from_stage' => '', 'to_stage' => 'new', 'note' => '', 'at' => $this->e->now(), 'actor' => $c->actor()]);
+        $this->e->log($c, 'candidate.applied', 'candidate', $uuid, ['vacancy' => $v['uuid']]);
+        $cd = $this->cand($this->e->s->one('candidates', ['id' => $id]));
+        $this->e->notifyPerm('hr.candidates.manage', 'New application: ' . $cd['full_name'] . ' - ' . $v['title']);
+        try { \Sysfera\Hooks::do('hr.candidate.applied', $v, $cd); } catch (\Throwable) {}
+        return $cd;
     }
     public function closeVacancy(Ctx $c, string $uuid): array
     {

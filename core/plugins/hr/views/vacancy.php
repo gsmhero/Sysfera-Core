@@ -38,10 +38,13 @@ b.addEventListener('drop',function(e){var col=e.target.closest('.hr-col');if(!co
     <input name="full_name" placeholder="<?= e($sf->t('f_full_name')) ?>" required><input type="email" name="email" placeholder="<?= e($sf->t('f_email')) ?>" required><input name="phone" placeholder="<?= e($sf->t('f_phone')) ?>"><input name="source" placeholder="<?= e($sf->t('f_source')) ?>"><button class="btn primary"><?= e($sf->t('add')) ?></button></form></div>
 
 <div class="card"><h3><?= e($sf->t('interviews')) ?></h3>
-  <form method="post" action="<?= e($sf->url('/do/interviews.schedule')) ?>" class="row"><?= csrf_field() ?><input type="hidden" name="return" value="/vacancies/<?= e($v['uuid']) ?>">
-    <select name="uuid" required><?php foreach ($byUuid as $cd): if (!in_array($cd['stage'], ['screening', 'interview'], true)) continue; ?><option value="<?= e($cd['uuid']) ?>"><?= e($cd['full_name']) ?></option><?php endforeach; ?></select>
-    <select name="interviewer_user_id"><?php foreach ($users as $u): ?><option value="<?= (int)$u['id'] ?>"><?= e($u['name']) ?></option><?php endforeach; ?></select>
-    <input type="datetime-local" name="starts_at" required><input type="datetime-local" name="ends_at" required><input name="place" placeholder="<?= e($sf->t('f_place')) ?>"><button class="btn primary"><?= e($sf->t('schedule')) ?></button></form>
+  <?php $cands = array_filter($byUuid, fn($cd) => in_array($cd['stage'], ['screening', 'interview'], true)); ?>
+  <form method="post" action="<?= e($sf->url('/do/interviews.schedule')) ?>" class="hr-grid"><?= csrf_field() ?><input type="hidden" name="return" value="/vacancies/<?= e($v['uuid']) ?>">
+    <label><?= e($sf->t('iv_candidate')) ?><select name="uuid" required><option value=""><?= e($sf->t($cands ? 'iv_pick' : 'iv_none')) ?></option><?php foreach ($cands as $cd): ?><option value="<?= e($cd['uuid']) ?>"><?= e($cd['full_name']) ?> · <?= e($sf->t('stage_' . $cd['stage'])) ?></option><?php endforeach; ?></select></label>
+    <label><?= e($sf->t('iv_interviewer')) ?><select name="interviewer_user_id" required><?php foreach ($users as $u): ?><option value="<?= (int)$u['id'] ?>"><?= e($u['name']) ?></option><?php endforeach; ?></select></label>
+    <label><?= e($sf->t('iv_starts')) ?><input type="datetime-local" name="starts_at" required></label><label><?= e($sf->t('iv_ends')) ?><input type="datetime-local" name="ends_at" required></label>
+    <label><?= e($sf->t('f_place')) ?><input name="place" maxlength="200"></label><label class="hr-act"><button class="btn primary"><?= e($sf->t('schedule')) ?></button></label></form>
+  <?php if (!$cands): ?><p class="muted sm"><?= e($sf->t('iv_hint')) ?></p><?php endif; ?>
   <?php foreach ($interviews as $h): foreach ($h['interviews'] as $i): $fb = array_values(array_filter($h['feedback'], fn($f) => (int)$f['interviewer_user_id'] === (int)$i['interviewer_user_id'])); ?>
   <details class="card"><summary><b><?= e($h['candidate']['full_name']) ?></b> · <?= e(substr($i['starts_at'], 0, 16)) ?> – <?= e(substr($i['ends_at'], 11, 5)) ?> <span class="hr-st <?= $hrst($i['status']) ?>"><?= e($sf->t('is_' . $i['status'])) ?></span><?= $fb ? ' · ' . e($sf->t('rec_' . $fb[0]['recommend'])) . ' (' . e((string)$fb[0]['avg']) . ')' : '' ?></summary>
     <?php if ($i['status'] === 'scheduled'): ?>
@@ -57,7 +60,7 @@ b.addEventListener('drop',function(e){var col=e.target.closest('.hr-col');if(!co
   <form method="post" action="<?= e($sf->url('/do/vacancies.save')) ?>"><?= csrf_field() ?><input type="hidden" name="return" value="/vacancies/<?= e($v['uuid']) ?>"><input type="hidden" name="uuid" value="<?= e($v['uuid']) ?>">
     <div class="hr-grid"><label><?= e($sf->t('f_title')) ?><input name="title" value="<?= e($v['title']) ?>" required maxlength="160"></label>
       <label><?= e($sf->t('f_role')) ?><select name="role_uuid"><?php foreach ($roles as $r): ?><option value="<?= e($r['uuid']) ?>" <?= $r['uuid'] === $v['role_uuid'] ? 'selected' : '' ?>><?= e($r['name']) ?></option><?php endforeach; ?></select></label>
-      <label><?= e($sf->t('f_team')) ?><select name="team_uuid"><option value=""></option><?php foreach ($teams as $t): ?><option value="<?= e($t['uuid']) ?>"><?= e($t['name']) ?></option><?php endforeach; ?></select></label></div>
+      <label><?= e($sf->t('f_team')) ?><select name="team_uuid"><option value=""><?= e($sf->t('team_none')) ?></option><?php foreach ($teams as $t): ?><option value="<?= e($t['uuid']) ?>" <?= ($v['team_uuid'] ?? null) === $t['uuid'] ? 'selected' : '' ?>><?= e($t['name']) ?></option><?php endforeach; ?></select></label></div>
     <label class="fld"><?= e($sf->t('f_description')) ?><textarea name="description" rows="8" style="width:100%" maxlength="20000"><?= e($v['description']) ?></textarea></label><p class="muted"><?= e($sf->t('version_hint')) ?></p>
     <button class="btn primary"><?= e($sf->t('save')) ?></button></form><?php endif; ?>
   <h3><?= e($sf->t('versions')) ?></h3><?php foreach ($versions as $ver): ?><details><summary>v<?= (int)$ver['version'] ?> · <?= e($ver['created_at']) ?> · <?= e($ver['created_by']) ?> · <code><?= e(substr($ver['sha256'], 0, 10)) ?></code></summary><div class="hr-pre"><?= e($ver['description']) ?></div></details><?php endforeach; ?></div>

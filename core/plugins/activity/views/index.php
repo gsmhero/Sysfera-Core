@@ -30,6 +30,7 @@ $q = fn(array $o) => $sf->url('/?' . http_build_query(array_filter(array_merge([
       <form method="post" action="<?= e($sf->url('/action')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn sm danger" name="do" value="delete" data-confirm="<?= e($sf->t('confirm_delete')) ?>"><?= e($sf->t('delete')) ?></button></form>
     <?php else: ?>
       <a class="btn sm primary" href="<?= e($chatUrl . rawurlencode($p['sid'])) ?>">✉ <?= e($sf->t('write_author')) ?></a>
+      <?= \Sysfera\Hooks::filter('activity.post.actions', '', $p) ?>
       <?php if (!$p['reported']): ?><form method="post" action="<?= e($sf->url('/action')) ?>" class="inline"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn sm" name="do" value="report" data-confirm="<?= e($sf->t('confirm_report')) ?>"><?= e($sf->t('report')) ?></button></form>
       <?php else: ?><small class="muted"><?= e($sf->t('reported')) ?></small><?php endif; ?>
     <?php endif; ?></span></div></article><?php endforeach; ?>

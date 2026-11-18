@@ -106,9 +106,16 @@ final class ActivityPoster implements ActivityFeed
     public function publish(string $title, string $body, string $audience): ?string
     {
         $c = ($this->client)(); if (!$c || !method_exists($c, 'call') || !$c->ready()) return null;
-        $r = $c->call('POST', 'act.post', [], ['title' => substr($title, 0, 200), 'body' => substr($body, 0, 3000), 'aud' => $audience]);
+        $r = $c->call('POST', 'act.post', [], ['title' => self::words($title, 20, 400), 'body' => self::words($body, 50, 1200), 'aud' => $audience]);
         return !empty($r['ok']) && isset($r['data']['id']) ? 'activity:' . (int)$r['data']['id'] : null;
     }
+    /** the first $n words (same counting as the Activity rules), with an ellipsis when cut, at most $chars bytes */
+    public static function words(string $s, int $n, int $chars): string
+    {
+        $s = trim(preg_replace('/\s+/u', ' ', $s)); if (!preg_match_all('/[\p{L}\p{N}][\p{L}\p{N}\'’_-]*/u', $s, $m, PREG_OFFSET_CAPTURE) || count($m[0]) <= $n) return self::bytes($s, $chars);
+        $cut = $m[0][$n - 1][1] + strlen($m[0][$n - 1][0]); return self::bytes(rtrim(substr($s, 0, $cut), ' ,.;:') . '…', $chars);
+    }
+    private static function bytes(string $s, int $max): string { if (strlen($s) <= $max) return $s; $s = substr($s, 0, $max); while ($s !== '' && !preg_match('//u', $s)) $s = substr($s, 0, -1); return $s; }
 }
 
 /** sealed files (signed scans) in core/storage/hr, outside the web root; the name is a hash, the content is already encrypted by the caller */

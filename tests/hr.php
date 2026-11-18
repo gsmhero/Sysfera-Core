@@ -247,4 +247,35 @@ $rows = $st->t['audit']; unset($rows[7]); ok(Audit::verify(array_values($rows)) 
 ok(refused(fn() => $hr->verifyAudit($mgrC), 'forbidden'), 'audit: needs hr.audit.view');
 ok($hr->timeline($oleg, $emp['uuid']) !== [] && refused(fn() => $hr->timeline($mgrC, $emp['uuid']), 'forbidden'), 'timeline: status history for HR and the employee only');
 
+require_once dirname(__DIR__) . '/core/app/Hooks.php'; require_once $dir . '/lib/DbBridges.php'; foreach (['Util', 'Hub'] as $mf) require_once dirname($dir) . "/messenger/lib/$mf.php";
+/* ---------- Apply: a signed-in user answers a published vacancy; HR is told; counts for the dashboard ---------- */
+$av = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Night packer', 'description' => 'text']);
+$user = new Ctx(5, 'anna', [], false, null); $anon = new Ctx(null, 'guest', []);
+ok(refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => 'Anna', 'email' => 'anna@x.ru']), 'closed'), 'apply: a draft vacancy cannot be applied to');
+$rec->approve($oleg, $av['uuid']); ok(refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => 'Anna', 'email' => 'anna@x.ru']), 'closed'), 'apply: an approved but not published vacancy cannot be applied to');
+$rec->publish($oleg, $av['uuid']); $spy->notes = [];
+ok(refused(fn() => $rec->apply($anon, $av['uuid'], ['full_name' => 'X', 'email' => 'x@x.ru']), 'forbidden'), 'apply: only a signed-in user');
+ok(refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => 'Anna', 'email' => 'not-an-email']), 'bad_email') && refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => '', 'email' => 'anna@x.ru']), 'missing_field'), 'apply: a name and a valid e-mail are required');
+$ap = $rec->apply($user, $av['uuid'], ['full_name' => 'Anna Ivanova', 'email' => 'Anna@X.ru', 'phone' => '+7 911']);
+ok($ap['stage'] === 'new' && $ap['source'] === 'apply' && $ap['email'] === 'anna@x.ru' && !isset($ap['phone_enc']), 'apply: becomes a candidate in NEW, source "apply", e-mail normalised, phone not exposed');
+ok($spy->notes !== [] && str_contains(json_encode($spy->notes), 'Anna Ivanova') && str_contains(json_encode($spy->notes), 'Night packer'), 'apply: the HR managers are notified');
+ok(refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => 'Anna', 'email' => 'anna@x.ru']), 'duplicate'), 'apply: a second application with the same e-mail is refused');
+ok($st->audits('candidate.applied') !== [], 'apply: written to the audit chain');
+$hooked = []; \Sysfera\Hooks::on('hr.candidate.applied', function ($v, $cd) use (&$hooked) { $hooked[] = $cd['full_name']; });
+$rec->apply(new Ctx(3, 'maria', [], false, null), $av['uuid'], ['full_name' => 'Maria P', 'email' => 'mp@x.ru']); ok($hooked === ['Maria P'], 'apply: hook hr.candidate.applied fires');
+$list = $rec->openPublished('anna@x.ru'); $row = array_values(array_filter($list, fn($x) => $x['uuid'] === $av['uuid']))[0] ?? null;
+ok($row && $row['applications'] === 2 && $row['new'] === 2 && $row['applied'] === true && !array_filter($rec->openPublished(''), fn($x) => $x['applied']), 'widget data: published vacancies with application counts, "applied" only for the asking e-mail');
+$rec->closeVacancy($oleg, $av['uuid']); ok(!array_filter($rec->openPublished(), fn($x) => $x['uuid'] === $av['uuid']) && refused(fn() => $rec->apply($user, $av['uuid'], ['full_name' => 'Late', 'email' => 'late@x.ru']), 'closed'), 'apply: a closed vacancy leaves the list and takes no more applications');
+ok($rec->getVacancy($oleg, $av['uuid'])['team_uuid'] === null, 'vacancy: the team uuid is part of the shape');
+
+/* ---------- Teams mirror: HR tells the Teams app through hook hr.team.sync ---------- */
+$seen = []; \Sysfera\Hooks::on('hr.team.sync', function (array $t) use (&$seen) { $seen[] = $t; });
+$tm = $hr->saveTeam($oleg, ['name' => 'Night shift', 'descr' => 'd']); ok(count($seen) === 1 && $seen[0]['uuid'] === $tm['uuid'] && $seen[0]['name'] === 'Night shift' && $seen[0]['members'] === [], 'teams: saving a team fires hr.team.sync');
+$e1 = $hr->createEmployee($oleg, ['full_name' => 'Lena Night', 'email' => 'lena@x.ru', 'hire_date' => '2026-01-10', 'user_id' => 5]); $e2 = $hr->createEmployee($oleg, ['full_name' => 'No Account', 'email' => 'na@x.ru', 'hire_date' => '2026-01-10']);
+$hr->setMember($oleg, $tm['uuid'], $e1['uuid'], 'lead'); $hr->setMember($oleg, $tm['uuid'], $e2['uuid'], 'member'); $last = end($seen);
+ok($last['members'] === [['user_id' => 5, 'role' => 'lead']] && $last['removed'] === [], 'teams: members are sent with their user account and role; people without an account are skipped');
+$hr->setMember($oleg, $tm['uuid'], $e1['uuid'], 'member', true); $last = end($seen); ok($last['members'] === [] && $last['removed'] === [5], 'teams: a removed member is reported so the Teams app lets them go');
+$words = fn(string $s, int $n, int $c) => SysferaHr\ActivityPoster::words($s, $n, $c);
+ok($words('one two three', 20, 400) === 'one two three' && $words(implode(' ', range(1, 80)), 50, 1200) === implode(' ', range(1, 50)) . '…' && SysferaMsg\Text::words($words(implode(' ', range(1, 80)), 50, 1200)) === 50 && strlen($words(str_repeat('word ', 20), 50, 30)) <= 30, 'activity post: a long vacancy is cut to the 20 / 50 word limits instead of being refused');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

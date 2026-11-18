@@ -58,6 +58,22 @@ return function (\Sysfera\Plugin $sf): void {
         $db->q('INSERT IGNORE INTO {p}teams_members (team_id, user_id, role) VALUES (?,?,?)', [$tid, $userId, $r]);
     };
 
+    /* The HR Department mirrors its teams here (hook hr.team.sync): a team with its members (HR lead = team admin), the General channel and the board columns.
+       Only HR-driven changes are applied: people added here by hand stay, people removed in HR leave. */
+    \Sysfera\Hooks::on('hr.team.sync', function (array $t) use ($db, $sf, $addMember): void {
+        $uuid = (string)($t['uuid'] ?? ''); if ($uuid === '') return;
+        $ex = $db->row('SELECT id FROM {p}teams_teams WHERE hr_uuid = ?', [$uuid]); $name = substr(trim((string)($t['name'] ?? '')), 0, 120); if ($name === '') return;
+        if ($ex) { $tid = (int)$ex['id']; $db->q('UPDATE {p}teams_teams SET name = ?, descr = ?, archived = ? WHERE id = ?', [$name, substr((string)($t['descr'] ?? ''), 0, 500) ?: null, empty($t['active']) ? 1 : 0, $tid]); }
+        else {
+            $db->q('INSERT INTO {p}teams_teams (name, descr, color, privacy, created_by, hr_uuid) VALUES (?,?,?,?,?,?)', [$name, substr((string)($t['descr'] ?? ''), 0, 500) ?: null, '#4f46e5', 'private', null, $uuid]); $tid = $db->insertId();
+            $db->q('INSERT INTO {p}teams_channels (team_id, name, topic, sort, created_by) VALUES (?,?,?,?,?)', [$tid, $sf->t('general'), $sf->t('general_topic'), 10, null]);
+            foreach ([['col_todo', 0], ['col_doing', 0], ['col_done_name', 1]] as $i => [$k, $d]) $db->q('INSERT INTO {p}teams_cols (team_id, name, is_done, sort) VALUES (?,?,?,?)', [$tid, $sf->t($k), $d, ($i + 1) * 10]);
+        }
+        foreach ((array)($t['members'] ?? []) as $m) { $u = (int)($m['user_id'] ?? 0); if ($u <= 0) continue;
+            $addMember($tid, $u, 'member'); $db->q('UPDATE {p}teams_members SET role = ? WHERE team_id = ? AND user_id = ? AND role <> ?', [($m['role'] ?? '') === 'lead' ? 'admin' : 'member', $tid, $u, 'owner']); }
+        foreach ((array)($t['removed'] ?? []) as $u) $db->q("DELETE FROM {p}teams_members WHERE team_id = ? AND user_id = ? AND role <> 'owner'", [$tid, (int)$u]);
+    });
+
     /* =============================== teams list =============================== */
     $route('GET', '/', function () use ($db, $uid, $page, $sf, $isSite) {
         $mine = $db->rows('SELECT t.*, m.role, (SELECT COUNT(*) FROM {p}teams_members x WHERE x.team_id = t.id) AS n,

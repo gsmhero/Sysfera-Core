@@ -9,6 +9,6 @@ include __DIR__ . '/_nav.php'; ?>
   <form method="post" action="<?= e($sf->url('/do/vacancies.save')) ?>"><?= csrf_field() ?><input type="hidden" name="return" value="/vacancies">
     <div class="hr-grid"><label><?= e($sf->t('f_title')) ?><input name="title" required maxlength="160"></label>
       <label><?= e($sf->t('f_role')) ?><select name="role_uuid" required><?php foreach ($roles as $r): ?><option value="<?= e($r['uuid']) ?>"><?= e($r['name']) ?></option><?php endforeach; ?></select></label>
-      <label><?= e($sf->t('f_team')) ?><select name="team_uuid"><option value=""></option><?php foreach ($teams as $t): ?><option value="<?= e($t['uuid']) ?>"><?= e($t['name']) ?></option><?php endforeach; ?></select></label></div>
+      <label><?= e($sf->t('f_team')) ?><select name="team_uuid"><option value=""><?= e($sf->t('team_none')) ?></option><?php foreach ($teams as $t): ?><option value="<?= e($t['uuid']) ?>"><?= e($t['name']) ?></option><?php endforeach; ?></select></label></div>
     <label class="fld"><?= e($sf->t('f_description')) ?><textarea name="description" rows="6" required maxlength="20000" style="width:100%"></textarea></label>
     <button class="btn primary"><?= e($sf->t('add')) ?></button></form></div>

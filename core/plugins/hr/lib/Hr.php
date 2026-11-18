@@ -223,8 +223,19 @@ final class Hr
         if ($ex) { $this->e->s->update('teams', (int)$ex['id'], $row); $this->e->log($c, 'team.updated', 'team', $uuid, $row); }
         else { $this->e->s->insert('teams', $row + ['uuid' => $uuid, 'created_at' => $this->e->now()]); $this->e->log($c, 'team.created', 'team', $uuid, $row); }
         $t = $this->e->s->one('teams', ['uuid' => $uuid]);
+        $this->syncTeam($uuid);
         if ($ex && (($ex['warehouse_id'] ?? null) != $row['warehouse_id'])) foreach ($this->e->s->find('employees', ['team_id' => (int)$t['id']]) as $m) if ($m['user_id']) $this->syncAccess($c, (int)$m['user_id']);
         return $t;
+    }
+    /** tell the Teams app (hook hr.team.sync) about a team: name, members with their user accounts, and the people who left */
+    public function syncTeam(string $teamUuid, array $removedEmpIds = []): void
+    {
+        $t = $this->e->s->one('teams', ['uuid' => $teamUuid]); if (!$t) return; $members = []; $removed = [];
+        foreach ($this->e->s->find('team_members', ['team_id' => (int)$t['id']]) as $m) {
+            $emp = $this->e->s->one('employees', ['id' => (int)$m['employee_id']]); if (!$emp || empty($emp['user_id'])) continue;
+            if ($m['role'] === 'removed' || ($emp['status'] ?? '') === 'dismissed') $removed[] = (int)$emp['user_id']; else $members[] = ['user_id' => (int)$emp['user_id'], 'role' => (string)$m['role']];
+        }
+        try { \Sysfera\Hooks::do('hr.team.sync', ['uuid' => (string)$t['uuid'], 'name' => (string)$t['name'], 'descr' => (string)$t['descr'], 'active' => (int)$t['active'] === 1, 'members' => $members, 'removed' => $removed]); } catch (\Throwable) {}
     }
     public function setMember(Ctx $c, string $teamUuid, string $empUuid, string $role = 'member', bool $remove = false): array
     {
@@ -233,6 +244,7 @@ final class Hr
         $m = $this->e->s->one('team_members', ['team_id' => (int)$t['id'], 'employee_id' => (int)$emp['id']]);
         if ($remove) { if ($m) { $this->e->s->update('team_members', (int)$m['id'], ['role' => 'removed']); } $this->e->log($c, 'team.member_removed', 'team', (string)$t['uuid'], ['employee' => $emp['uuid']]); }
         else { if ($m) $this->e->s->update('team_members', (int)$m['id'], ['role' => $role]); else $this->e->s->insert('team_members', ['team_id' => (int)$t['id'], 'employee_id' => (int)$emp['id'], 'role' => $role, 'since' => $this->e->now()]); $this->e->log($c, 'team.member_set', 'team', (string)$t['uuid'], ['employee' => $emp['uuid'], 'role' => $role]); }
+        $this->syncTeam((string)$t['uuid']);
         return $this->listTeams($c);
     }
 
