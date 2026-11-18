@@ -6,7 +6,7 @@
   <div class="card stat"><small><?= e(t('dash.invoices')) ?></small><b><?= (int)$counts['invoices'] ?></b></div>
   <div class="card stat"><small><?= e(t('dash.clients')) ?></small><b><?= (int)$counts['contacts'] ?></b></div>
 </div>
-<?php $side = array_filter([$widgets['activity'] ?? '', $widgets['notes'] ?? '']); $main = array_diff_key($widgets, ['wms' => 1, 'activity' => 1, 'notes' => 1]); ?>
+<?php $side = array_filter([$widgets['activity'] ?? '', $widgets['notes'] ?? '', $widgets['contracts'] ?? '']); $main = array_diff_key($widgets, ['wms' => 1, 'activity' => 1, 'notes' => 1, 'contracts' => 1]); ?>
 <?php if ($main || $side): ?><div class="dash-cols">
   <div class="dash-main"><?php foreach ($main as $w): ?><section class="card wdg"><?= $w ?></section><?php endforeach; ?></div>
   <?php if ($side): ?><div class="dash-side"><?php foreach ($side as $w): ?><section class="card wdg"><?= $w ?></section><?php endforeach; ?></div><?php endif; ?>
