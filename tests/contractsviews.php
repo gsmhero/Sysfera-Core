@@ -130,5 +130,7 @@ $mf = json_decode(file_get_contents("$dir/plugin.json"), true); ok(($mf['slug'] 
 ok(str_contains(file_get_contents(dirname(__DIR__) . '/.gitignore'), '!core/plugins/contracts/'), '.gitignore: the plugin is allowed in');
 ok(!preg_match('/(password|passwd|secret|api[_-]?key|token)\s*[=:]\s*[\'"][^\'"\s]{6,}/i', $src . $sql), 'no credentials in the plugin sources');
 ok(!is_file("$dir/.env") && !glob("$dir/*.env"), 'no .env copied from the original app');
+$core = dirname(__DIR__) . '/core';
+ok(str_contains(file_get_contents("$core/views/profile.php"), 'profile.cards') && str_contains(file_get_contents("$core/app/routes.php"), 'profile.save') && str_contains($pp, 'profile.cards') && str_contains($pp, 'x_contracts') && str_contains(file_get_contents("$dir/views/profile.php"), 'x_contracts'), 'platform /profile: the component adds its fields there (hooks profile.cards / profile.save)');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);
