@@ -37,3 +37,5 @@
 .crm-disc h3{margin:0 0 10px}.crm-cm{padding:10px 0;border-top:1px solid var(--line)}.crm-cm:first-of-type{border-top:0}.crm-cm-h{display:flex;gap:10px;align-items:center;font-size:13px}.crm-cm-h .inline{margin-left:auto}.crm-cm-x{background:none;border:0;color:var(--mut);cursor:pointer;font-size:18px;line-height:1;padding:0 4px}.crm-cm-x:hover{color:var(--bad)}
 .crm-cm-b{margin:4px 0 0;word-break:break-word}.crm-cm-f{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.crm-cm-img img{display:block;max-width:180px;max-height:130px;border-radius:8px;border:1px solid var(--line)}.crm-cm-file{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--ink)}.crm-cm-file:hover{border-color:var(--acc)}
 .crm-cm-form{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}.crm-cm-form textarea{width:100%;margin-bottom:8px}.crm-cm-pick{display:flex;flex-direction:column;gap:2px}
+
+.crm-contactpick{display:block;position:relative}.crm-contactpick .cp-res{position:absolute;left:0;right:0;top:100%;z-index:20;box-shadow:0 6px 18px rgba(0,0,0,.12)}.cp-none{padding:8px 11px}

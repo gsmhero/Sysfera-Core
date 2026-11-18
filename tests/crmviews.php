@@ -102,5 +102,7 @@ $h = render('taskview', ['comments' => [], 'task' => $tm, 'curContact' => $conta
 ok(str_contains($h, 'att.missions') && str_contains($h, '/p/missions/m/3') && str_contains($h, 'Cold outreach &lt;b&gt;'), 'task view: the attached mission is listed and links to it');
 $_POST['mission'] = ['3', '3', 'x', '0', '7']; ok(\Sysfera\Attach::missionIds() === [3, 7], 'attach: mission ids are cleaned (numbers only, no duplicates)'); unset($_POST['mission']);
 $sqlm = (string)file_get_contents(dirname(__DIR__) . '/core/plugins/crm/migrations/005_task_missions.sql'); ok(str_contains($sqlm, 'ADD COLUMN tmissions') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $sqlm), 'migration 005: one new column, nothing destructive');
+$h = render('taskedit', ['task' => $task, 'curContact' => $contact, 'users' => $users, 'listBack' => '/p/crm/tasks', 'backTo' => '/p/crm/task/5', 'tab' => 'tasks', 'prof' => $full]);
+ok(substr_count($h, 'class="cp-q"') >= 1 && str_contains($h, 'type="hidden" name="td[') && !preg_match('~<select[^>]*class="cp-sel"~', $h) && str_contains($h, 'class="att-res cp-res"') && str_contains($h, 'value="John · Acme"'), 'task form: the client is one search field with results while typing (the chosen client is kept in a hidden field)');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

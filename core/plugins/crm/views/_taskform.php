@@ -16,7 +16,7 @@ $task = $task ?? null; $tv = []; if ($task) { $tv = (array)(json_decode((string)
   <div class="cols crm-tfields" data-t="<?= e($code) ?>" <?= $code === $first ? '' : 'hidden' ?>>
     <?php foreach ($fl as $f): $dis = $code === $first ? '' : 'disabled'; $k = $f['key']; $label = \Sysfera\TaskTypes::fieldLabel($f, $lang); ?>
     <label class="fld"><span><?= e($label) ?></span>
-      <?php if ($f['kind'] === 'contact'): ?><span class="crm-contactpick" data-find="<?= e($sf->url('/contacts/find')) ?>"><input type="search" class="cp-q" placeholder="<?= e($sf->t('contacts')) ?>…" autocomplete="off"><select name="td[<?= e($k) ?>]" class="cp-sel" <?= $dis ?>><option value="">—</option><?php if (!empty($curContact)): ?><option value="<?= (int)$curContact['id'] ?>" selected><?= e($curContact['name'] . ((string)$curContact['company'] !== '' ? ' · ' . $curContact['company'] : '')) ?></option><?php endif; ?></select></span>
+      <?php if ($f['kind'] === 'contact'): ?><span class="crm-contactpick" data-find="<?= e($sf->url('/contacts/find')) ?>"><input type="search" class="cp-q" placeholder="<?= e($sf->t('contacts')) ?>…" autocomplete="off" value="<?= e(!empty($curContact) ? $curContact['name'] . ((string)$curContact['company'] !== '' ? ' · ' . $curContact['company'] : '') : '') ?>"><input type="hidden" name="td[<?= e($k) ?>]" class="cp-sel" value="<?= !empty($curContact) ? (int)$curContact['id'] : '' ?>" <?= $dis ?>><div class="att-res cp-res" hidden></div></span>
       <?php elseif ($f['kind'] === 'textarea'): ?><textarea name="td[<?= e($k) ?>]" rows="2" <?= $dis ?>><?= e((string)($tv[$k] ?? '')) ?></textarea>
       <?php else: ?><input <?= $f['kind'] === 'email' ? 'type="email"' : ($f['kind'] === 'phone' ? 'type="tel"' : (in_array($f['kind'], ['url', 'shop'], true) ? 'type="url" placeholder="https://"' : '')) ?> name="td[<?= e($k) ?>]" <?= $dis ?> value="<?= e((string)($tv[$k] ?? '')) ?>"><?php endif; ?></label>
     <?php endforeach; ?></div>
@@ -28,11 +28,14 @@ $task = $task ?? null; $tv = []; if ($task) { $tv = (array)(json_decode((string)
 <script>(function(){var f=document.currentScript.previousElementSibling;if(!f||f.getAttribute("data-init"))return;f.setAttribute("data-init","1");var s=f.querySelector(".crm-ttype");if(!s)return;
 function a(){f.querySelectorAll(".crm-tfields").forEach(function(d){var on=d.getAttribute("data-t")===s.value;d.hidden=!on;d.querySelectorAll("input,select,textarea").forEach(function(i){i.disabled=!on})})}
 s.addEventListener("change",a);
-f.querySelectorAll(".crm-contactpick").forEach(function(w){var q=w.querySelector(".cp-q"),sel=w.querySelector(".cp-sel"),tm=0,box=w.closest(".crm-tfields");
+f.querySelectorAll(".crm-contactpick").forEach(function(w){var q=w.querySelector(".cp-q"),hid=w.querySelector(".cp-sel"),res=w.querySelector(".cp-res"),tm=0,seq=0,chosen=q.value,box=w.closest(".crm-tfields");
  function fill(n,v){var i=box&&box.querySelector('[name="td['+n+']"]');if(i&&v)i.value=v}
- q.addEventListener("input",function(){clearTimeout(tm);tm=setTimeout(function(){if(q.value.length<2)return;
-  fetch(w.getAttribute("data-find")+"?q="+encodeURIComponent(q.value),{credentials:"same-origin"}).then(function(r){return r.json()}).then(function(rows){
-   sel.innerHTML='<option value="">—</option>';rows.forEach(function(c){var o=document.createElement("option");o.value=c.id;o.textContent=c.name+(c.company?" · "+c.company:"");o.dataset.phone=c.phone||"";o.dataset.email=c.email||"";sel.appendChild(o)});
-   if(rows.length)sel.value=rows[0].id;sel.dispatchEvent(new Event("change"))}).catch(function(){})},250)});
- sel.addEventListener("change",function(){var o=sel.options[sel.selectedIndex];if(!o||!o.value)return;fill("phone",o.dataset.phone);fill("to",o.dataset.email)})});
+ function close(){res.hidden=true}
+ q.addEventListener("input",function(){if(q.value!==chosen)hid.value="";clearTimeout(tm);var term=q.value.trim();if(term.length<1){close();return}
+  tm=setTimeout(function(){var my=++seq;fetch(w.getAttribute("data-find")+"?q="+encodeURIComponent(term),{credentials:"same-origin"}).then(function(r){return r.json()}).then(function(rows){if(my!==seq)return;res.textContent="";
+   rows.forEach(function(c){var b=document.createElement("button");b.type="button";b.textContent=c.name+(c.company?" · "+c.company:"");b.dataset.id=c.id;b.dataset.phone=c.phone||"";b.dataset.email=c.email||"";res.appendChild(b)});
+   if(!rows.length){var n=document.createElement("div");n.className="cp-none muted";n.textContent="—";res.appendChild(n)}res.hidden=false}).catch(function(){})},200)});
+ res.addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;hid.value=b.dataset.id;q.value=chosen=b.textContent;fill("phone",b.dataset.phone);fill("to",b.dataset.email);close()});
+ q.addEventListener("keydown",function(e){if(e.key==="Escape")close();if(e.key==="Enter"&&!res.hidden){e.preventDefault();var b=res.querySelector("button");if(b)b.click()}});
+ document.addEventListener("click",function(e){if(!w.contains(e.target))close()})});
 })();</script>
