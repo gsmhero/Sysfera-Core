@@ -12,7 +12,8 @@ namespace SysferaContracts;
 final class Sync
 {
     private const LEGACY = '2000-01-01 00:00:00';
-    public function __construct(private Store $s, private Bablito $b, private $now, private $users) {}
+    /** $urlFor(contract id): the absolute address of a contract page here (for the copies on Bablito); null = unknown, nothing is pushed. */
+    public function __construct(private Store $s, private Bablito $b, private $now, private $users, private $urlFor = null) {}
 
     private static function t(?string $d): int { return $d ? (int)strtotime($d . ' UTC') : 0; }
     private function stamp(): string { return gmdate('Y-m-d H:i:s', ($this->now)()); }
@@ -151,12 +152,33 @@ final class Sync
         return $r;
     }
 
+    /** Pushes the contracts published here to Bablito (read-only copies there, offers are made here). The whole list is sent, so a contract that is no longer published disappears there. */
+    public function pushContracts(bool $dry): array
+    {
+        $list = $this->s->find('contracts', ['status' => 'published'], 'id', 500);
+        $cats = []; foreach ($this->s->find('categories') as $c) $cats[(int)$c['id']] = $c['name'];
+        $names = $list ? ($this->users)(array_values(array_unique(array_map('intval', array_column($list, 'user_id'))))) : [];
+        $items = []; $skipped = 0;
+        foreach ($list as $k) {
+            $url = $this->urlFor ? ($this->urlFor)((int)$k['id']) : null;
+            if (!is_string($url) || !str_starts_with($url, 'https://')) { $skipped++; continue; }
+            $steps = []; foreach ($this->s->find('todos', ['contract_id' => (int)$k['id']], 'position') as $t) $steps[] = ['name' => (string)$t['name'], 'description' => (string)($t['description'] ?? ''), 'price' => (float)$t['price'], 'days' => (int)$t['days']];
+            $items[] = ['id' => (int)$k['id'], 'title' => (string)$k['title'], 'category' => (string)($cats[(int)($k['category_id'] ?? 0)] ?? ''), 'location' => (string)$k['location'], 'description' => (string)$k['description'], 'currency' => (string)$k['currency'],
+                'payment_type' => (string)$k['payment_type'], 'prepay_required' => (bool)$k['prepay_required'], 'deadline' => $k['deadline'] ?: null, 'created_at' => (string)($k['published_at'] ?: $k['created_at']),
+                'author' => ['name' => (string)($names[(int)$k['user_id']]['name'] ?? '')], 'steps' => $steps, 'url' => $url];
+        }
+        if ($list && !$items) return ['new' => 0, 'updated' => 0, 'removed' => 0, 'rejected' => 0, 'skipped' => $skipped]; // no public address known: do not wipe what Bablito has
+        $a = $this->b->pushContracts($items, $dry);
+        return ['new' => (int)($a['new'] ?? 0), 'updated' => (int)($a['updated'] ?? 0), 'removed' => (int)($a['removed'] ?? 0), 'rejected' => count((array)($a['rejected'] ?? [])), 'skipped' => $skipped];
+    }
+    private function safePush(bool $dry): array { try { return $this->pushContracts($dry); } catch (Err $e) { return ['error' => $e->errCode]; } }
+
     private function safeContracts(bool $dry): array { try { return $this->contracts($dry); } catch (Err $e) { return ['error' => $e->errCode]; } }
 
     /** Structure, then users, then the profile of every linked user (at most $max per run). */
     public function all(bool $dry, int $max = 200): array
     {
-        $rep = ['dry' => $dry, 'time' => $this->stamp(), 'structure' => $this->structure($dry), 'users' => $this->linkUsers($dry), 'contracts' => $this->safeContracts($dry), 'profiles' => ['ok' => 0, 'pulled' => 0, 'pushed' => 0, 'failed' => []]];
+        $rep = ['dry' => $dry, 'time' => $this->stamp(), 'structure' => $this->structure($dry), 'users' => $this->linkUsers($dry), 'contracts' => $this->safeContracts($dry), 'pushed' => $this->safePush($dry), 'profiles' => ['ok' => 0, 'pulled' => 0, 'pushed' => 0, 'failed' => []]];
         $n = 0; foreach ($this->s->find('links', [], 'synced_at') as $l) {
             if ($n++ >= $max) break;
             try { $x = $this->profile((int)$l['user_id'], $dry); $rep['profiles']['ok']++; $rep['profiles']['pulled'] += $x['pulled']; $rep['profiles']['pushed'] += $x['pushed']; }

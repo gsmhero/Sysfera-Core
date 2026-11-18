@@ -42,6 +42,8 @@ final class Bablito
     public function base(): string { return rtrim($this->base, '/'); }
     /** One page (up to 100) of the contracts published on Bablito, ascending id, after the given id. */
     public function contracts(int $after): array { return $this->call('GET', '/api/sysfera/contracts?after=' . max(0, $after) . '&limit=100'); }
+    /** Sends the full list of the published Sysfera contracts; Bablito shows them as read-only copies and drops the ones that are missing. */
+    public function pushContracts(array $items, bool $dry): array { return $this->call('POST', '/api/sysfera/contracts', ['contracts' => $items, 'dry_run' => $dry]); }
     public function profile(int $remoteId): array { return $this->call('GET', '/api/sysfera/profile/' . $remoteId); }
     public function pushProfile(int $remoteId, array $types, array $values, bool $dry): array { return $this->call('POST', '/api/sysfera/profile/' . $remoteId, ['types' => $types, 'values' => $values, 'dry_run' => $dry]); }
 }

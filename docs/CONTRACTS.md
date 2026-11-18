@@ -26,5 +26,7 @@ Profile **sections and fields are defined on Bablito** and mirrored here (never 
 
 **Contracts published on Bablito.ru** are copied into the list (badge *Bablito.ru*, table `{p}ct_remote`, migration `003_remote.sql`): the card and its page show title, category, place, description, steps, total price and days, the author's name and a button that opens the original on Bablito, where offers, work and payment happen. The copy is read-only and is refreshed every 15 minutes on page loads in live mode, and by *Sync now* (a contract that is no longer published there disappears here; if Bablito cannot be reached nothing is removed). Category filters match by name.
 
+**Contracts created here are shown on Bablito.ru** the same way: the published ones are pushed (title, category, place, description, steps, price, author name and a link to the page here) and appear in the Bablito listing with a *Sysfera* badge; offers are made here. The push runs right after a contract is created / published / changed (live mode, at most every 20 s), every 15 minutes, and with *Sync now*; a contract that is no longer published is removed there. It needs a public https address of this site (otherwise nothing is pushed).
+
 ## Not ported from Bablito
 YooKassa service-fee payments, tax calculation, PDF invoices and invoice templates, the VK / OK.ru mini-apps, the stopwatch / work log, comment attachments and live refresh, the Bablito sign-in and its home / static pages. No secret of the original app is used or stored.

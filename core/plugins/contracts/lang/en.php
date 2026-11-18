@@ -97,4 +97,5 @@ return [
     'remote_open' => 'Open on Bablito.ru to make an offer',
     'remote_help' => 'This contract is published on Bablito.ru. Offers, work and payment for it take place there; this page is a read-only copy that is refreshed automatically.',
     'bab_r_contracts' => 'Contracts published on Bablito: %d (%d new, %d updated, %d removed).',
+    'bab_r_pushed' => 'Published here, shown on Bablito: %d new, %d updated, %d removed (%d skipped without a public https address).',
 ];

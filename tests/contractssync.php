@@ -32,6 +32,7 @@ $http = function (string $m, string $url, array $h, string $body) use (&$R, $key
     $in = $body !== '' ? json_decode($body, true) : []; parse_str($p['query'] ?? '', $q); $dry = !empty($in['dry_run']); $j = fn($d, int $s = 200) => [$s, json_encode($d)];
     $uj = fn($u) => $u ? ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'types' => $u['types'], 'sysfera_id' => $u['sysfera_id']] : null;
     if ($p['path'] === '/api/sysfera/ping') return $j(['ok' => true, 'users' => count($R['users'])]);
+    if ($p['path'] === '/api/sysfera/contracts' && $m === 'POST') { $R['pushed'] = $in['contracts']; $R['push_dry'] = $dry; return $j(['dry_run' => $dry, 'new' => count($in['contracts']), 'updated' => 0, 'removed' => 1, 'rejected' => []]); }
     if ($p['path'] === '/api/sysfera/contracts') { $all = array_values(array_filter($R['contracts'], fn($c) => $c['id'] > (int)($q['after'] ?? 0))); $cut = array_slice($all, 0, 2); return $j(['contracts' => $cut, 'has_more' => count($all) > 2]); }
     if ($p['path'] === '/api/sysfera/fields') return $j(['sections' => $R['sections']]);
     if ($p['path'] === '/api/sysfera/users' && $m === 'GET') { foreach ($R['users'] as $u) if ($u['email'] === strtolower($q['email'] ?? '')) return $j(['user' => $uj($u)]); return $j(['user' => null]); }
@@ -139,8 +140,22 @@ ok(count(array_filter($cs->listing(['category' => 1, 'per' => 50])['rows'], fn($
 ok($cs->listing(['q' => 'kazan'])['total'] === 1 && $cs->listing(['from' => '300', 'to' => '400'])['total'] === 1, 'listing: search and price filters work on the copies');
 ok(err(fn() => $cs->remote(9999)) === 'not_found' && $cs->remote(501)['step_list'][1]['name'] === 'Final', 'remote contract: its own page, unknown id is not found');
 
+/* ---------- contracts created here are pushed to Bablito ---------- */
+$st->insert('categories', ['name' => 'Repair', 'name_ru' => 'Ремонт']);
+$st->insert('contracts', ['user_id' => 1, 'title' => 'Paint a fence', 'category_id' => 2, 'location' => 'Tver', 'description' => 'Two coats', 'status' => 'published', 'currency' => 'RUB', 'payment_type' => 'step', 'prepay_required' => 1, 'deadline' => '2026-12-20', 'published_at' => '2026-11-12 10:00:00', 'created_at' => '2026-11-11 10:00:00']);
+$st->insert('contracts', ['user_id' => 2, 'title' => 'A draft', 'category_id' => 1, 'location' => '', 'description' => '', 'status' => 'draft', 'currency' => 'RUB', 'payment_type' => 'finish', 'prepay_required' => 0, 'deadline' => null, 'published_at' => null, 'created_at' => '2026-11-11 11:00:00']);
+$st->insert('todos', ['contract_id' => 1, 'position' => 2, 'name' => 'Second coat', 'description' => '', 'price' => 40, 'days' => 2]); $st->insert('todos', ['contract_id' => 1, 'position' => 1, 'name' => 'First coat', 'description' => 'primer', 'price' => 60, 'days' => 1]);
+$ps = new Sync($st, $mk(), fn() => $R['now'], $users, fn(int $id) => 'https://core.sysfera.ru/p/contracts/view/' . $id);
+$d = $ps->pushContracts(true); ok($R['push_dry'] === true && count($R['pushed']) === 1, 'push (dry run): the request says dry_run and carries the published contract only');
+$x = $ps->pushContracts(false); $it = $R['pushed'][0];
+ok($R['push_dry'] === false && $it['id'] === 1 && $it['title'] === 'Paint a fence' && $it['category'] === 'Repair' && $it['author']['name'] === 'Anna' && $it['url'] === 'https://core.sysfera.ru/p/contracts/view/1' && $it['prepay_required'] === true && $it['payment_type'] === 'step', 'push: title, category name, author name, link and flags are sent');
+ok(array_column($it['steps'], 'name') === ['First coat', 'Second coat'] && $x['new'] === 1 && $x['removed'] === 1, 'push: steps in order, counts come back');
+$np = new Sync($st, $mk(), fn() => $R['now'], $users, null); $R['pushed'] = 'untouched'; $z = $np->pushContracts(false);
+ok($R['pushed'] === 'untouched' && $z['skipped'] === 1, 'push: without a public https address nothing is sent (Bablito keeps what it has)');
+$http2 = null; $bad = new Sync($st, $mk(), fn() => $R['now'], $users, fn(int $id) => 'http://plain.example/' . $id); $R['pushed'] = 'untouched'; $bad->pushContracts(false); ok($R['pushed'] === 'untouched', 'push: only https addresses are accepted');
+
 /* ---------- everything at once ---------- */
-$all = $sync->all(true); ok(isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 2 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
+$all = $sync->all(true); ok(isset($all['pushed']['new']) && isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 2 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
 $all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 2, 'sync all: no failures');
 
 /* ---------- local edits are stamped (Svc::saveValues) ---------- */

@@ -48,7 +48,7 @@ return function (\Sysfera\Plugin $sf): void {
         foreach ($db->rows("SELECT id, name, email, lang FROM {p}users WHERE status = 'active'$w ORDER BY id LIMIT 5000") as $r) $out[(int)$r['id']] = $r; return $out;
     };
     $bablito = fn(): Bablito => new Bablito($bUrl(), $bKey(), $bHttp, fn() => time());
-    $sync = fn(): Sync => new Sync(new DbStore($db), $bablito(), fn() => time(), $syncUsers);
+    $sync = fn(): Sync => new Sync(new DbStore($db), $bablito(), fn() => time(), $syncUsers, function (int $id) use ($base, $sf): ?string { $b = $base(); return str_starts_with($b, 'https://') ? $b . $sf->url('/view/' . $id) : null; });
     $bConfigured = fn(): bool => Bablito::validBase($bUrl()) && strlen($bKey()) >= 32;
 
     $sf->menu('menu', '/', ['order' => 24, 'icon' => 'note', 'badge' => fn() => $sf->auth()->id() ? $svc()->unread($sf->auth()->id()) : 0]);
@@ -56,7 +56,7 @@ return function (\Sysfera\Plugin $sf): void {
     /* the stale-contract sweep runs at most every 10 minutes, on page loads */
     $sweep = function () use ($sf, $svc, $bLive, $bConfigured, $sync): void {
         if ($bLive() && $bConfigured() && (int)$sf->setting('last_import', '0') < time() - 900) {
-            $sf->setSetting('last_import', (string)time()); try { $sync()->contracts(false); } catch (\Throwable $e) { \Sysfera\App::log('contracts import ' . $e->getMessage()); }
+            $sf->setSetting('last_import', (string)time()); try { $sync()->contracts(false); $sync()->pushContracts(false); } catch (\Throwable $e) { \Sysfera\App::log('contracts import ' . $e->getMessage()); }
         }
         $last = (int)$sf->setting('last_sweep', '0'); if ($last > time() - 600) return;
         $sf->setSetting('last_sweep', (string)time()); try { $svc()->archiveStale(); } catch (\Throwable $e) { \Sysfera\App::log('contracts sweep ' . $e); }
@@ -65,8 +65,9 @@ return function (\Sysfera\Plugin $sf): void {
     $errText = function (Err $e) use ($sf): string { $t = $sf->t('err_' . $e->errCode); $t = $t === 'contracts.err_' . $e->errCode ? $e->getMessage() : $t; return in_array($e->errCode, ['field_required', 'field_invalid', 'step_numbers', 'bablito_refused', 'bablito_unreachable', 'bablito_bad_answer'], true) ? $t . ' (' . $e->getMessage() . ')' : $t; };
     $safeBack = function (string $p, string $default): string { return ($p !== '' && $p[0] !== '/' && !str_contains($p, '//') && !str_contains($p, '\\') && !str_contains($p, ':')) ? $p : $default; };
     /** Runs an action; on a refusal shows the message and goes to $back. */
-    $act = function (callable $fn, string $back) use ($sf, $errText): void {
-        sf_session(); try { $r = $fn(); if (is_string($r) && $r !== '') $back = $r; }
+    $act = function (callable $fn, string $back) use ($sf, $errText, $bLive, $bConfigured, $sync): void {
+        sf_session(); try { $r = $fn(); if (is_string($r) && $r !== '') $back = $r;
+            if ($bLive() && $bConfigured() && (int)$sf->setting('last_push', '0') < time() - 20) { $sf->setSetting('last_push', (string)time()); try { $sync()->pushContracts(false); } catch (\Throwable $e) { \Sysfera\App::log('contracts push ' . $e->getMessage()); } } /* a contract was created / published / changed: Bablito shows it too */ }
         catch (Err $e) { flash($errText($e), $e->http === 403 || $e->http === 404 ? 'bad' : 'bad'); }
         catch (\Throwable $e) { \Sysfera\App::log('contracts ' . $e); flash($sf->t('err_server'), 'bad'); }
         redirect($back === '@profile' ? '/profile' : '/p/contracts/' . ltrim($back, '/'));

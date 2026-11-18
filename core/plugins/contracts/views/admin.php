@@ -36,6 +36,7 @@ include __DIR__ . '/_nav.php'; $post = fn(string $what) => e($sf->url('/admin/' 
   <h4><?= e($sf->t(!empty($l['dry']) ? 'bab_last_dry' : 'bab_last')) ?> · <?= e((string)($l['time'] ?? '')) ?> UTC</h4>
   <ul><li><?= e(sprintf($sf->t('bab_r_struct'), (int)($s['sections_new'] ?? 0), (int)($s['sections_updated'] ?? 0), (int)($s['fields_new'] ?? 0), (int)($s['fields_updated'] ?? 0))) ?></li>
     <?php $cn = $l['contracts'] ?? null; if (is_array($cn)): ?><li><?= e(isset($cn['error']) ? $sf->t('err_' . $cn['error']) : sprintf($sf->t('bab_r_contracts'), (int)$cn['total'], (int)$cn['new'], (int)$cn['updated'], (int)$cn['removed'])) ?></li><?php endif; ?>
+    <?php $pu = $l['pushed'] ?? null; if (is_array($pu)): ?><li><?= e(isset($pu['error']) ? $sf->t('err_' . $pu['error']) : sprintf($sf->t('bab_r_pushed'), (int)$pu['new'], (int)$pu['updated'], (int)$pu['removed'], (int)$pu['skipped'])) ?></li><?php endif; ?>
     <li><?= e(sprintf($sf->t('bab_r_users'), (int)($u['linked'] ?? 0), (int)($u['would_link'] ?? 0), count($u['conflicts'] ?? []))) ?></li>
     <li><?= e(sprintf($sf->t('bab_r_profiles'), (int)($pr['ok'] ?? 0), (int)($pr['pulled'] ?? 0), (int)($pr['pushed'] ?? 0), count($pr['failed'] ?? []))) ?></li></ul>
   <?php if (!empty($u['unmatched'])): ?><h4><?= e($sf->t('bab_unmatched')) ?></h4><p class="muted"><?= e($sf->t('bab_unmatched_help')) ?></p>
