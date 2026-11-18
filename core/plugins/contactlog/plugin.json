@@ -1,13 +1,13 @@
 {
     "slug": "contactlog",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "name": {
         "en": "Contact Log",
         "ru": "Журнал контактов"
     },
     "description": {
-        "en": "A personal call list: a card per client (name, phone, messenger, e-mail, status, topic, notes, date of the next call), one-click activity log (call, e-mail, message, success), search, ordering, 2-4 card columns, light/dark mode, and an e-mail report of a card sent to yourself and an optional copy address through the platform mailer (Settings > E-mail). Ported from the standalone Agent's Call List page onto Sysfera users: the data lives in the database, every user sees only their own cards.",
-        "ru": "Личный журнал звонков: карточка на каждого клиента (имя, телефон, мессенджер, почта, статус, тема, заметки, дата следующего звонка), журнал действий в один клик (звонок, письмо, сообщение, успех), поиск, сортировка, 2–4 колонки карточек, светлая и тёмная тема и отчёт по карточке на почту себе и на необязательный адрес копии через почтовую службу платформы (Настройки > Почта). Перенесено из отдельной страницы «Agent's Call List» на пользователей Sysfera: данные хранятся в базе, каждый видит только свои карточки."
+        "en": "A personal call list: a card per client (name, phone, messenger, e-mail, status, topic, notes, date of the next call), one-click activity log (call, e-mail, message, success), search, ordering, 2-4 card columns, and an e-mail report of a card sent to yourself and an optional copy address through the platform mailer (Settings > E-mail). Ported from the standalone Agent's Call List page onto Sysfera users: the data lives in the database, every user sees only their own cards.",
+        "ru": "Личный журнал звонков: карточка на каждого клиента (имя, телефон, мессенджер, почта, статус, тема, заметки, дата следующего звонка), журнал действий в один клик (звонок, письмо, сообщение, успех), поиск, сортировка, 2–4 колонки карточек, отчёт по карточке на почту себе и на необязательный адрес копии через почтовую службу платформы (Настройки > Почта). Перенесено из отдельной страницы «Agent's Call List» на пользователей Sysfera: данные хранятся в базе, каждый видит только свои карточки."
     },
     "requires": {
         "core": ">=0.1.44"

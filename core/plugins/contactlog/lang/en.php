@@ -3,7 +3,7 @@ return [
     'title' => 'Contact Log', 'menu' => 'Contact Log', 'forbidden' => 'You do not have permission for this page.', 'not_found' => 'Not found.', 'saved' => 'Saved.',
     'heading' => 'Contacts', 'subtitle' => 'Activity log per client', 'user_label' => 'User:',
     'add_card' => 'Add card', 'mail_settings' => 'E-mail settings', 'mail_settings_help' => 'Reports are sent through the platform mailer. An administrator sets it up in Settings.', 'profile' => 'Profile',
-    'dark_mode' => 'Dark mode', 'light_mode' => 'Light mode', 'cols' => '{n} cards/row',
+    'cols' => '{n} cards/row',
     'search_ph' => 'Search by name...', 'order_date' => 'Order by Date (newest first)', 'order_status' => 'Order by Status',
     'no_cards' => 'No cards', 'no_logs' => 'No logs',
     'f_name' => 'Name *', 'f_second' => 'Second name', 'f_surname' => 'Surname', 'f_mobile' => 'Mobile', 'f_messenger' => 'Messenger', 'f_email' => 'Email', 'f_status' => 'Status', 'f_theme' => 'Theme', 'f_notes' => 'Notes', 'f_next' => 'Date to next call',

@@ -29,14 +29,26 @@
       });
     }, function () { throw new Error(t('err_network')); });
   }
+  /* monochrome line icons (static markup, currentColor): they follow the text colour of the platform theme */
+  var ICO = {
+    plus: '<path d="M12 5v14M5 12h14"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', search: '<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+    user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+    send: '<path d="m22 2-11 11M22 2l-7 20-4-9-9-4z"/>', mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>', msg: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    check: '<circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/>', cal: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>', clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    trash: '<path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>', edit: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>'
+  };
+  function svg(n) { var d = new DOMParser().parseFromString('<svg xmlns="' + SVGNS + '" ' + SVGA + '>' + (ICO[n] || '') + '</svg>', 'image/svg+xml').documentElement; return document.importNode(d, true); }
+  var SVGNS = 'http:' + '//www.w3.org/2000/svg'; /* the XML namespace name of SVG, not an address that is ever fetched */
+  var SVGA = 'viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+  function ico(n) { return h('i', { 'class': 'cl-i' }, [svg(n)]); }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-ico]'), function (el) { el.className = 'cl-i'; el.appendChild(svg(el.getAttribute('data-ico'))); });
+  var TONE = { busy: 'bad', no_answer: 'warn', sent_email: 'info', dropped: 'mute', ignored: 'mute', call_later: 'info', wrong_number: 'bad', application: 'ok', actual: 'ok', not_relevant: 'mute' };
   function find(id) { for (var i = 0; i < cards.length; i++) if (cards[i].id === id) return cards[i]; return null; }
   function fmt(ts) { return new Date(ts * 1000).toLocaleString(); }
 
-  /* ---------- theme, columns ---------- */
-  function applyTheme(dark) { root.classList.toggle('cl-dark', dark); $('clThemeIcon').textContent = dark ? '☀️' : '🌙'; $('clThemeText').textContent = t(dark ? 'light_mode' : 'dark_mode'); }
-  applyTheme(pref('theme') === 'dark');
-  $('clTheme').addEventListener('click', function () { var d = !root.classList.contains('cl-dark'); pref('theme', d ? 'dark' : 'light'); applyTheme(d); });
-  var cols = pref('cols'); if (cols === '2' || cols === '3' || cols === '4') $('clCols').value = cols;
+  /* ---------- columns ---------- */
+  var cols = pref('cols'); $('clCols').value = (cols === '2' || cols === '3' || cols === '4') ? cols : '3'; /* three cards per row unless the user chose otherwise */
   $('clCols').addEventListener('change', function () { pref('cols', $('clCols').value); render(); });
   $('clSearch').addEventListener('input', render); $('clOrder').addEventListener('change', render);
 
@@ -49,25 +61,24 @@
     if (!list.length) { box.appendChild(h('div', { 'class': 'cl-empty', text: t('no_cards') })); return; }
     list.forEach(function (c) { box.appendChild(cardEl(c)); });
   }
-  function btn(cls, label, fn, title) { var b = h('button', { type: 'button', 'class': cls, text: label, onclick: fn }); if (title) { b.title = title; b.setAttribute('aria-label', title); } return b; }
+  function btn(cls, label, fn, title, icon) { var b = h('button', { type: 'button', 'class': 'btn ' + cls, onclick: fn }); if (icon) b.appendChild(ico(icon)); if (label) b.appendChild(h('span', { text: label })); if (title) { b.title = title; b.setAttribute('aria-label', title); } return b; }
+  function line(icon, text) { return h('div', { 'class': 'cl-line' }, [ico(icon), h('span', { text: text || '—' })]); }
   function cardEl(c) {
-    var color = boot.colors[c.status] || '#3b82f6';
-    var logs = h('div', { 'class': 'cl-log' }, c.logs.length ? c.logs.map(function (l) { return h('div', { text: '📋 [' + fmt(l.at) + '] ' + t('log_' + l.action) }); }) : [h('i', { text: t('no_logs') })]);
-    var badge = h('span', { 'class': 'cl-badge', text: t('st_' + c.status) }); badge.style.cssText = 'background:' + color + '20;color:' + color + ';border:1px solid ' + color + '40';
-    function act(action, icon, key) { return btn('', icon + ' ' + t(key), function () { run(this, function () { return call('log', { id: c.id, action: action }).then(function (r) { c.logs = r.logs; render(); }); }); }); }
-    return h('div', { 'class': 'cl-card' }, [
-      btn('cl-del', '✕', function () { if (confirm(t('confirm_delete'))) run(this, function () { return call('delete', { id: c.id }).then(function () { cards = cards.filter(function (x) { return x.id !== c.id; }); render(); }); }); }, t('confirm_delete')),
-      h('div', { 'class': 'cl-head' }, [h('span', { 'class': 'cl-name', text: fullName(c) }), badge]),
-      h('div', { 'class': 'cl-info' }, [h('span', { text: '📞 ' + (c.mobile || '—') }), h('span', { text: '✈️ ' + (c.messenger || '—') }), h('span', { text: '✉️ ' + (c.email || '—') })]),
-      h('div', { 'class': 'cl-note' }, [h('strong', { text: t('lbl_theme') }), ' ' + (c.theme || '—'), h('br'), h('strong', { text: t('lbl_notes') }), ' ' + (c.notes || '—')]),
-      h('div', { 'class': 'cl-act' }, [act('call', '📞', 'btn_call'), act('email', '✉️', 'btn_email'), act('messenger', '💬', 'btn_msg'), act('success', '✅', 'btn_success')]),
-      h('div', { 'class': 'cl-next', text: '📅 ' + t('lbl_next') + ' ' + (c.next_call || t('not_set')) }),
-      h('div', { 'class': 'cl-created', text: '🕐 ' + t('lbl_created') + ' ' + new Date(c.created_at * 1000).toLocaleDateString() }),
+    var logs = h('div', { 'class': 'cl-log' }, c.logs.length ? c.logs.map(function (l) { return h('div', { 'class': 'cl-logrow' }, [h('time', { text: fmt(l.at) }), h('span', { text: t('log_' + l.action) })]); }) : [h('i', { text: t('no_logs') })]);
+    var badge = h('span', { 'class': 'badge ' + (TONE[c.status] || 'mute'), text: t('st_' + c.status) });
+    function act(action, icon, key) { return btn('cl-actbtn', t(key), function () { run(this, function () { return call('log', { id: c.id, action: action }).then(function (r) { c.logs = r.logs; render(); }); }); }, t(key), icon); }
+    return h('div', { 'class': 'card cl-card' }, [
+      btn('cl-del', '', function () { if (confirm(t('confirm_delete'))) run(this, function () { return call('delete', { id: c.id }).then(function () { cards = cards.filter(function (x) { return x.id !== c.id; }); render(); }); }); }, t('confirm_delete'), 'x'),
+      h('div', { 'class': 'cl-head' }, [h('h3', { 'class': 'cl-name', text: fullName(c) }), badge]),
+      h('div', { 'class': 'cl-info' }, [line('phone', c.mobile), line('send', c.messenger), line('mail', c.email)]),
+      h('div', { 'class': 'cl-note' }, [h('div', {}, [h('b', { text: t('lbl_theme') }), ' ' + (c.theme || '—')]), h('div', {}, [h('b', { text: t('lbl_notes') }), ' ' + (c.notes || '—')])]),
+      h('div', { 'class': 'cl-act' }, [act('call', 'phone', 'btn_call'), act('email', 'mail', 'btn_email'), act('messenger', 'msg', 'btn_msg'), act('success', 'check', 'btn_success')]),
+      h('div', { 'class': 'cl-meta' }, [h('span', {}, [ico('cal'), ' ' + t('lbl_next') + ' ' + (c.next_call || t('not_set'))]), h('span', {}, [ico('clock'), ' ' + t('lbl_created') + ' ' + new Date(c.created_at * 1000).toLocaleDateString()])]),
       logs,
       h('div', { 'class': 'cl-foot' }, [
-        btn('cl-outline', '🗑 ' + t('btn_clear'), function () { if (confirm(t('confirm_clear'))) run(this, function () { return call('clearlog', { id: c.id }).then(function () { c.logs = []; render(); }); }); }),
-        btn('cl-success', '✈ ' + t('btn_report'), function () { sendReport(this, c); }),
-        btn('', '✎ ' + t('btn_edit'), function () { openCard(c); })
+        btn('', t('btn_clear'), function () { if (confirm(t('confirm_clear'))) run(this, function () { return call('clearlog', { id: c.id }).then(function () { c.logs = []; render(); }); }); }, '', 'trash'),
+        btn('', t('btn_report'), function () { sendReport(this, c); }, '', 'send'),
+        btn('primary', t('btn_edit'), function () { openCard(c); }, '', 'edit')
       ])
     ]);
   }
@@ -77,9 +88,9 @@
     return fn().catch(function (e) { toast(e.message, 'bad', 8000); }).then(function () { if (button && button.isConnected) button.disabled = false; });
   }
   function sendReport(button, c) {
-    var old = button.textContent; button.textContent = '… ' + t('sending'); button.disabled = true;
+    var old = button.lastChild.textContent; button.lastChild.textContent = t('sending') + '…'; button.disabled = true;
     call('report', { id: c.id }).then(function () { toast(t('report_sent'), 'ok'); }, function (e) { toast(t('report_error') + ': ' + e.message, 'bad', 9000); })
-      .then(function () { if (button.isConnected) { button.textContent = old; button.disabled = false; } });
+      .then(function () { if (button.isConnected) { button.lastChild.textContent = old; button.disabled = false; } });
   }
 
   /* ---------- card form ---------- */

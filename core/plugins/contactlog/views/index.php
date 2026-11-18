@@ -5,20 +5,18 @@ $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSO
 ?>
 <link rel="stylesheet" href="<?= e($sf->asset('contactlog.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
 <div class="cl-app" id="clApp">
-  <div class="cl-top">
-    <div class="cl-title"><h1>📇 <?= e($sf->t('heading')) ?></h1><p><?= e($sf->t('subtitle')) ?></p></div>
-    <div class="cl-controls">
-      <div class="cl-user">👤 <strong><?= e($sf->t('user_label')) ?></strong> <?= e($userName) ?></div>
-      <button type="button" id="clTheme"><span id="clThemeIcon">🌙</span> <span id="clThemeText"><?= e($sf->t('dark_mode')) ?></span></button>
-      <select id="clCols" aria-label="<?= e($sf->t('cols', ['n' => ''])) ?>"><?php foreach ([2, 3, 4] as $n): ?><option value="<?= $n ?>"><?= e($sf->t('cols', ['n' => $n])) ?></option><?php endforeach; ?></select>
-      <button type="button" id="clAdd">＋ <?= e($sf->t('add_card')) ?></button>
-      <?php if ($isAdmin): ?><a class="cl-btn cl-outline" href="<?= e(url('/settings')) ?>" title="<?= e($sf->t('mail_settings_help')) ?>">⚙ <?= e($sf->t('mail_settings')) ?></a><?php endif; ?>
-      <button type="button" class="cl-outline" id="clProfile">✎ <?= e($sf->t('profile')) ?></button>
+  <div class="page-h cl-top">
+    <div><h1><?= e($sf->t('heading')) ?></h1><p class="muted"><?= e($sf->t('subtitle')) ?></p></div>
+    <div class="row cl-controls">
+      <select id="clCols" class="cl-sel" aria-label="<?= e($sf->t('cols', ['n' => ''])) ?>"><?php foreach ([2, 3, 4] as $n): ?><option value="<?= $n ?>"><?= e($sf->t('cols', ['n' => $n])) ?></option><?php endforeach; ?></select>
+      <button type="button" class="btn primary" id="clAdd"><i data-ico="plus"></i><?= e($sf->t('add_card')) ?></button>
+      <?php if ($isAdmin): ?><a class="btn" href="<?= e(url('/settings')) ?>" title="<?= e($sf->t('mail_settings_help')) ?>"><i data-ico="sliders"></i><?= e($sf->t('mail_settings')) ?></a><?php endif; ?>
+      <button type="button" class="btn" id="clProfile" title="<?= e($sf->t('user_label')) ?> <?= e($userName) ?>"><i data-ico="user"></i><?= e($sf->t('profile')) ?></button>
     </div>
   </div>
   <div class="cl-bar">
-    <input type="search" id="clSearch" placeholder="🔍 <?= e($sf->t('search_ph')) ?>" autocomplete="off">
-    <select id="clOrder"><option value="date"><?= e($sf->t('order_date')) ?></option><option value="status"><?= e($sf->t('order_status')) ?></option></select>
+    <label class="cl-search"><i data-ico="search"></i><input type="search" id="clSearch" placeholder="<?= e($sf->t('search_ph')) ?>" autocomplete="off"></label>
+    <select id="clOrder" class="cl-sel"><option value="date"><?= e($sf->t('order_date')) ?></option><option value="status"><?= e($sf->t('order_status')) ?></option></select>
   </div>
   <div id="clCards" class="cl-grid" data-cols="3"></div>
 
@@ -36,7 +34,7 @@ $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSO
     <div class="cl-f"><label for="clTheme2"><?= e($sf->t('f_theme')) ?></label><input id="clTheme2" maxlength="190" placeholder="<?= e($sf->t('ph_theme')) ?>"></div>
     <div class="cl-f"><label for="clNotes"><?= e($sf->t('f_notes')) ?></label><textarea id="clNotes" rows="2" maxlength="4000"></textarea></div>
     <div class="cl-f"><label for="clNext"><?= e($sf->t('f_next')) ?></label><input type="date" id="clNext"></div>
-    <div class="cl-actions"><button type="button" id="clSave"><?= e($sf->t('save')) ?></button><button type="button" class="cl-outline" id="clCardCancel"><?= e($sf->t('cancel')) ?></button></div>
+    <div class="cl-actions"><button type="button" class="btn primary" id="clSave"><?= e($sf->t('save')) ?></button><button type="button" class="btn" id="clCardCancel"><?= e($sf->t('cancel')) ?></button></div>
   </div></div>
 
   <div id="clProfileModal" class="cl-modal cl-hide" role="dialog" aria-modal="true"><div class="cl-modal-c">
@@ -45,7 +43,7 @@ $json = json_encode($boot, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSO
     <div class="cl-err" id="clProfileErr"></div>
     <div class="cl-f"><label for="clOwn"><?= e($sf->t('own_email')) ?></label><input id="clOwn" value="<?= e($ownEmail) ?>" readonly class="cl-ro"></div>
     <div class="cl-f"><label for="clCopy"><?= e($sf->t('copy_email')) ?></label><input id="clCopy" type="email" maxlength="190" placeholder="copy@example.com"></div>
-    <div class="cl-actions"><button type="button" id="clProfileSave"><?= e($sf->t('update_profile')) ?></button><button type="button" class="cl-outline" id="clProfileClose"><?= e($sf->t('close')) ?></button></div>
+    <div class="cl-actions"><button type="button" class="btn primary" id="clProfileSave"><?= e($sf->t('update_profile')) ?></button><button type="button" class="btn" id="clProfileClose"><?= e($sf->t('close')) ?></button></div>
   </div></div>
   <div id="clToasts"></div>
 </div>
