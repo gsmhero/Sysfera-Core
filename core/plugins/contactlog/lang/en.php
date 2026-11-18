@@ -20,4 +20,5 @@ return [
     'err_server' => 'Something went wrong. Please try again.', 'err_network' => 'Cannot reach the server. Check the connection and try again.', 'err_not_found' => 'Not found.', 'err_forbidden' => 'You cannot do this.', 'err_bad_request' => 'The form expired. Reload the page and try again.',
     'err_name_required' => 'The name is required.', 'err_email_invalid' => 'The e-mail address is not valid.', 'err_status_invalid' => 'Unknown status.', 'err_date_invalid' => 'The date is not valid. Use YYYY-MM-DD or DD.MM.YYYY.', 'err_too_many' => 'Too many cards.', 'err_action_invalid' => 'Unknown action.',
     'err_no_recipient' => 'No valid recipient e-mail: your account has none and no copy address is set.', 'err_mail_not_configured' => 'E-mail is not set up on this server yet. Ask an administrator to fill in Settings > E-mail.', 'err_mail_failed' => 'The mail server did not accept the report. Check Settings > E-mail (host, port, encryption, login) or try later.',
+    'status_saved' => 'Status changed.',
 ];

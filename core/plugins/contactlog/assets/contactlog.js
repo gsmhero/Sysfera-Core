@@ -65,7 +65,13 @@
   function line(icon, text) { return h('div', { 'class': 'cl-line' }, [ico(icon), h('span', { text: text || '—' })]); }
   function cardEl(c) {
     var logs = h('div', { 'class': 'cl-log' }, c.logs.length ? c.logs.map(function (l) { return h('div', { 'class': 'cl-logrow' }, [h('time', { text: fmt(l.at) }), h('span', { text: t('log_' + l.action) })]); }) : [h('i', { text: t('no_logs') })]);
-    var badge = h('span', { 'class': 'badge ' + (TONE[c.status] || 'mute'), text: t('st_' + c.status) });
+    /* the status is a select that looks like the badge: changing it saves the card with the new status */
+    var badge = h('select', { 'class': 'badge cl-status ' + (TONE[c.status] || 'mute'), 'aria-label': t('f_status') }, boot.statuses.map(function (s) { var o = h('option', { value: s, text: t('st_' + s) }); if (s === c.status) o.selected = true; return o; }));
+    badge.addEventListener('change', function () {
+      var old = c.status, data = { id: c.id }; for (var k in F) data[k] = c[k]; data.status = badge.value; badge.disabled = true;
+      call('save', data).then(function (r) { var i = cards.findIndex(function (x) { return x.id === r.card.id; }); if (i !== -1) cards[i] = r.card; render(); toast(t('status_saved'), 'ok', 2000); },
+        function (e) { badge.value = old; badge.disabled = false; toast(e.message, 'bad', 8000); });
+    });
     function act(action, icon, key) { return btn('cl-actbtn', t(key), function () { run(this, function () { return call('log', { id: c.id, action: action }).then(function (r) { c.logs = r.logs; render(); }); }); }, t(key), icon); }
     return h('div', { 'class': 'card cl-card' }, [
       btn('cl-del', '', function () { if (confirm(t('confirm_delete'))) run(this, function () { return call('delete', { id: c.id }).then(function () { cards = cards.filter(function (x) { return x.id !== c.id; }); render(); }); }); }, t('confirm_delete'), 'x'),

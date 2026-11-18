@@ -47,3 +47,6 @@
 .cl-toast{padding:11px 16px;border-radius:8px;font-size:14px;max-width:400px;word-break:break-word;background:var(--card);color:var(--ink);border:1px solid var(--line);border-left-width:4px;box-shadow:0 6px 20px rgba(0,0,0,.15);transform:translateY(100px);opacity:0;transition:all .3s ease}
 .cl-toast.show{transform:none;opacity:1}.cl-toast.ok{border-left-color:var(--ok)}.cl-toast.bad{border-left-color:var(--bad)}
 @media (max-width:600px){.cl-controls{justify-content:flex-start}.cl-bar{flex-direction:column;align-items:stretch}.cl-actions{flex-direction:column-reverse}}
+
+.cl-app select.cl-status{width:auto;max-width:150px;padding:3px 22px 3px 10px;border:1px solid transparent;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;appearance:none;-webkit-appearance:none;background-repeat:no-repeat;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 13px) 55%,calc(100% - 9px) 55%;background-size:4px 4px,4px 4px}
+.cl-app select.cl-status:hover{border-color:currentColor}.cl-app select.cl-status option{color:var(--ink);background:var(--card)}
