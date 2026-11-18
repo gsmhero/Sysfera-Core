@@ -27,7 +27,7 @@ return function (\Sysfera\Plugin $sf): void {
         $sf->mail($u['email'], Notice::headline($l, $kind, $d), implode("\n", $lines));
     };
     $svc = function () use ($db, $users, $mail, $sf): Svc {
-        static $o = null; return $o ??= new Svc(new DbStore($db), fn() => time(), $users, $mail, ['stale_days' => max(1, (int)$sf->setting('stale_days', '30'))]);
+        static $o = null; return $o ??= new Svc(new DbStore($db), fn() => time(), $users, $mail, ['stale_days' => max(1, (int)$sf->setting('stale_days', '30')), 'bablito_base' => trim((string)$sf->setting('bablito_url', 'https://www.bablito.ru'))]);
     };
     $me = function () use ($sf): Ctx { $u = $sf->auth()->user(); return new Ctx((int)($u['id'] ?? 0), $sf->auth()->isAdmin(), (string)($u['name'] ?? '')); };
     $dir = SF_ROOT . '/storage/contracts';
@@ -54,7 +54,10 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->menu('menu', '/', ['order' => 24, 'icon' => 'note', 'badge' => fn() => $sf->auth()->id() ? $svc()->unread($sf->auth()->id()) : 0]);
 
     /* the stale-contract sweep runs at most every 10 minutes, on page loads */
-    $sweep = function () use ($sf, $svc): void {
+    $sweep = function () use ($sf, $svc, $bLive, $bConfigured, $sync): void {
+        if ($bLive() && $bConfigured() && (int)$sf->setting('last_import', '0') < time() - 900) {
+            $sf->setSetting('last_import', (string)time()); try { $sync()->contracts(false); } catch (\Throwable $e) { \Sysfera\App::log('contracts import ' . $e->getMessage()); }
+        }
         $last = (int)$sf->setting('last_sweep', '0'); if ($last > time() - 600) return;
         $sf->setSetting('last_sweep', (string)time()); try { $svc()->archiveStale(); } catch (\Throwable $e) { \Sysfera\App::log('contracts sweep ' . $e); }
     };
@@ -103,6 +106,9 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('GET', '/', $page(function () use ($render, $svc, $sf) {
         $f = array_intersect_key($_GET, array_flip(['category', 'from', 'to', 'q', 'sort', 'page'])); $l = $svc()->listing($f);
         $render('list', ['list' => $l, 'f' => $f, 'cats' => $svc()->categories()], $sf->t('nav_list'), 'list');
+    }));
+    $sf->route('GET', '/remote/{id}', $page(function (array $p) use ($render, $svc, $sf) {
+        $k = $svc()->remote((int)$p['id']); $render('remote', ['k' => $k], $k['title'], 'list');
     }));
     $sf->route('GET', '/mine', $page(function () use ($render, $svc, $sf, $me) {
         $tab = in_array($_GET['tab'] ?? '', ['created', 'working', 'offers', 'archive', 'watch'], true) ? $_GET['tab'] : 'created';

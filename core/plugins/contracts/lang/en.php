@@ -92,4 +92,9 @@ return [
     'pf_off' => 'off',
     'pf_act_help' => 'tick to act in this status; its fields are saved only then',
     'pf_none' => 'No fields for this status yet. Run the Bablito synchronisation or ask an administrator to add them.',
+    'remote_badge' => 'Bablito.ru',
+    'remote_author' => 'Author',
+    'remote_open' => 'Open on Bablito.ru to make an offer',
+    'remote_help' => 'This contract is published on Bablito.ru. Offers, work and payment for it take place there; this page is a read-only copy that is refreshed automatically.',
+    'bab_r_contracts' => 'Contracts published on Bablito: %d (%d new, %d updated, %d removed).',
 ];

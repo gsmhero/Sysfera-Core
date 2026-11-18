@@ -39,6 +39,9 @@ final class Bablito
     public function fields(): array { return $this->call('GET', '/api/sysfera/fields')['sections'] ?? []; }
     public function user(string $email): ?array { return $this->call('GET', '/api/sysfera/users?email=' . rawurlencode(mb_strtolower(trim($email))))['user'] ?? null; }
     public function account(array $u, bool $link, bool $dry): array { return $this->call('POST', '/api/sysfera/users', ['email' => mb_strtolower(trim((string)$u['email'])), 'name' => $u['name'], 'types' => $u['types'], 'lang' => $u['lang'], 'sysfera_id' => $u['id'], 'link' => $link, 'dry_run' => $dry]); }
+    public function base(): string { return rtrim($this->base, '/'); }
+    /** One page (up to 100) of the contracts published on Bablito, ascending id, after the given id. */
+    public function contracts(int $after): array { return $this->call('GET', '/api/sysfera/contracts?after=' . max(0, $after) . '&limit=100'); }
     public function profile(int $remoteId): array { return $this->call('GET', '/api/sysfera/profile/' . $remoteId); }
     public function pushProfile(int $remoteId, array $types, array $values, bool $dry): array { return $this->call('POST', '/api/sysfera/profile/' . $remoteId, ['types' => $types, 'values' => $values, 'dry_run' => $dry]); }
 }

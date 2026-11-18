@@ -18,6 +18,10 @@ ok(Bablito::validBase('https://www.bablito.ru') && !Bablito::validBase('http://w
 $R = ['now' => strtotime('2026-11-10 12:00:00'), 'next' => 100, 'bad' => false, 'down' => false, 'calls' => [],
   'sections' => [['id' => 7, 'title' => 'About the company', 'type' => 'company', 'position' => 1, 'fields' => [['id' => 70, 'label' => 'Tax number', 'type' => 'text', 'options' => '', 'required' => true, 'default_public' => false, 'position' => 1]]],
                  ['id' => 8, 'title' => 'Skills', 'type' => 'self', 'position' => 2, 'fields' => [['id' => 80, 'label' => 'Level', 'type' => 'select', 'options' => "junior\nsenior", 'required' => false, 'default_public' => true, 'position' => 1], ['id' => 81, 'label' => 'Site', 'type' => 'url', 'options' => '', 'required' => false, 'default_public' => true, 'position' => 2]]]],
+  'contracts' => [
+    ['id' => 501, 'title' => 'Logo design', 'category' => 'Design', 'location' => 'Remote', 'description' => 'A logo', 'currency' => 'RUB', 'payment_type' => 'step', 'prepay_required' => true, 'deadline' => '2026-12-31', 'created_at' => '2026-11-08 09:00:00', 'author' => ['id' => 10, 'name' => 'Anna'], 'steps' => [['name' => 'Sketch', 'description' => '', 'price' => 100, 'days' => 2], ['name' => 'Final', 'description' => 'files', 'price' => 250.5, 'days' => 3]]],
+    ['id' => 502, 'title' => 'Fix a tap', 'category' => 'Unknown cat', 'location' => '', 'description' => '', 'currency' => 'xx', 'payment_type' => 'finish', 'prepay_required' => false, 'deadline' => null, 'created_at' => 'bad', 'author' => ['id' => 11, 'name' => 'Taken'], 'steps' => []],
+    ['id' => 503, 'title' => 'Write a text', 'category' => 'design', 'location' => 'Kazan', 'description' => 'x', 'currency' => 'USD', 'payment_type' => 'finish', 'prepay_required' => false, 'deadline' => null, 'created_at' => '2026-11-09 09:00:00', 'author' => ['id' => 10, 'name' => 'Anna'], 'steps' => [['name' => 'All', 'description' => '', 'price' => 50, 'days' => 1]]]],
   'users' => [10 => ['id' => 10, 'email' => 'anna@x.test', 'name' => 'Anna', 'types' => ['self'], 'sysfera_id' => null], 11 => ['id' => 11, 'email' => 'taken@x.test', 'name' => 'Taken', 'types' => ['personal'], 'sysfera_id' => 99]],
   'values' => [10 => [81 => ['value' => 'https://anna.test', 'is_public' => 1, 'updated_at' => '2026-11-05 10:00:00'], 80 => ['value' => 'senior', 'is_public' => 1, 'updated_at' => '2026-11-09 10:00:00']]]];
 $http = function (string $m, string $url, array $h, string $body) use (&$R, $key): array {
@@ -28,6 +32,7 @@ $http = function (string $m, string $url, array $h, string $body) use (&$R, $key
     $in = $body !== '' ? json_decode($body, true) : []; parse_str($p['query'] ?? '', $q); $dry = !empty($in['dry_run']); $j = fn($d, int $s = 200) => [$s, json_encode($d)];
     $uj = fn($u) => $u ? ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'types' => $u['types'], 'sysfera_id' => $u['sysfera_id']] : null;
     if ($p['path'] === '/api/sysfera/ping') return $j(['ok' => true, 'users' => count($R['users'])]);
+    if ($p['path'] === '/api/sysfera/contracts') { $all = array_values(array_filter($R['contracts'], fn($c) => $c['id'] > (int)($q['after'] ?? 0))); $cut = array_slice($all, 0, 2); return $j(['contracts' => $cut, 'has_more' => count($all) > 2]); }
     if ($p['path'] === '/api/sysfera/fields') return $j(['sections' => $R['sections']]);
     if ($p['path'] === '/api/sysfera/users' && $m === 'GET') { foreach ($R['users'] as $u) if ($u['email'] === strtolower($q['email'] ?? '')) return $j(['user' => $uj($u)]); return $j(['user' => null]); }
     if ($p['path'] === '/api/sysfera/users') {
@@ -116,8 +121,26 @@ ok($R['values'][10][81]['value'] === 'https://later.test', 'profile: a later loc
 $R['values'][10][81] = ['value' => 'https://remote-wins.test', 'is_public' => 1, 'updated_at' => '2026-11-10 11:00:00']; $sync->profile(1, false);
 ok($st->one('pvalues', ['field_id' => $f81])['value'] === 'https://remote-wins.test', 'profile: at the same time Bablito wins (it is the master)');
 
+/* ---------- contracts published on Bablito ---------- */
+$st->insert('categories', ['name' => 'Design', 'name_ru' => 'Дизайн']);
+$d = $sync->contracts(true); ok($d['total'] === 3 && $d['new'] === 3 && empty($st->t['remote']), 'contracts dry run: counts (over several pages), copies nothing');
+$c = $sync->contracts(false); ok($c['new'] === 3 && count($st->t['remote']) === 3, 'contracts: all published ones are copied, page after page');
+$r501 = $st->one('remote', ['remote_id' => 501]); $r502 = $st->one('remote', ['remote_id' => 502]);
+ok($r501['total_price'] === '350.50' && $r501['total_days'] === 5 && $r501['payment_type'] === 'step' && $r501['prepay_required'] === 1 && $r501['author_name'] === 'Anna' && count(json_decode($r501['steps_json'], true)) === 2, 'contracts: total price and days come from the steps, steps and author are kept');
+ok($r502['currency'] === 'RUB' && $r502['created_at'] !== 'bad' && $r502['deadline'] === null, 'contracts: a bad currency / date falls back to a safe value');
+ok(array_sum($sync->contracts(false)) === 3 && $sync->contracts(false)['updated'] === 0, 'contracts: running again changes nothing');
+$R['contracts'][0]['title'] = 'Logo design v2'; unset($R['contracts'][1]); $R['contracts'] = array_values($R['contracts']);
+$u = $sync->contracts(false); ok($u['updated'] === 1 && $u['removed'] === 1 && $st->one('remote', ['remote_id' => 502]) === null && $st->one('remote', ['remote_id' => 501])['title'] === 'Logo design v2', 'contracts: a changed one is updated, one no longer published there is removed');
+$R['down'] = true; ok(err(fn() => $sync->contracts(false)) === 'bablito_unreachable' && count($st->t['remote']) === 2, 'contracts: when Bablito cannot be reached nothing is removed'); $R['down'] = false;
+$cs = new Svc($st, fn() => $R['now'], fn($ids) => [], null, ['bablito_base' => 'https://www.bablito.ru/']); $rl = $cs->listing(['per' => 50]);
+$rem = array_values(array_filter($rl['rows'], fn($k) => !empty($k['remote'])));
+ok(count($rem) === 2 && $rem[0]['status'] === 'published' && $rem[0]['remote_url'] === 'https://www.bablito.ru/contract/' . $rem[0]['remote_id'] && $rem[0]['user_id'] === 0, 'listing: the copies are listed with a link to the original');
+ok(count(array_filter($cs->listing(['category' => 1, 'per' => 50])['rows'], fn($k) => !empty($k['remote']))) === 2 && $cs->listing(['category' => 2, 'per' => 50])['total'] === 0, 'listing: a copy takes the category of the same name (any letter case)');
+ok($cs->listing(['q' => 'kazan'])['total'] === 1 && $cs->listing(['from' => '300', 'to' => '400'])['total'] === 1, 'listing: search and price filters work on the copies');
+ok(err(fn() => $cs->remote(9999)) === 'not_found' && $cs->remote(501)['step_list'][1]['name'] === 'Final', 'remote contract: its own page, unknown id is not found');
+
 /* ---------- everything at once ---------- */
-$all = $sync->all(true); ok($all['dry'] === true && $all['profiles']['ok'] === 2 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
+$all = $sync->all(true); ok(isset($all['contracts']['total']) && $all['dry'] === true && $all['profiles']['ok'] === 2 && $all['users']['conflicts'] && $all['users']['unmatched'] === [], 'sync all (dry): report for structure, users and every linked profile');
 $all = $sync->all(false); ok($all['dry'] === false && $all['profiles']['failed'] === [] && $all['profiles']['ok'] === 2, 'sync all: no failures');
 
 /* ---------- local edits are stamped (Svc::saveValues) ---------- */

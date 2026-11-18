@@ -207,6 +207,26 @@ final class Svc
         return $k + ['total_price' => $t['price'], 'total_days' => $t['days'], 'steps' => $t['steps'], 'accepted_steps' => $acc, 'offer_count' => count($offers), 'new_offers' => count(array_filter($offers, fn($o) => $o['seen_at'] === null && $o['status'] === 'pending')),
             'category' => $cat['name'] ?? '', 'category_ru' => ($cat['name_ru'] ?? '') ?: ($cat['name'] ?? ''), 'author_name' => $names[(int)$k['user_id']]['name'] ?? '', 'rating_avg' => (float)($profiles[(int)$k['user_id']]['rating_avg'] ?? 0), 'rating_count' => (int)($profiles[(int)$k['user_id']]['rating_count'] ?? 0)];
     }
+    /* ---------------------------------- contracts copied from Bablito.ru (read-only) ---------------------------------- */
+
+    private function remoteCard(array $r, array $cats): array
+    {
+        $cid = 0; $n = mb_strtolower((string)$r['category']); if ($n !== '') foreach ($cats as $c) if (mb_strtolower((string)$c['name']) === $n || mb_strtolower((string)($c['name_ru'] ?? '')) === $n) $cid = (int)$c['id'];
+        $b = rtrim((string)($this->cfg['bablito_base'] ?? ''), '/'); $steps = json_decode((string)$r['steps_json'], true); $steps = is_array($steps) ? $steps : [];
+        return ['id' => 0, 'remote' => true, 'remote_id' => (int)$r['remote_id'], 'remote_url' => $b !== '' ? $b . '/contract/' . (int)$r['remote_id'] : '', 'user_id' => 0, 'title' => (string)$r['title'], 'category_id' => $cid, 'category' => (string)$r['category'], 'category_ru' => (string)$r['category'],
+            'location' => (string)$r['location'], 'description' => (string)$r['description'], 'status' => 'published', 'currency' => (string)$r['currency'], 'payment_type' => (string)$r['payment_type'], 'prepay_required' => (int)$r['prepay_required'], 'deadline' => $r['deadline'] ?: null, 'agreed_deadline' => null, 'agreed_price' => null,
+            'created_at' => (string)$r['created_at'], 'views' => 0, 'offer_count' => 0, 'new_offers' => 0, 'total_price' => (float)$r['total_price'], 'total_days' => (int)$r['total_days'], 'steps' => count($steps), 'accepted_steps' => 0, 'step_list' => $steps, 'author_name' => (string)$r['author_name'], 'rating_avg' => 0.0, 'rating_count' => 0];
+    }
+    /** The copies of the published contracts of Bablito.ru, shaped like the cards of Svc::listing. */
+    public function remoteCards(): array
+    {
+        $cats = $this->s->find('categories'); return array_map(fn($r) => $this->remoteCard($r, $cats), $this->s->find('remote', [], 'created_at DESC', 5000));
+    }
+    public function remote(int $remoteId): array
+    {
+        $r = $this->s->one('remote', ['remote_id' => $remoteId]); if (!$r) throw new Err('not_found', '', 404); return $this->remoteCard($r, $this->s->find('categories'));
+    }
+
     private function cards(array $list): array
     {
         $names = $this->userInfo(array_column($list, 'user_id')); $profiles = [];
@@ -219,7 +239,7 @@ final class Svc
     {
         $cat = (int)($f['category'] ?? 0); $from = trim((string)($f['from'] ?? '')); $to = trim((string)($f['to'] ?? '')); $q = mb_strtolower(trim((string)($f['q'] ?? '')));
         $sort = ($f['sort'] ?? 'date') === 'price' ? 'price' : 'date'; $page = max(1, (int)($f['page'] ?? 1)); $per = max(1, min(100, (int)($f['per'] ?? 20)));
-        $list = $this->cards($this->s->find('contracts', ['status' => 'published'], 'created_at DESC'));
+        $list = array_merge($this->cards($this->s->find('contracts', ['status' => 'published'], 'created_at DESC')), $this->remoteCards());
         $list = array_values(array_filter($list, function ($k) use ($cat, $from, $to, $q) {
             if ($cat > 0 && (int)$k['category_id'] !== $cat) return false;
             if ($from !== '' && is_numeric($from) && $k['total_price'] < (float)$from) return false;

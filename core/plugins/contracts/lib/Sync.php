@@ -118,10 +118,45 @@ final class Sync
         return $rep;
     }
 
+    /** Copies the contracts published on Bablito into {p}ct_remote (read-only; offers are made on Bablito). A contract that is no longer published there is removed here. */
+    public function contracts(bool $dry): array
+    {
+        $r = ['total' => 0, 'new' => 0, 'updated' => 0, 'removed' => 0]; $seen = []; $after = 0; $complete = false; $have = [];
+        foreach ($this->s->find('remote') as $x) $have[(int)$x['remote_id']] = $x;
+        for ($page = 0; $page < 50 && !$complete; $page++) {
+            $a = $this->b->contracts($after); $list = (array)($a['contracts'] ?? []);
+            foreach ($list as $c) {
+                $rid = (int)($c['id'] ?? 0); if ($rid <= 0 || trim((string)($c['title'] ?? '')) === '') continue;
+                $after = max($after, $rid); $steps = []; $sum = 0.0; $days = 0;
+                foreach (array_slice((array)($c['steps'] ?? []), 0, 100) as $t) {
+                    if (!is_array($t)) continue; $pr = max(0.0, (float)($t['price'] ?? 0)); $d = max(0, (int)($t['days'] ?? 0));
+                    $steps[] = ['name' => mb_substr(trim((string)($t['name'] ?? '')), 0, 190), 'description' => mb_substr(trim((string)($t['description'] ?? '')), 0, 2000), 'price' => $pr, 'days' => $d]; $sum += $pr; $days += $d;
+                }
+                $dl = (string)($c['deadline'] ?? ''); $cr = (string)($c['created_at'] ?? '');
+                $row = ['remote_id' => $rid, 'title' => mb_substr(trim((string)$c['title']), 0, 190), 'category' => mb_substr(trim((string)($c['category'] ?? '')), 0, 80), 'location' => mb_substr(trim((string)($c['location'] ?? '')), 0, 190),
+                    'description' => mb_substr(trim((string)($c['description'] ?? '')), 0, 8000), 'currency' => preg_match('/^[A-Z]{3}$/', (string)($c['currency'] ?? '')) ? $c['currency'] : 'RUB',
+                    'payment_type' => ($c['payment_type'] ?? '') === 'step' ? 'step' : 'finish', 'prepay_required' => !empty($c['prepay_required']) ? 1 : 0, 'deadline' => preg_match('/^\d{4}-\d{2}-\d{2}/', $dl) ? substr($dl, 0, 10) : null,
+                    'author_name' => mb_substr(trim((string)($c['author']['name'] ?? '')), 0, 120), 'author_remote_id' => (int)($c['author']['id'] ?? 0), 'total_price' => number_format($sum, 2, '.', ''), 'total_days' => $days,
+                    'steps_json' => (string)json_encode($steps, JSON_UNESCAPED_UNICODE), 'created_at' => preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cr) ? $cr : $this->stamp()];
+                $seen[$rid] = 1; $r['total']++; $old = $have[$rid] ?? null;
+                if (!$old) { $r['new']++; if (!$dry) $this->s->insert('remote', $row + ['synced_at' => $this->stamp()]); }
+                else {
+                    $diff = false; foreach ($row as $k => $v) if ((string)($old[$k] ?? '') !== (string)($v ?? '')) $diff = true;
+                    if ($diff) { $r['updated']++; if (!$dry) $this->s->update('remote', (int)$old['id'], $row + ['synced_at' => $this->stamp()]); }
+                }
+            }
+            if (empty($a['has_more']) || !$list) $complete = true;
+        }
+        if ($complete) foreach ($have as $rid => $x) if (!isset($seen[$rid])) { $r['removed']++; if (!$dry) $this->s->delete('remote', (int)$x['id']); }
+        return $r;
+    }
+
+    private function safeContracts(bool $dry): array { try { return $this->contracts($dry); } catch (Err $e) { return ['error' => $e->errCode]; } }
+
     /** Structure, then users, then the profile of every linked user (at most $max per run). */
     public function all(bool $dry, int $max = 200): array
     {
-        $rep = ['dry' => $dry, 'time' => $this->stamp(), 'structure' => $this->structure($dry), 'users' => $this->linkUsers($dry), 'profiles' => ['ok' => 0, 'pulled' => 0, 'pushed' => 0, 'failed' => []]];
+        $rep = ['dry' => $dry, 'time' => $this->stamp(), 'structure' => $this->structure($dry), 'users' => $this->linkUsers($dry), 'contracts' => $this->safeContracts($dry), 'profiles' => ['ok' => 0, 'pulled' => 0, 'pushed' => 0, 'failed' => []]];
         $n = 0; foreach ($this->s->find('links', [], 'synced_at') as $l) {
             if ($n++ >= $max) break;
             try { $x = $this->profile((int)$l['user_id'], $dry); $rep['profiles']['ok']++; $rep['profiles']['pulled'] += $x['pulled']; $rep['profiles']['pushed'] += $x['pushed']; }

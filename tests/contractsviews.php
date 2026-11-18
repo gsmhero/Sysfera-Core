@@ -64,6 +64,9 @@ $vars = function (Ctx $c, string $lang) use ($svc, $pub, $draft, $work, $done, $
     if ($p = $try(fn() => $svc->invoicePage($c, $inv))) $v['invoice'] = ['tab' => 'invoices'] + $p;
     $v['notices'] = ['tab' => 'notices', 'list' => $svc->notices($c)];
     $v['user'] = ['tab' => 'list', 'uid' => 3, 'canReview' => $svc->reviewable($c, 3)] + $svc->userPage(3);
+    if (!$st->one('remote', ['remote_id' => 77])) $st->insert('remote', ['remote_id' => 77, 'title' => 'From Bablito', 'category' => 'Design', 'location' => 'Moscow', 'description' => "Line one
+Line two", 'currency' => 'RUB', 'payment_type' => 'finish', 'prepay_required' => 1, 'deadline' => '2026-12-01', 'author_name' => 'Remote Author', 'author_remote_id' => 5, 'total_price' => '300.00', 'total_days' => 5, 'steps_json' => json_encode([['name' => 'S1', 'description' => 'd', 'price' => 100.0, 'days' => 2], ['name' => 'S2', 'description' => '', 'price' => 200.0, 'days' => 3]]), 'created_at' => '2026-11-16 10:00:00', 'synced_at' => '2026-11-17 10:00:00']);
+    $v['remote'] = ['tab' => 'list', 'k' => $svc->remote(77)];
     $v['profile'] = ['tab' => 'profile', 'profile' => $svc->profile($c->uid), 'types' => $svc->userTypes($c->uid), 'structure' => $svc->structure(Svc::PARTY_TYPES), 'values' => $svc->values($c->uid)];
     if ($c->admin) $v['admin'] = ['tab' => 'admin', 'cats' => $svc->categories(), 'structure' => $svc->structure(), 'staleDays' => 30];
     foreach ($v as $k => $vars) $v[$k] = $vars + $base; return $v;
@@ -123,7 +126,8 @@ foreach (['/c/' => ['offer', 'comment', 'upload', 'pause', 'fire', 'prepay', 're
 }
 
 /* ---------- migration, manifest, repository ---------- */
-$sql = file_get_contents("$dir/migrations/001_contracts.sql") . "\n" . file_get_contents("$dir/migrations/002_bablito.sql"); preg_match_all('/CREATE TABLE IF NOT EXISTS \{p\}ct_([a-z_]+)/', $sql, $m);
+$sql = file_get_contents("$dir/migrations/001_contracts.sql") . "\n" . file_get_contents("$dir/migrations/002_bablito.sql") . "
+" . file_get_contents("$dir/migrations/003_remote.sql"); preg_match_all('/CREATE TABLE IF NOT EXISTS \{p\}ct_([a-z_]+)/', $sql, $m);
 ok(!array_diff(\SysferaContracts\DbStore::TABLES, $m[1]) && !array_diff($m[1], \SysferaContracts\DbStore::TABLES), 'migration: exactly the tables the store knows (' . count($m[1]) . ')');
 ok(!preg_match('/\b(DROP|TRUNCATE|DELETE FROM)\b/i', $sql) && substr_count($sql, 'CREATE TABLE') === substr_count($sql, 'IF NOT EXISTS {p}ct_'), 'migration: additive only, every name prefixed');
 $mf = json_decode(file_get_contents("$dir/plugin.json"), true); ok(($mf['slug'] ?? '') === 'contracts' && preg_match('/^\d+\.\d+\.\d+$/', $mf['version'] ?? '') && !empty($mf['name']['en']) && !empty($mf['name']['ru']) && !empty($mf['description']['ru']), 'manifest: slug, version, names and descriptions in en and ru');
