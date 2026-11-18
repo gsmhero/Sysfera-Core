@@ -1,0 +1,119 @@
+openapi: 3.0.3
+info:
+  title: Sysfera Contact Log (Журнал контактов) API
+  version: 0.1.0
+  description: |
+    The small JSON API the Contact Log page talks to. It is a **session API**: you must be logged in to Sysfera (cookie), and every POST must carry the form field `_t` (the CSRF token the page embeds).
+    There is no machine key: a user only ever reaches **their own** cards (an administrator included).
+    **Answers.** `{"ok": true, ...}` or `{"ok": false, "error": "<code>", "message": "<text in the user's language>"}` with the HTTP status of the refusal.
+    **Times** are unix seconds (UTC). **Dates** (`next_call`) are `YYYY-MM-DD`.
+    **E-mail.** `report` sends through the platform mailer (Settings > E-mail); this plugin has no SMTP settings of its own and never falls back to PHP `mail()`.
+servers:
+  - url: /p/contactlog/api
+components:
+  schemas:
+    Log:
+      type: object
+      properties:
+        id: {type: integer}
+        action: {type: string, enum: [call, email, messenger, success]}
+        at: {type: integer, description: unix seconds}
+    Card:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string, maxLength: 100}
+        second_name: {type: string, maxLength: 100}
+        surname: {type: string, maxLength: 100}
+        mobile: {type: string, maxLength: 40}
+        messenger: {type: string, maxLength: 100}
+        email: {type: string, maxLength: 190}
+        status: {type: string, enum: [busy, no_answer, sent_email, dropped, ignored, call_later, wrong_number, application, actual, not_relevant]}
+        theme: {type: string, maxLength: 190}
+        notes: {type: string, maxLength: 4000}
+        next_call: {type: string, description: "YYYY-MM-DD or empty"}
+        created_at: {type: integer}
+        logs: {type: array, items: {$ref: '#/components/schemas/Log'}}
+    Error:
+      type: object
+      required: [ok, error, message]
+      properties:
+        ok: {type: boolean, enum: [false]}
+        error: {type: string, description: "not_found, forbidden, name_required, email_invalid, status_invalid, date_invalid, too_many, action_invalid, no_recipient, mail_not_configured (409), mail_failed (502), server"}
+        message: {type: string}
+  responses:
+    Err:
+      description: A refusal
+      content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}
+paths:
+  /cards:
+    get:
+      summary: My cards with their logs, newest first
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, cards: {type: array, items: {$ref: '#/components/schemas/Card'}}}}}}}
+        '403': {$ref: '#/components/responses/Err'}
+  /save:
+    post:
+      summary: Create (no id) or update (id) a card; `name` is required
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [_t, name]
+              properties:
+                _t: {type: string}
+                id: {type: integer, description: omit or 0 to create}
+                name: {type: string}
+                second_name: {type: string}
+                surname: {type: string}
+                mobile: {type: string}
+                messenger: {type: string}
+                email: {type: string}
+                status: {type: string}
+                theme: {type: string}
+                notes: {type: string}
+                next_call: {type: string}
+      responses:
+        '200': {description: The saved card, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, card: {$ref: '#/components/schemas/Card'}}}}}}
+        '400': {$ref: '#/components/responses/Err'}
+        '404': {$ref: '#/components/responses/Err'}
+  /delete:
+    post:
+      summary: Delete a card and its log
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id], properties: {_t: {type: string}, id: {type: integer}}}}}}
+      responses:
+        '200': {description: OK}
+        '404': {$ref: '#/components/responses/Err'}
+  /log:
+    post:
+      summary: Add a time-stamped entry to a card's log (call, e-mail, message, success). At most 500 entries are kept per card.
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id, action], properties: {_t: {type: string}, id: {type: integer}, action: {type: string, enum: [call, email, messenger, success]}}}}}}
+      responses:
+        '200': {description: The card's whole log, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, logs: {type: array, items: {$ref: '#/components/schemas/Log'}}}}}}}
+        '400': {$ref: '#/components/responses/Err'}
+        '404': {$ref: '#/components/responses/Err'}
+  /clearlog:
+    post:
+      summary: Clear a card's log
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id], properties: {_t: {type: string}, id: {type: integer}}}}}}
+      responses:
+        '200': {description: OK}
+        '404': {$ref: '#/components/responses/Err'}
+  /report:
+    post:
+      summary: E-mail the card's report to the account's e-mail and the copy address (if set)
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id], properties: {_t: {type: string}, id: {type: integer}}}}}}
+      responses:
+        '200': {description: Sent, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, recipients: {type: integer}}}}}}
+        '400': {description: no_recipient, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '404': {$ref: '#/components/responses/Err'}
+        '409': {description: mail_not_configured, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '502': {description: mail_failed (the mail server refused; details are in storage/error.log), content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /profile:
+    post:
+      summary: Set (or clear, with an empty value) the copy address of the reports
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t], properties: {_t: {type: string}, copy_email: {type: string}}}}}}
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, copy_email: {type: string}}}}}}
+        '400': {$ref: '#/components/responses/Err'}
