@@ -1,5 +1,5 @@
 /* Contracts: pages (the colours are the core variables) */
-.ct-tabs{display:flex;gap:2px;align-items:center;overflow-x:auto;margin:-4px 0 18px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.ct-tabs{display:flex;flex-wrap:wrap;gap:2px;align-items:center;overflow:visible;margin:-4px 0 18px;border-bottom:1px solid var(--line);scrollbar-width:none}
 .ct-tabs a:not(.btn){padding:10px 14px;color:var(--mut);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14.5px}
 .ct-tabs a:not(.btn):hover{color:var(--ink)}.ct-tabs a.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
 .ct-tabs .ct-new{margin-left:auto;white-space:nowrap}
