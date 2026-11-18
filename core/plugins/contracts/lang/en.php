@@ -18,7 +18,7 @@ return [
     'confirm_accept' => 'Accept this offer? The contract becomes active and the other offers are closed.', 'confirm_reject' => 'Reject and delete this offer?', 'confirm_withdraw' => 'Withdraw your offer?', 'confirm_fire' => 'Dismiss the contractor and move the contract to the archive?', 'confirm_delete' => 'Delete this contract with everything in it?', 'confirm_repeat' => 'Create a new draft from this contract?', 'confirm_prepaid' => 'Mark the prepayment as paid?', 'confirm_paid' => 'Tell the contractor that you paid this invoice?', 'confirm_clear_all' => 'Clear all notifications?',
     'invoice' => 'Invoice', 'invoices_block' => 'Invoices', 'whole_contract' => 'Whole contract', 'inv_tab_pay' => 'To pay', 'inv_tab_receive' => 'To receive', 'inv_search_ph' => 'Contract, step or invoice number', 'inv_none' => 'No invoices yet.', 'inv_waiting' => 'Waiting for payment', 'inv_pending' => 'Paid, to be confirmed', 'inv_paid' => 'Paid', 'i_paid' => 'I paid', 'confirm_payment' => 'Confirm payment', 'save_number' => 'Save number', 'inv_note' => 'Payment is settled directly between the author and the contractor; this page records it.',
     'no_notices' => 'No notifications yet.', 'leave_review' => 'Leave a review', 'rating' => 'Rating', 'review_ph' => 'Your review (optional)', 'reviews' => 'Reviews', 'no_reviews' => 'No reviews yet.', 'public_page' => 'Public page',
-    'my_status' => 'My status', 'my_status_help' => 'You can be a company, self-employed and a private person at the same time; you choose which one you act as in every contract and offer.', 'about' => 'About me', 'notify_email' => 'Send notifications by e-mail', 'show_public' => 'show publicly', 'fields_by_status' => 'The fields shown depend on the statuses ticked above.', 'required' => 'required',
+    'my_status_help' => 'You can be a company, self-employed and a private person at the same time; you choose which one you act as in every contract and offer.', 'about' => 'About me', 'notify_email' => 'Send notifications by e-mail', 'show_public' => 'show publicly', 'fields_by_status' => 'The fields shown depend on the statuses ticked above.', 'required' => 'required',
     'adm_settings' => 'Settings', 'adm_stale' => 'Days before an unclaimed contract is archived', 'adm_stale_help' => 'A published contract without a contractor leaves the list after this time and goes to the author\'s archive; the author is told.', 'adm_categories' => 'Categories', 'adm_new_category' => 'New category', 'adm_fields' => 'Profile sections and fields', 'adm_fields_help' => 'Each section belongs to a status (company, self-employed, personal); users see the sections of their statuses in their profile.', 'adm_csv' => 'Download fields as CSV', 'adm_new_section' => 'New section', 'adm_new_field' => 'New field', 'adm_options' => 'Options, one per line (choice list)', 'position' => 'Order',
     'ft_text' => 'Text', 'ft_textarea' => 'Long text', 'ft_number' => 'Number', 'ft_url' => 'Link (URL)', 'ft_date' => 'Date', 'ft_select' => 'Choice list',
 
@@ -88,4 +88,8 @@ return [
     'err_bablito_url' => 'The address must be a plain https:// address.',
     'err_bablito_key_short' => 'The key is too short (at least 32 characters).',
     'err_not_linked' => 'This user is not linked to a Bablito account.',
+    'pf_general' => 'General',
+    'pf_off' => 'off',
+    'pf_act_help' => 'tick to act in this status; its fields are saved only then',
+    'pf_none' => 'No fields for this status yet. Run the Bablito synchronisation or ask an administrator to add them.',
 ];

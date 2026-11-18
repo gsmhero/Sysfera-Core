@@ -27,3 +27,8 @@
 .ct-stars{color:var(--warn);letter-spacing:1px}
 .ct-inv{display:inline-block;margin:0;padding:0}.ct-hint{background:var(--infobg);color:var(--info);border-radius:8px;padding:10px 14px;margin:0 0 14px}
 .ct-print{max-width:760px}@media print{.ct-tabs,.ct-noprint,.sidebar,.side,header{display:none!important}.ct-print{max-width:none}}
+.ct-ptabs{display:flex;gap:2px;overflow-x:auto;margin:-4px 0 14px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.ct-ptabs button{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:10px 14px;color:var(--mut);font:inherit;font-size:14.5px;cursor:pointer;white-space:nowrap}
+.ct-ptabs button:hover{color:var(--ink)}.ct-ptabs button.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:600}
+.ct-js [data-panel][hidden]{display:none}.ct-js .ct-ptabs{display:flex}.ct-form:not(.ct-js) .ct-ptabs{display:none}
+.ct-act{display:block;padding:10px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:8px}.ct-off .ct-pfields{opacity:.5}
