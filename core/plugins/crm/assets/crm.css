@@ -59,3 +59,15 @@
 .crm-tbody .crm-notes{border-left-color:var(--tc,var(--acc))}
 .crm-tbody .att-chips{margin:0}.crm-ti{flex:none}
 @media (max-width:640px){.crm-th-act{margin-left:0}.crm-th-t h1{font-size:20px}}
+
+/* clickable objects: links to a client / deal / phone / e-mail are small pills with a chevron; cards and list rows react to the pointer */
+.crm-fact b a,.crm-tasks .muted a,.crm-tview a,.crm-clink{display:inline-flex;align-items:center;gap:5px;max-width:100%;padding:2px 10px 2px 11px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);font-weight:500;text-decoration:none;transition:border-color .15s,background .15s,color .15s}
+.crm-fact b a::after,.crm-tasks .muted a::after,.crm-tview a::after,.crm-clink::after{content:"›";color:var(--mut);font-weight:400;transition:transform .15s}
+.crm-fact b a:hover,.crm-tasks .muted a:hover,.crm-tview a:hover,.crm-clink:hover{border-color:var(--acc);color:var(--acc);background:color-mix(in srgb,var(--acc) 8%,var(--card))}
+.crm-fact b a:hover::after,.crm-tasks .muted a:hover::after,.crm-tview a:hover::after,.crm-clink:hover::after{transform:translateX(2px);color:var(--acc)}
+.crm-tl:hover{color:var(--acc);text-decoration:none}
+.crm-card{transition:border-color .15s,box-shadow .15s,transform .15s}.crm-card:hover{border-color:var(--acc);box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
+.crm-mini{border-radius:8px;padding-left:8px;padding-right:8px;margin:0 -8px;transition:background .15s}.crm-mini:hover{background:var(--bg)}
+.crm-fact{transition:border-color .15s}.crm-fact:has(a):hover{border-color:var(--acc)}
+.crm-tasks .muted a{margin:2px 4px 2px 0;font-size:12.5px;line-height:1.5;word-break:break-all}
+.card h3>a{color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;gap:6px}.card h3>a::after{content:"›";color:var(--mut);font-weight:400;transition:transform .15s}.card h3>a:hover{color:var(--acc)}.card h3>a:hover::after{transform:translateX(3px);color:var(--acc)}
