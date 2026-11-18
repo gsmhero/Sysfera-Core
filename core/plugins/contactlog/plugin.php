@@ -17,7 +17,7 @@ return function (\Sysfera\Plugin $sf): void {
     $lang = fn(): string => ($sf->auth()->user()['lang'] ?? '') === 'ru' ? 'ru' : 'en';
     $svc = function () use ($sf): Svc {
         static $o = null;
-        return $o ??= new Svc(new DbStore($sf->db()), fn() => time(), fn($to, $subject, $text, $html) => $sf->mail($to, $subject, $text, $html));
+        return $o ??= new Svc(new DbStore($sf->db()), fn() => time(), fn($to, $subject, $text, $html, $from = null) => $sf->mail($to, $subject, $text, $html, $from));
     };
     $uid = fn(): int => $sf->auth()->id();
     $ownEmail = fn(): string => (string)($sf->auth()->user()['email'] ?? '');
@@ -33,7 +33,16 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /** Session API for the page's script. Answers {"ok":true,...} or {"ok":false,"error":code,"message":text}. */
-    $api = function (array $p) use ($sf, $svc, $uid, $lang, $L, $ownEmail): void {
+    /** The Messenger connection of this site (null when the Messenger component is off, not connected, or this is a demo). */
+    $msgr = function (): ?object { $c = \Sysfera\Hooks::filter('messenger.client', null); return is_object($c) && $c->ready() ? $c : null; };
+    /** Finds the contact on the hub: ['sid','name'] or null. Only people who are registered there (and allow search by e-mail) are found; a Sysfera ID always resolves. */
+    $peer = function (int $me, int $id) use ($svc, $msgr): ?array {
+        $c = $msgr(); if (!$c) throw new Err('msg_unavailable', '', 409);
+        $q = $svc()->peerQuery($me, $id); if ($q === '') return null;
+        $r = $c->call('GET', 'search', ['q' => $q]); if (!$r['ok']) throw new Err('msg_failed', (string)$r['error'], 502);
+        $u = $r['data']['users'][0] ?? null; return $u ? ['sid' => (string)$u['sid'], 'name' => (string)$u['name']] : null;
+    };
+    $api = function (array $p) use ($sf, $svc, $uid, $lang, $L, $ownEmail, $msgr, $peer): void {
         header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store');
         $l = $L[$lang()]; $op = (string)($p['op'] ?? ''); $post = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
         $send = function (int $status, array $d) { http_response_code($status); echo json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION); };
@@ -44,6 +53,16 @@ return function (\Sysfera\Plugin $sf): void {
             switch ($op) {
                 case 'save': $send(200, ['ok' => true, 'card' => $svc()->save($me, $id, $_POST)]); return;
                 case 'delete': $svc()->delete($me, $id); $send(200, ['ok' => true]); return;
+                case 'msgpeer': $x = $peer($me, $id); if (!$x) throw new Err('msg_notfound', '', 404); $send(200, ['ok' => true] + $x); return;
+                case 'msgsend':
+                    $x = $peer($me, $id); if (!$x) throw new Err('msg_notfound', '', 404);
+                    $text = trim((string)($_POST['text'] ?? '')); if ($text === '' || mb_strlen($text) > 2000) throw new Err('mail_empty');
+                    $r = $msgr()->call('POST', 'send', [], ['to' => $x['sid'], 'text' => $text, 'file' => '']);
+                    if (!$r['ok']) throw new Err('msg_failed', (string)$r['error'], 502);
+                    $send(200, ['ok' => true, 'logs' => $svc()->addLog($me, $id, 'messenger')]); return;
+                case 'mail':
+                    $u = $sf->auth()->user() ?? [];
+                    $send(200, ['ok' => true, 'logs' => $svc()->sendMail($me, $id, (string)($_POST['subject'] ?? ''), (string)($_POST['body'] ?? ''), (string)($u['email'] ?? ''), (string)($u['name'] ?? ''))]); return;
                 case 'log': $send(200, ['ok' => true, 'logs' => $svc()->addLog($me, $id, (string)($_POST['action'] ?? ''))]); return;
                 case 'clearlog': $svc()->clearLog($me, $id); $send(200, ['ok' => true]); return;
                 case 'report': $r = $svc()->sendReport($me, $id, $ownEmail(), $l, date_default_timezone_get()); $send(200, ['ok' => true] + $r); return;
@@ -52,7 +71,7 @@ return function (\Sysfera\Plugin $sf): void {
             }
         } catch (Err $e) {
             if ($e->errCode === 'mail_failed') \Sysfera\App::log('contactlog mail: ' . $e->getMessage());
-            $m = $l['err_' . $e->errCode] ?? $l['err_server']; $send($e->http, ['ok' => false, 'error' => $e->errCode, 'message' => $m]);
+            $m = ($l['err_' . $e->errCode] ?? $l['err_server']) . ($e->errCode === 'msg_failed' && $e->getMessage() !== '' ? ' (' . $e->getMessage() . ')' : ''); $send($e->http, ['ok' => false, 'error' => $e->errCode, 'message' => $m]);
         } catch (\Throwable $e) {
             \Sysfera\App::log('contactlog ' . $e); $send(500, ['ok' => false, 'error' => 'server', 'message' => $l['err_server']]);
         }

@@ -72,13 +72,32 @@
       call('save', data).then(function (r) { var i = cards.findIndex(function (x) { return x.id === r.card.id; }); if (i !== -1) cards[i] = r.card; render(); toast(t('status_saved'), 'ok', 2000); },
         function (e) { badge.value = old; badge.disabled = false; toast(e.message, 'bad', 8000); });
     });
-    function act(action, icon, key) { return btn('cl-actbtn', t(key), function () { run(this, function () { return call('log', { id: c.id, action: action }).then(function (r) { c.logs = r.logs; render(); }); }); }, t(key), icon); }
+    function logged(r) { c.logs = r.logs; render(); }
+    function act(action, icon, key) { return btn('cl-actbtn', t(key), function () { run(this, function () { return call('log', { id: c.id, action: action }).then(logged); }); }, t(key), icon); }
+    /* Call: the phone app opens with the number, and the call is written to the log */
+    function doCall() {
+      var tel = (c.mobile || '').replace(/[^\d+]/g, ''); if (!tel) { toast(t('err_no_phone'), 'bad'); return; }
+      call('log', { id: c.id, action: 'call' }).then(logged, function (e) { toast(e.message, 'bad', 8000); }).then(function () { window.location.href = 'tel:' + tel; });
+    }
+    /* Email: a small dialog; the message goes out through the platform mailer in the name of the signed-in user */
+    function doMail() {
+      if (!c.email) { toast(t('err_no_email'), 'bad'); return; }
+      dialog(t('dlg_email_title'), t('lbl_to') + ' ' + c.email, [{ key: 'subject', label: t('f_subject'), line: true }, { key: 'body', label: t('f_body') }], function (v) { return call('mail', { id: c.id, subject: v.subject, body: v.body }); }, function (r) { logged(r); toast(t('sent_email'), 'ok'); });
+    }
+    /* Msg: the contact is looked up on Sysfera Messenger; when they are there, a dialog sends the message through the hub */
+    function doMsg(button) {
+      run(button, function () {
+        return call('msgpeer', { id: c.id }).then(function (peer) {
+          dialog(t('dlg_msg_title'), t('lbl_to') + ' ' + peer.name + ' (' + peer.sid + ')', [{ key: 'text', label: t('f_body') }], function (v) { return call('msgsend', { id: c.id, text: v.text }); }, function (r) { logged(r); toast(t('sent_msg'), 'ok'); });
+        });
+      });
+    }
     return h('div', { 'class': 'card cl-card' }, [
       btn('cl-del', '', function () { if (confirm(t('confirm_delete'))) run(this, function () { return call('delete', { id: c.id }).then(function () { cards = cards.filter(function (x) { return x.id !== c.id; }); render(); }); }); }, t('confirm_delete'), 'x'),
       h('div', { 'class': 'cl-head' }, [h('h3', { 'class': 'cl-name', text: fullName(c) }), badge]),
       h('div', { 'class': 'cl-info' }, [line('phone', c.mobile), line('send', c.messenger), line('mail', c.email)]),
       h('div', { 'class': 'cl-note' }, [h('div', {}, [h('b', { text: t('lbl_theme') }), ' ' + (c.theme || '—')]), h('div', {}, [h('b', { text: t('lbl_notes') }), ' ' + (c.notes || '—')])]),
-      h('div', { 'class': 'cl-act' }, [act('call', 'phone', 'btn_call'), act('email', 'mail', 'btn_email'), act('messenger', 'msg', 'btn_msg'), act('success', 'check', 'btn_success')]),
+      h('div', { 'class': 'cl-act' }, [btn('cl-actbtn', t('btn_call'), doCall, t('btn_call'), 'phone'), btn('cl-actbtn', t('btn_email'), doMail, t('btn_email'), 'mail'), btn('cl-actbtn', t('btn_msg'), function () { doMsg(this); }, t('btn_msg'), 'msg'), act('success', 'check', 'btn_success')]),
       h('div', { 'class': 'cl-meta' }, [h('span', {}, [ico('cal'), ' ' + t('lbl_next') + ' ' + (c.next_call || t('not_set'))]), h('span', {}, [ico('clock'), ' ' + t('lbl_created') + ' ' + new Date(c.created_at * 1000).toLocaleDateString()])]),
       logs,
       h('div', { 'class': 'cl-foot' }, [
@@ -87,6 +106,23 @@
         btn('primary cl-icon', '', function () { openCard(c); }, t('btn_edit'), 'edit')
       ])
     ]);
+  }
+  /** A small popup: title, a line saying who it goes to, text fields (key, label, line = one-line input), and a Send button. send(values) returns a promise; done(answer) runs after it worked. */
+  function dialog(title, who, fields, send, done) {
+    var err = h('div', { 'class': 'cl-err' }), inputs = {}, close = function () { box.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    var rows = fields.map(function (f) {
+      var el = f.line ? h('input', { maxlength: '190' }) : h('textarea', { rows: '6', maxlength: '2000' }); inputs[f.key] = el;
+      return h('div', { 'class': 'cl-f' }, [h('label', { text: f.label }), el]);
+    });
+    var sendBtn = btn('primary', t('dlg_send'), function () {
+      var v = {}; for (var k in inputs) v[k] = inputs[k].value;
+      sendBtn.disabled = true; err.style.display = 'none';
+      send(v).then(function (r) { close(); done(r); }, function (e) { err.textContent = e.message; err.style.display = 'block'; sendBtn.disabled = false; });
+    }, '', 'send');
+    var box = h('div', { 'class': 'cl-modal', role: 'dialog', 'aria-modal': 'true' }, [h('div', { 'class': 'cl-modal-c' }, [h('h3', { text: title }), h('p', { 'class': 'cl-help', text: who }), err].concat(rows, [h('div', { 'class': 'cl-actions' }, [btn('', t('cancel'), close), sendBtn])]))]);
+    box.addEventListener('mousedown', function (e) { if (e.target === box) close(); });
+    document.addEventListener('keydown', onKey); root.appendChild(box); (inputs[fields[0].key]).focus();
   }
   /** runs an API action; a failure becomes a toast; the button is locked meanwhile (no double clicks) */
   function run(button, fn) {

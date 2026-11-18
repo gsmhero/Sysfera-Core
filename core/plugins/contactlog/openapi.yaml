@@ -93,6 +93,31 @@ paths:
         '200': {description: The card's whole log, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, logs: {type: array, items: {$ref: '#/components/schemas/Log'}}}}}}}
         '400': {$ref: '#/components/responses/Err'}
         '404': {$ref: '#/components/responses/Err'}
+  /msgpeer:
+    post:
+      summary: Look the card's contact up on Sysfera Messenger (by the Sysfera ID in the Messenger field, else by e-mail). Only people registered on the hub, who allow search by e-mail, are found.
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id], properties: {_t: {type: string}, id: {type: integer}}}}}}
+      responses:
+        '200': {description: Found, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, sid: {type: string}, name: {type: string}}}}}}
+        '404': {$ref: '#/components/responses/Err'}
+        '409': {description: Messenger is not connected on this site, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /msgsend:
+    post:
+      summary: Send a Messenger message to the card's contact (they must be found as in /msgpeer). Adds a "Message" entry to the log.
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id, text], properties: {_t: {type: string}, id: {type: integer}, text: {type: string, maxLength: 2000}}}}}}
+      responses:
+        '200': {description: The card's whole log, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, logs: {type: array, items: {$ref: '#/components/schemas/Log'}}}}}}}
+        '404': {$ref: '#/components/responses/Err'}
+        '502': {description: The hub did not deliver it, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+  /mail:
+    post:
+      summary: E-mail the card's contact through the platform mailer (shown as sent by the signed-in user). Adds an "Email" entry to the log.
+      requestBody: {content: {application/x-www-form-urlencoded: {schema: {type: object, required: [_t, id, subject, body], properties: {_t: {type: string}, id: {type: integer}, subject: {type: string, maxLength: 190}, body: {type: string, maxLength: 10000}}}}}}
+      responses:
+        '200': {description: The card's whole log, content: {application/json: {schema: {type: object, properties: {ok: {type: boolean}, logs: {type: array, items: {$ref: '#/components/schemas/Log'}}}}}}}
+        '400': {$ref: '#/components/responses/Err'}
+        '409': {description: E-mail is not set up on this server, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
+        '502': {description: The mail server refused it, content: {application/json: {schema: {$ref: '#/components/schemas/Error'}}}}
   /clearlog:
     post:
       summary: Clear a card's log

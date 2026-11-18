@@ -73,4 +73,18 @@ ok(Svc::date(null) === '' && Svc::date('2028-02-29') === '2028-02-29' && refused
 /* ---------- the pieces the page needs ---------- */
 ok(count(Svc::STATUSES) === 10 && !array_diff(Svc::STATUSES, array_keys(Svc::COLORS)) && !array_diff(array_map(fn($s) => "st_$s", Svc::STATUSES), array_keys($en)) && !array_diff(array_map(fn($s) => "log_$s", Svc::ACTIONS), array_keys($ru)), 'every status has a colour and a name, every action a log text (en and ru)');
 
+/* ---------- e-mail to the contact and the Messenger look-up ---------- */
+$out = []; $ans = null;
+$sv2 = new Svc($st, function () use (&$now) { return $now; }, function ($to, $s, $t, $h, $from = null) use (&$out, &$ans) { $out[] = compact('to', 's', 't', 'from'); return $ans; });
+$k = $sv2->save($A, 0, ['name' => 'Mail Target', 'email' => 'Target@Example.com', 'messenger' => '@nick']);
+$logs = $sv2->sendMail($A, $k['id'], "Hello\r\nBcc: x@y.z", "Body text", 'me@example.com', 'Me');
+ok(count($out) === 1 && $out[0]['to'] === ['Target@Example.com'] && !str_contains($out[0]['s'], "\n") && $out[0]['t'] === 'Body text' && $out[0]['from'] === ['me@example.com', 'Me'], 'mail: goes to the contact, in the name of the user, a header injection in the subject is flattened');
+ok(count($logs) === 1 && $logs[0]['action'] === 'email', 'mail: an "Email" entry is logged');
+ok(refused(fn() => $sv2->sendMail($A, $k['id'], '', 'x', 'me@example.com', 'Me'), 'mail_empty') && refused(fn() => $sv2->sendMail($A, $k['id'], 'x', '  ', 'me@example.com', 'Me'), 'mail_empty'), 'mail: subject and text are required');
+$nm = $sv2->save($A, 0, ['name' => 'No Mail']); ok(refused(fn() => $sv2->sendMail($A, $nm['id'], 'x', 'y', 'me@example.com', 'Me'), 'email_invalid'), 'mail: a card without an address is refused');
+ok(refused(fn() => $sv2->sendMail($B, $k['id'], 'x', 'y', 'me@example.com', 'Me'), 'not_found'), 'mail: only the owner of the card');
+$ans = 'not_configured'; try { $sv2->sendMail($A, $k['id'], 'x', 'y', 'me@example.com', 'Me'); $code = ''; } catch (Err $e) { $code = $e->errCode; } ok($code === 'mail_not_configured' && count($sv2->save($A, $k['id'], ['name' => 'Mail Target', 'email' => 'Target@Example.com'])['logs']) === 1, 'mail: an unconfigured mailer is reported and nothing is logged'); $ans = null;
+ok($sv2->peerQuery($A, $k['id']) === 'target@example.com', 'messenger look-up: by e-mail when no Sysfera ID is given');
+$sid = $sv2->save($A, 0, ['name' => 'Has Sid', 'email' => 'a@b.co', 'messenger' => ' 12@Site.RU ']); ok($sv2->peerQuery($A, $sid['id']) === '12@site.ru', 'messenger look-up: a Sysfera ID in the Messenger field wins');
+ok($sv2->peerQuery($A, $nm['id']) === '', 'messenger look-up: nothing to look up without an ID or an e-mail');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

@@ -56,7 +56,7 @@ foreach (['name_required', 'email_invalid', 'status_invalid', 'date_invalid', 't
 /* ---------- plugin.php, the script and the API agree ---------- */
 preg_match_all("/case '([a-z]+)':/", $pp, $m); $ops = array_merge($m[1], ['cards']);
 preg_match_all("/call\\('([a-z]+)'/", $js, $m); $calls = array_unique($m[1]); $gone = array_diff($calls, $ops);
-ok(count($calls) === 6 && !$gone, 'the script calls only API operations plugin.php serves (' . implode(',', $calls) . ')' . ($gone ? ' missing: ' . implode(',', $gone) : ''));
+ok(count($calls) === 9 && !$gone, 'the script calls only API operations plugin.php serves (' . implode(',', $calls) . ')' . ($gone ? ' missing: ' . implode(',', $gone) : ''));
 preg_match_all('/\$svc\(\)->([a-zA-Z]+)\(/', $pp, $m); $nomethod = array_values(array_filter(array_unique($m[1]), fn($x) => !method_exists(Svc::class, $x))); ok(!$nomethod, 'plugin.php calls only methods that exist in Svc' . ($nomethod ? ' (' . implode(',', $nomethod) . ')' : ''));
 $oa = file_get_contents("$dir/openapi.yaml"); foreach ($ops as $op) ok(str_contains($oa, "  /$op:"), "openapi.yaml documents /$op");
 ok(str_contains($pp, "csrf") === false && !str_contains($js, 'innerHTML') && str_contains($js, "set('_t', boot.token)"), 'script: CSRF token on every POST, no innerHTML');

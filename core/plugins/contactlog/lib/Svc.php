@@ -123,6 +123,26 @@ final class Svc
      * @param array $L language array of the viewer
      * @return array{recipients:int}
      */
+    /** What to look the contact up with on Sysfera Messenger: a Sysfera ID typed in the Messenger field (12@site.ru), else the e-mail address ('' = nothing to look up). */
+    public function peerQuery(int $uid, int $id): string
+    {
+        $c = $this->mine($uid, $id); $m = strtolower(trim((string)$c['messenger'])); $e = trim((string)$c['email']);
+        if (preg_match('/^\d{1,10}@[a-z0-9.-]+$/', $m)) return $m;
+        return $e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL) ? strtolower($e) : '';
+    }
+
+    /** An e-mail to the contact, sent through the platform mailer in the name of the signed-in user. Logs "Email" on the card. */
+    public function sendMail(int $uid, int $id, string $subject, string $body, string $fromEmail, string $fromName): array
+    {
+        $c = $this->mine($uid, $id); $to = trim((string)$c['email']);
+        if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) throw new Err('email_invalid');
+        $subject = self::clean(str_replace(["\r", "\n"], ' ', $subject), 190); $body = self::clean($body, 10000);
+        if ($subject === '' || $body === '') throw new Err('mail_empty');
+        $err = ($this->mail)([$to], $subject, $body, null, filter_var($fromEmail, FILTER_VALIDATE_EMAIL) ? [$fromEmail, $fromName] : null);
+        if ($err !== null) throw new Err($err === 'not_configured' ? 'mail_not_configured' : ($err === 'no_recipient' ? 'email_invalid' : 'mail_failed'), $err, $err === 'not_configured' ? 409 : 502);
+        return $this->addLog($uid, $id, 'email');
+    }
+
     public function sendReport(int $uid, int $id, string $ownEmail, array $L, string $tz = 'UTC'): array
     {
         $c = self::view($this->mine($uid, $id), $this->logs($id));
