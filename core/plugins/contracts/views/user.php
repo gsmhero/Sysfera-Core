@@ -4,7 +4,7 @@ include __DIR__ . '/_nav.php'; ?>
 <div class="card"><p><?= $ctstars((float)$profile['rating_avg'], (int)$profile['rating_count']) ?> · <?= e(implode(', ', array_map(fn($t) => $sf->t('pt_' . $t), explode(',', (string)$profile['user_types'])))) ?></p>
   <?php if (trim((string)$profile['about']) !== ''): ?><p class="ct-desc"><?= e($profile['about']) ?></p><?php endif; ?>
   <?php if ($public): ?><table class="ct-tbl"><?php foreach ($public as $p): ?><tr><th><?= e($p['label']) ?></th><td><?= e($p['value']) ?></td></tr><?php endforeach; ?></table><?php endif; ?>
-  <?php if ($me->uid === $uid): ?><p><a class="btn" href="<?= e($sf->url('/profile')) ?>"><?= e($sf->t('nav_profile')) ?></a></p><?php endif; ?></div>
+  <?php if ($me->uid === $uid): ?><p><a class="btn" href="<?= e(url('/profile')) ?>"><?= e($sf->t('nav_profile')) ?></a></p><?php endif; ?></div>
 <?php if ($canReview): ?><div class="card"><h3><?= e($sf->t('leave_review')) ?></h3><form method="post" action="<?= e($sf->url('/user/' . $uid . '/review')) ?>" class="ct-form"><?= csrf_field() ?>
   <div class="row"><label class="ct-lbl"><?= e($sf->t('contract')) ?><select name="contract_id"><?php foreach ($canReview as [$id, $title]): ?><option value="<?= (int)$id ?>"><?= e($title) ?></option><?php endforeach; ?></select></label>
   <label class="ct-lbl"><?= e($sf->t('rating')) ?><select name="rating"><?php for ($r = 5; $r >= 1; $r--): ?><option value="<?= $r ?>"><?= str_repeat('★', $r) ?></option><?php endfor; ?></select></label></div>

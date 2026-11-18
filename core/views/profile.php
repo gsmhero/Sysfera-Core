@@ -15,3 +15,4 @@
     <label class="fld"><span><?= e(t('profile.new')) ?></span><input type="password" name="new" required minlength="8" autocomplete="new-password"></label>
     <button class="btn primary"><?= e(t('common.save')) ?></button></form>
 </div>
+<?php foreach (\Sysfera\Hooks::filter('profile.cards', [], $u) as $card) echo $card; /* components add their own sections here */ ?>

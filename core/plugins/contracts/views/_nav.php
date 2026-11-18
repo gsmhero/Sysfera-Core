@@ -11,5 +11,5 @@ $ctstars = function (float $avg, int $n): string { $f = (int)round($avg); return
 ?>
 <link rel="stylesheet" href="<?= e($sf->asset('contracts.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
 <script src="<?= e($sf->asset('contracts.js')) ?>?v=<?= e($sf->manifest['version']) ?>" defer></script>
-<nav class="ct-tabs"><?php foreach ($tabs as $tabKey => [$tabPath, $tabLabel, $tabShow, $tabN]): if (!$tabShow) continue; ?><a href="<?= e($sf->url($tabPath)) ?>" class="<?= $tab === $tabKey ? 'on' : '' ?>"><?= e($sf->t($tabLabel)) ?><?= $tabN ? ' <b class="ct-n">' . (int)$tabN . '</b>' : '' ?></a><?php endforeach; ?>
+<nav class="ct-tabs"><?php foreach ($tabs as $tabKey => [$tabPath, $tabLabel, $tabShow, $tabN]): if (!$tabShow) continue; ?><a href="<?= e($tabKey === 'profile' ? url('/profile') : $sf->url($tabPath)) ?>" class="<?= $tab === $tabKey ? 'on' : '' ?>"><?= e($sf->t($tabLabel)) ?><?= $tabN ? ' <b class="ct-n">' . (int)$tabN . '</b>' : '' ?></a><?php endforeach; ?>
 <a class="btn sm primary ct-new" href="<?= e($sf->url('/new')) ?>">+ <?= e($sf->t('contract_new')) ?></a></nav>

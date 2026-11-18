@@ -1,8 +1,9 @@
 <?php /** @var \Sysfera\Plugin $sf @var array $profile @var array $types (my statuses) @var array $structure (all sections with fields) @var array $values */
 use SysferaContracts\Svc;
-include __DIR__ . '/_nav.php'; ?>
-<div class="page-h row between"><h1><?= e($sf->t('nav_profile')) ?></h1><a class="btn" href="<?= e($sf->url('/user/' . $me->uid)) ?>"><?= e($sf->t('public_page')) ?></a></div>
-<form method="post" action="<?= e($sf->url('/profile')) ?>" class="ct-form card"><?= csrf_field() ?>
+?>
+<link rel="stylesheet" href="<?= e($sf->asset('contracts.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
+<div class="page-h row between" id="contracts"><h2><?= e($sf->t('title')) ?></h2><a class="btn" href="<?= e($sf->url('/user/' . $me->uid)) ?>"><?= e($sf->t('public_page')) ?></a></div>
+<form method="post" action="<?= e(url('/profile')) ?>" class="ct-form card"><?= csrf_field() ?><input type="hidden" name="do" value="x_contracts">
   <h3><?= e($sf->t('my_status')) ?></h3><p class="muted"><?= e($sf->t('my_status_help')) ?></p>
   <p><?php foreach (Svc::PARTY_TYPES as $t): ?><label><input type="checkbox" name="types[]" value="<?= e($t) ?>" <?= in_array($t, $types, true) ? 'checked' : '' ?>> <?= e($sf->t('pt_' . $t)) ?></label> &nbsp; <?php endforeach; ?></p>
   <label class="ct-lbl"><?= e($sf->t('about')) ?><textarea name="about" rows="3" maxlength="4000"><?= e((string)$profile['about']) ?></textarea></label>

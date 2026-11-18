@@ -82,6 +82,7 @@ return function (App $app): void {
                 $uid = (int)$u['id']; Hooks::do('user.deleted', $uid);
                 $db->q('DELETE FROM {p}users WHERE id = ?', [$uid]); $auth->logout(); redirect('/');
             }
+            if (str_starts_with($do, 'x_')) { Hooks::do('profile.save', $do, $u); redirect('/profile'); }   // a component's own form ("x_<slug>")
             if ($do === 'password') {
                 if (!password_verify((string)($_POST['old'] ?? ''), $u['password_hash'])) flash(t('profile.wrong_password'), 'bad');
                 elseif (mb_strlen((string)($_POST['new'] ?? '')) < 8) flash(t('auth.short_password'), 'bad');

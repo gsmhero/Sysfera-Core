@@ -66,7 +66,7 @@ return function (\Sysfera\Plugin $sf): void {
         sf_session(); try { $r = $fn(); if (is_string($r) && $r !== '') $back = $r; }
         catch (Err $e) { flash($errText($e), $e->http === 403 || $e->http === 404 ? 'bad' : 'bad'); }
         catch (\Throwable $e) { \Sysfera\App::log('contracts ' . $e); flash($sf->t('err_server'), 'bad'); }
-        redirect('/p/contracts/' . ltrim($back, '/'));
+        redirect($back === '@profile' ? '/profile' : '/p/contracts/' . ltrim($back, '/'));
     };
     $page = function (callable $fn) use ($sf, $sweep): callable {
         return function (array $p = []) use ($fn, $sf, $sweep) {
@@ -220,15 +220,21 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('POST', '/user/{id}/review', function (array $p) use ($act, $svc, $me, $sf) {
         $id = (int)$p['id']; $act(function () use ($id, $svc, $me, $sf) { $svc()->review($me(), (int)($_POST['contract_id'] ?? 0), $id, (int)($_POST['rating'] ?? 0), (string)($_POST['body'] ?? '')); flash($sf->t('flash_reviewed')); }, 'user/' . $id);
     });
-    $sf->route('GET', '/profile', $page(function () use ($render, $svc, $me, $sf, $bLive, $bConfigured, $sync) {
-        $c = $me(); $pr = $svc()->profile($c->uid); $types = $svc()->userTypes($c->uid);
-        $render('profile', ['profile' => $pr, 'types' => $types, 'structure' => $svc()->structure(Svc::PARTY_TYPES), 'values' => $svc()->values($c->uid), 'bablito' => ['on' => $bLive() && $bConfigured(), 'link' => $bConfigured() ? $sync()->link($c->uid) : null]], $sf->t('nav_profile'), 'profile');
-    }));
-    $sf->route('POST', '/profile', function () use ($act, $svc, $me, $sf, $bLive, $bConfigured, $sync) {
-        $act(function () use ($svc, $me, $sf) { $svc()->saveProfile($me(), $_POST, (array)($_POST['pf'] ?? [])); flash($sf->t('saved'));
-            if ($bLive() && $bConfigured()) { try { if ($sync()->link($me()->uid)) $sync()->profile($me()->uid, false); } catch (\Throwable $e) { \Sysfera\App::log('contracts bablito push ' . $e->getMessage()); flash($sf->t('bablito_push_failed')); } } }, 'profile');
+    /* The profile lives on the platform page /profile (all three statuses, the same fields as on Bablito); this component adds its section there and saves it. */
+    $sf->route('GET', '/profile', function () { redirect('/profile'); });
+    $sf->on('profile.cards', function (array $cards, array $u) use ($svc, $me, $sf, $bLive, $bConfigured, $sync): array {
+        $c = $me(); if ($c->uid <= 0) return $cards;
+        $vars = ['profile' => $svc()->profile($c->uid), 'types' => $svc()->userTypes($c->uid), 'structure' => $svc()->structure(Svc::PARTY_TYPES), 'values' => $svc()->values($c->uid), 'me' => $c, 'sf' => $sf,
+            'bablito' => ['on' => $bLive() && $bConfigured(), 'link' => $bConfigured() ? $sync()->link($c->uid) : null]];
+        extract($vars); ob_start(); include __DIR__ . '/views/profile.php'; $cards[] = (string)ob_get_clean(); return $cards;
     });
-
+    $sf->on('profile.save', function (string $do, array $u) use ($svc, $me, $sf, $errText, $bLive, $bConfigured, $sync): void {
+        if ($do !== 'x_contracts') return;
+        try {
+            $svc()->saveProfile($me(), $_POST, (array)($_POST['pf'] ?? [])); flash($sf->t('saved'));
+            if ($bLive() && $bConfigured()) { try { if ($sync()->link($me()->uid)) $sync()->profile($me()->uid, false); } catch (\Throwable $e) { \Sysfera\App::log('contracts bablito push ' . $e->getMessage()); flash($sf->t('bablito_push_failed')); } }
+        } catch (Err $e) { flash($errText($e), 'bad'); }
+    });
     /* a signed-in user creates / syncs their own Bablito account (live mode only) */
     $sf->route('POST', '/bablito/{act}', function (array $p) use ($act, $me, $sf, $bLive, $bConfigured, $sync) {
         $a = (string)$p['act'];
@@ -238,7 +244,7 @@ return function (\Sysfera\Plugin $sf): void {
             if ($a === 'create') { $r = $sync()->createAccount($uid, false); if (!in_array($r['status'], ['created', 'linked'], true)) throw new Err($r['status'] === 'exists' ? 'bablito_exists' : 'bablito_refused', $r['detail']); flash($sf->t($r['status'] === 'created' ? 'bablito_created' : 'bablito_linked')); }
             elseif ($a === 'sync') { $r = $sync()->profile($uid, false); flash(sprintf($sf->t('bablito_synced'), $r['pulled'], $r['pushed'])); }
             else throw new Err('not_found', '', 404);
-        }, 'profile');
+        }, '@profile');
     });
 
     $sf->route('GET', '/file/{id}', function (array $p) use ($svc, $me, $sf, $dir) {
