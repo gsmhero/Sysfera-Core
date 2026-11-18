@@ -50,3 +50,14 @@
 
 .cl-app select.cl-status{width:auto;max-width:150px;padding:3px 22px 3px 10px;border:1px solid transparent;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;appearance:none;-webkit-appearance:none;background-repeat:no-repeat;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 13px) 55%,calc(100% - 9px) 55%;background-size:4px 4px,4px 4px}
 .cl-app select.cl-status:hover{border-color:currentColor}.cl-app select.cl-status option{color:var(--ink);background:var(--card)}
+
+/* narrow cards (4 per row, small screens): the parts stack instead of squeezing, measured on the card itself */
+.cl-card{container-type:inline-size}
+.cl-head{flex-wrap:wrap}.cl-name{flex:1 1 9em}
+@container (max-width:330px){
+  .cl-head{flex-direction:column;align-items:flex-start;gap:6px}.cl-name{flex:none;width:100%}.cl-app .cl-head select.cl-status{max-width:100%}
+  .cl-act{grid-template-columns:repeat(2,minmax(0,1fr))}.cl-app .cl-actbtn{flex-direction:row;gap:7px;padding:8px 6px;font-size:13px}
+  .cl-meta{flex-direction:column;gap:5px}
+  .cl-logrow{flex-direction:column;gap:0;padding:3px 0;border-bottom:1px solid var(--line)}.cl-logrow:last-child{border-bottom:0}.cl-logrow time{font-size:11.5px}
+  .cl-foot .btn span{font-size:12.5px}
+}
