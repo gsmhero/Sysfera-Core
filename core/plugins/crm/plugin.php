@@ -307,7 +307,7 @@ return function (\Sysfera\Plugin $sf): void {
         $as = $int($_POST['assignee_id'] ?? '');
         if (!$as || !$profile()['reassign']) $as = $uid();
         if ($title === '') { flash($sf->t('e_title'), 'bad'); $back($self('tasks')); }
-        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by, type_data, report, links, wdocs, tfiles) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid(), $data ? $json($data) : null, ...\Sysfera\Attach::fromPost()]);
+        $db->q('INSERT INTO {p}crm_tasks (deal_id, contact_id, type, title, notes, due_at, assignee_id, created_by, type_data, report, links, wdocs, tfiles, tmissions) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)', [$deal, $contact, $type, $title, $txt('notes', 3000) ?: null, $due, $as, $uid(), $data ? $json($data) : null, ...\Sysfera\Attach::fromPost(), \Sysfera\Attach::encode(\Sysfera\Attach::missionIds())]);
         if ($deal || $contact) $log($deal, $contact, 'task', TaskTypes::label(TaskTypes::get($all, $type), \Sysfera\I18n::lang()) . ': ' . $title);
         flash($sf->t('task_created')); $back($self('tasks'));
     });
@@ -352,7 +352,7 @@ return function (\Sysfera\Plugin $sf): void {
         $due = null; $d = (string)($_POST['due_date'] ?? ''); $tm = (string)($_POST['due_time'] ?? '');
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) $due = $d . ' ' . (preg_match('/^\d{2}:\d{2}$/', $tm) ? $tm . ':00' : '00:00:00');
         $as = (int)$t['assignee_id']; if ($profile()['reassign'] && ($n = $int($_POST['assignee_id'] ?? ''))) $as = $n;
-        $db->q('UPDATE {p}crm_tasks SET type = ?, title = ?, notes = ?, due_at = ?, assignee_id = ?, contact_id = ?, type_data = ?, report = ?, links = ?, wdocs = ?, tfiles = ? WHERE id = ?', [$type, $title, $txt('notes', 3000) ?: null, $due, $as, $contact, $data ? $json($data) : null, ...\Sysfera\Attach::fromPost(), $t['id']]);
+        $db->q('UPDATE {p}crm_tasks SET type = ?, title = ?, notes = ?, due_at = ?, assignee_id = ?, contact_id = ?, type_data = ?, report = ?, links = ?, wdocs = ?, tfiles = ?, tmissions = ? WHERE id = ?', [$type, $title, $txt('notes', 3000) ?: null, $due, $as, $contact, $data ? $json($data) : null, ...\Sysfera\Attach::fromPost(), \Sysfera\Attach::encode(\Sysfera\Attach::missionIds()), $t['id']]);
         flash($sf->t('task_saved')); $back($self('tasks'));
     });
     $route('POST', '/task/{id}/toggle', function (array $p) use ($db, $uid, $profile, $now, $log, $self, $back, $sf) {

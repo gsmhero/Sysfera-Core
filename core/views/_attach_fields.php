@@ -1,6 +1,7 @@
-<?php /** Form part shared by the tasks of all components. @var string $report @var array $links (list of {url,title}) @var list<int> $docIds @var list<int> $fileIds */
+<?php /** Form part shared by the tasks of all components. @var string $report @var array $links (list of {url,title}) @var list<int> $docIds @var list<int> $fileIds @var list<int> $missionIds (optional) */
 $report = (string)($report ?? ''); $links = (array)($links ?? []); $docIds = (array)($docIds ?? []); $fileIds = (array)($fileIds ?? []);
 $pickers = [['docs', 'wdoc', $docIds, 'att.docs', 'att.find_doc'], ['files', 'tfile', $fileIds, 'att.files', 'att.find_file']];
+if (isset($missionIds)) $pickers[] = ['missions', 'mission', (array)$missionIds, 'att.missions', 'att.find_mission'];   // only for components that store them
 $rows = array_slice($links, 0, \Sysfera\Attach::MAX_LINKS); if (count($rows) < \Sysfera\Attach::MAX_LINKS) $rows[] = ['url' => '', 'title' => '']; ?>
 <div class="att">
   <label class="fld"><span><?= e(t('att.report')) ?></span><textarea name="report" rows="3" maxlength="4000" placeholder="<?= e(t('att.report_ph')) ?>"><?= e($report) ?></textarea></label>

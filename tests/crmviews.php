@@ -91,5 +91,16 @@ ok(str_contains($h, 'id="discuss"') && str_contains($h, '/p/crm/task/5/comment')
 ok(!str_contains($h, '<i>x</i>') && str_contains($h, 'Ann &lt;b&gt;') && !str_contains($h, 'a <b>.pdf') && str_contains($h, '/comment/1/delete'), 'task view: comment text, names and file names are escaped; the author can delete');
 $h = render('taskview', ['comments' => [], 'task' => $task, 'curContact' => $contact, 'deal' => null, 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now, 'tab' => 'tasks', 'prof' => $none]);
 ok(str_contains($h, 'No comments yet') && str_contains($h, '/p/crm/task/5/comment'), 'task view: empty discussion still offers the form');
+/* missions of the library on a task (the Missions component supplies the hooks) */
+require_once dirname(__DIR__) . '/core/app/Attach.php';
+\Sysfera\Hooks::on('attach.missions', fn($c) => ['find' => '/p/missions/api/missions-find']);
+\Sysfera\Hooks::on('attach.missions.info', fn(array $acc, array $ids) => array_merge($acc, array_map(fn($id) => ['id' => $id, 'label' => 'Cold outreach <b> (Library)', 'url' => '/p/missions/m/' . $id], array_filter($ids, fn($x) => $x === 3))));
+$tm = ['tmissions' => '[3,4]'] + $task;
+$h = render('taskedit', ['task' => $tm, 'curContact' => $contact, 'users' => $users, 'listBack' => '/p/crm/tasks', 'backTo' => '/p/crm/task/5', 'tab' => 'tasks', 'prof' => $full]);
+ok(str_contains($h, 'data-name="mission"') && str_contains($h, '/p/missions/api/missions-find') && str_contains($h, 'name="mission[]" value="3"') && !str_contains($h, 'value="4"') && !str_contains($h, '<b>'), 'task form: a Missions picker, the attached mission as a chip (escaped, only the ones that still exist)');
+$h = render('taskview', ['comments' => [], 'task' => $tm, 'curContact' => $contact, 'deal' => null, 'assignee' => 'Ann', 'listBack' => '/p/crm/tasks', 'nowTs' => $now, 'tab' => 'tasks', 'prof' => $full]);
+ok(str_contains($h, 'att.missions') && str_contains($h, '/p/missions/m/3') && str_contains($h, 'Cold outreach &lt;b&gt;'), 'task view: the attached mission is listed and links to it');
+$_POST['mission'] = ['3', '3', 'x', '0', '7']; ok(\Sysfera\Attach::missionIds() === [3, 7], 'attach: mission ids are cleaned (numbers only, no duplicates)'); unset($_POST['mission']);
+$sqlm = (string)file_get_contents(dirname(__DIR__) . '/core/plugins/crm/migrations/005_task_missions.sql'); ok(str_contains($sqlm, 'ADD COLUMN tmissions') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $sqlm), 'migration 005: one new column, nothing destructive');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

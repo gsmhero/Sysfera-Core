@@ -23,7 +23,7 @@ return [
     'land.s3' => 'Start working', 'land.s3d' => 'Manage stock and orders, chat with colleagues and follow the news in one account.',
     '_name' => 'English',
 
-    'att.report' => 'Report', 'att.report_ph' => 'Result of the work, what was done…', 'att.links' => 'Links', 'att.link_title' => 'Title (optional)', 'att.add_link' => 'Add link', 'att.docs' => 'Warehouse documents', 'att.find_doc' => 'Find a document by number…', 'att.files' => 'Teams files', 'att.find_file' => 'Find a Teams file by name…','att.remove' => 'Remove', 'att.edit' => 'Edit', 'att.back' => 'Back', 'common.save' => 'Save', 'common.delete' => 'Delete', 'common.cancel' => 'Cancel', 'common.saved' => 'Saved.', 'common.deleted' => 'Deleted.',
+    'att.report' => 'Report', 'att.report_ph' => 'Result of the work, what was done…', 'att.links' => 'Links', 'att.link_title' => 'Title (optional)', 'att.add_link' => 'Add link', 'att.docs' => 'Warehouse documents', 'att.find_doc' => 'Find a document by number…', 'att.files' => 'Teams files', 'att.find_file' => 'Find a Teams file by name…','att.remove' => 'Remove', 'att.missions' => 'Missions from the library', 'att.find_mission' => 'Find a mission by title…', 'att.edit' => 'Edit', 'att.back' => 'Back', 'common.save' => 'Save', 'common.delete' => 'Delete', 'common.cancel' => 'Cancel', 'common.saved' => 'Saved.', 'common.deleted' => 'Deleted.',
 
     'time.now' => 'just now', 'time.min' => '{n} min ago', 'time.hour' => '{n} h ago', 'time.day' => '{n} d ago',
 

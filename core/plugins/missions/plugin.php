@@ -363,6 +363,20 @@ return function (\Sysfera\Plugin $sf): void {
         echo json_encode(Mission::export($db, (int)$x[0]['id']), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }, ['cap' => 'missions.use']);
 
+    /* Missions for the tasks of other components (CRM): the user's own, the shared library and the ones shared with their teams */
+    $misItem = fn(array $x): array => ['id' => (int)$x['id'], 'label' => $x['title'] . ($x['type'] !== '' ? ' · ' . $x['type'] : '') . ((int)$x['user_id'] === $uid() ? '' : ' (' . $sf->t('library') . ')'), 'url' => $sf->url('/m/' . (int)$x['id'])];
+    \Sysfera\Hooks::on('attach.missions', fn($c) => $sf->can('missions.use') && $uid() ? ['find' => $sf->url('/api/missions-find')] : $c);
+    \Sysfera\Hooks::on('attach.missions.info', function (array $acc, array $ids) use ($sf, $db, $uid, $access, $misItem) {
+        if (!$sf->can('missions.use') || !$uid()) return $acc;
+        foreach ($ids as $id) { $a = $access((int)$id); if ($a) $acc[] = $misItem($a[0]); }
+        return $acc;
+    });
+    $sf->route('GET', '/api/missions-find', function () use ($db, $uid, $misItem) {
+        header('Content-Type: application/json; charset=utf-8'); $q = trim((string)($_GET['q'] ?? ''));
+        $rows = $q === '' ? [] : $db->rows('SELECT id, user_id, title, type FROM {p}mis_missions WHERE (user_id = ? OR shared = 1) AND (title LIKE ? OR type LIKE ?) ORDER BY (user_id = ?) DESC, updated_at DESC LIMIT 12', [$uid(), ...array_fill(0, 2, '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%'), $uid()]);
+        echo json_encode(array_map($misItem, $rows), JSON_UNESCAPED_UNICODE);
+    }, ['cap' => 'missions.use']);
+
     /* ================= library of shared missions ================= */
     $sf->route('GET', '/library', function () use ($sf, $db, $cats, $netClient, $isHub) {
         $q = trim((string)($_GET['q'] ?? '')); $cat = (int)($_GET['cat'] ?? 0); $src = (string)($_GET['src'] ?? ''); $net = null;

@@ -21,7 +21,7 @@ $task = $task ?? null; $tv = []; if ($task) { $tv = (array)(json_decode((string)
       <?php else: ?><input <?= $f['kind'] === 'email' ? 'type="email"' : ($f['kind'] === 'phone' ? 'type="tel"' : (in_array($f['kind'], ['url', 'shop'], true) ? 'type="url" placeholder="https://"' : '')) ?> name="td[<?= e($k) ?>]" <?= $dis ?> value="<?= e((string)($tv[$k] ?? '')) ?>"><?php endif; ?></label>
     <?php endforeach; ?></div>
   <?php endforeach; ?>
-  <?php $report = (string)($task['report'] ?? ''); $links = \Sysfera\Attach::decode($task['links'] ?? null); $docIds = \Sysfera\Attach::decode($task['wdocs'] ?? null); $fileIds = \Sysfera\Attach::decode($task['tfiles'] ?? null); require dirname(__DIR__, 3) . '/views/_attach_fields.php'; ?>
+  <?php $report = (string)($task['report'] ?? ''); $links = \Sysfera\Attach::decode($task['links'] ?? null); $docIds = \Sysfera\Attach::decode($task['wdocs'] ?? null); $fileIds = \Sysfera\Attach::decode($task['tfiles'] ?? null); $missionIds = \Sysfera\Attach::decode($task['tmissions'] ?? null); require dirname(__DIR__, 3) . '/views/_attach_fields.php'; ?>
   <label class="fld"><span><?= e($sf->t('f_notes')) ?></span><input name="notes" maxlength="3000" value="<?= e($task['notes'] ?? '') ?>"></label>
   <button class="btn primary"><?= e($sf->t($task ? 'save' : 'add_task')) ?></button>
 </form>

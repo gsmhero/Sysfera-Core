@@ -59,5 +59,8 @@ final class Attach
             self::encode(self::docIds((array)($_POST['wdoc'] ?? []))), self::encode(self::docIds((array)($_POST['tfile'] ?? [])))];
     }
 
+    /** Missions of the library attached to a task (opt-in: only components that keep a column for them call this) @return list<int> */
+    public static function missionIds(): array { return self::docIds((array)($_POST['mission'] ?? [])); }
+
     public static function clean(string $s, int $max = 4000): string { return trim(mb_substr($s, 0, $max)); }
 }

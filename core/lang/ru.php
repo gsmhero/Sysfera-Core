@@ -22,7 +22,7 @@ return [
     'land.s3' => 'Начните работать', 'land.s3d' => 'Склад и заказы, чат с коллегами и новости — в одном аккаунте.',
     '_name' => 'Русский',
 
-    'att.report' => 'Отчёт', 'att.report_ph' => 'Результат работы, что сделано…', 'att.links' => 'Ссылки', 'att.link_title' => 'Название (необязательно)', 'att.add_link' => 'Добавить ссылку', 'att.docs' => 'Документы склада', 'att.find_doc' => 'Найти документ по номеру…', 'att.files' => 'Файлы Teams', 'att.find_file' => 'Найти файл Teams по имени…','att.remove' => 'Убрать', 'att.edit' => 'Изменить', 'att.back' => 'Назад', 'common.save' => 'Сохранить', 'common.delete' => 'Удалить', 'common.cancel' => 'Отмена', 'common.saved' => 'Сохранено.', 'common.deleted' => 'Удалено.',
+    'att.report' => 'Отчёт', 'att.report_ph' => 'Результат работы, что сделано…', 'att.links' => 'Ссылки', 'att.link_title' => 'Название (необязательно)', 'att.add_link' => 'Добавить ссылку', 'att.docs' => 'Документы склада', 'att.find_doc' => 'Найти документ по номеру…', 'att.files' => 'Файлы Teams', 'att.find_file' => 'Найти файл Teams по имени…','att.remove' => 'Убрать', 'att.missions' => 'Миссии из библиотеки', 'att.find_mission' => 'Найти миссию по названию…', 'att.edit' => 'Изменить', 'att.back' => 'Назад', 'common.save' => 'Сохранить', 'common.delete' => 'Удалить', 'common.cancel' => 'Отмена', 'common.saved' => 'Сохранено.', 'common.deleted' => 'Удалено.',
 
     'time.now' => 'только что', 'time.min' => '{n} мин назад', 'time.hour' => '{n} ч назад', 'time.day' => '{n} дн назад',
 
