@@ -26,7 +26,9 @@ jobs:
       - name: Tests (no database needed)
         run: php tests/run.php
       - name: WMS tests
-        run: php tests/wms.php
+        run: |
+          php tests/wms.php
+          php tests/wmsimport.php
       - name: Basebase connector tests
         run: php tests/wmsbb.php
       - name: Mailer tests

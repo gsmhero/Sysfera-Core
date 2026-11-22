@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-use SysferaWms\{Posting, Stock, Docs, W, Scope};
+use SysferaWms\{Posting, Stock, Docs, W, Scope, ImportFlow};
 
 /** Sysfera WMS — warehouse management component. */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Posting', 'Kinds', 'Stock', 'Docs', 'W', 'Scope'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Posting', 'Kinds', 'Stock', 'Docs', 'W', 'Scope', 'SheetReader', 'ImportKit', 'ImportWms', 'ImportFlow'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db();
     Scope::$resolver = fn() => $sf->auth()->id();
@@ -56,6 +56,11 @@ return function (\Sysfera\Plugin $sf): void {
         elseif ($do === 'group_delete') { $g = (int)($_POST['id'] ?? 0); $db->q('UPDATE {p}wms_products SET group_id = NULL WHERE group_id = ?', [$g]); $db->q('DELETE FROM {p}wms_groups WHERE id = ?', [$g]); flash($sf->t('group_deleted')); }
         redirect(wms_path('/products'));
     });
+
+    /* Import products from an xlsx / csv export (OZON, Wildberries, Yandex, 1C, any table): Fields Converter with saved templates */
+    $importPage = fn() => ImportFlow::handle($sf, $db, $stock, $docs, $warehouses, $page);
+    $route('GET', '/import', $importPage);
+    $route('POST', '/import', $importPage);
 
     $productForm = function (?int $id) use ($sf, $db, $stock, $page, $warehouses, $isPrivate): void {
         $p = $id ? $db->row('SELECT * FROM {p}wms_products WHERE id = ?', [$id]) : null;

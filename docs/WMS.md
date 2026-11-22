@@ -23,6 +23,17 @@ RC receipt, WO write-off, TR transfer, IV inventory, PO supplier order, GR recei
 ## Install
 Components → Available → Sysfera WMS → Install (delivered through the update catalog), or upload `wms-<ver>.zip`.
 
+## Import products (xlsx / csv)
+**Products → Import** loads products from an export of another system: OZON / Wildberries / Yandex Market, 1C or any table (`.xlsx`, `.csv` in UTF-8 or Windows-1251, comma / semicolon / tab).
+1. **Upload file**, then **Start Import**. The reader finds the data sheet (hidden service sheets are ignored) and the header row (marketplace templates have group captions above the header and "required field" / help rows below it; reports have a title row).
+2. **Fields Converter**: every column is matched automatically from its Russian or English header (SKU/Article, Product name, Barcode, Unit, Group, Images, Purchase / Selling / Promo price, Stock quantity, Minimum stock, Short description, Description). *As is* keeps a column as a product specification under its own name, *Custom* under a name you type, *Skip column* ignores it. Tick **Add to template** to remember a column's choice: a template is found again by the set of the file's headers (exact match, or ≥ 70 % of the saved headers) and applied automatically next time. Templates are per user (`wms_import_templates`).
+3. **Finish Import** shows a preview (new / updated / rows with errors / notes, first rows, errors with row numbers), then **Import** writes the products.
+- Products are matched by SKU, then barcode, then (rows with neither) exact name, within your own products; the same file imported twice updates instead of duplicating. Only the fields present in the file are changed. A SKU or barcode repeated inside the file is reported and skipped.
+- Images given as links are stored as links (https only, up to 8 per product), exactly like the product card does.
+- Quantities: *Receive opening stock for new products* (default) posts one receipt with the new products; *Set stock to the file* also posts an inventory count for the existing ones; *Ignore quantities* leaves stock alone. Stock always goes through a posted document, so history stays complete. The warehouse must be one without cells.
+- Limits: 12 MB, 2000 product rows per import, 60 specifications and 8 images per product.
+- Code: `lib/SheetReader.php` (dependency-free xlsx/csv reader), `lib/ImportKit.php` (header detection, mapping, templates; both are copies of the same files in Basebase `src/import/` — keep them in sync), `lib/ImportWms.php` (field catalog, validation, writes), `lib/ImportFlow.php` (the screens' controller), `views/import.php`. Tests: `php tests/wmsimport.php`.
+
 ## Next
 `wms-basebase` — separate connector component that talks to Basebase through Partner API v1 (push stock, pull orders as customer orders with reserve, return shipment status).
 

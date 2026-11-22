@@ -98,3 +98,13 @@ form.roles{display:flex;gap:2px}.chk.sm{font-size:13px;margin-right:8px}
 .seg a.g-stock::before,.seg a.g-buy::before,.seg a.g-sell::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gc);margin-right:7px}
 .seg a.g-stock.on,.seg a.g-buy.on,.seg a.g-sell.on{background:var(--gc);color:#fff}.seg a.on.g-stock::before,.seg a.on.g-buy::before,.seg a.on.g-sell::before{background:#fff}
 .gdot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gc);margin-right:6px;vertical-align:1px}
+
+/* product importer */
+.imp-up{display:grid;gap:12px;max-width:760px}.imp-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}.imp-pick{cursor:pointer}
+.imp-name{min-width:240px;max-width:420px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-reparse{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;font-size:13.5px}
+.imp-scroll{overflow-x:auto;margin:0 -4px}.imp-scroll select,.imp-scroll input[type=text]{width:100%;min-width:140px}.imp-ex{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.imp-actions{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:16px;flex-wrap:wrap}
+.imp-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0 14px}.imp-stats>div{padding:10px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg)}
+.imp-stats b{display:block;font-size:22px}.imp-stats span{font-size:12.5px;color:var(--mut)}.imp-stats .bad b{color:var(--bad)}
+.imp-errs{margin:0;padding:0;list-style:none;display:grid;gap:5px;font-size:13.5px}.imp-errs li{padding:6px 10px;border-radius:8px;background:var(--badbg,#fdecea);color:var(--bad)}.imp-errs.warn li{background:var(--warnbg);color:var(--warn)}

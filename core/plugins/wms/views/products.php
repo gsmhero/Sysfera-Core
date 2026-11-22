@@ -3,7 +3,7 @@ use SysferaWms\W;
 include __DIR__ . '/_nav.php';
 $qs = fn(array $o = []) => '?' . http_build_query(array_filter(array_merge(['q' => $f['q'], 'group' => $f['group_id'], 'only' => $f['only'] === 'all' ? '' : $f['only']], $o), fn($v) => $v !== '' && $v !== 0 && $v !== null)); ?>
 <div class="page-h"><h1><?= e($sf->t('nav_products')) ?> <small class="muted"><?= (int)$total ?></small></h1>
-  <a class="btn primary" href="<?= e($sf->url('/products/new')) ?>">＋ <?= e($sf->t('new_product')) ?></a></div>
+  <span class="row"><a class="btn" href="<?= e($sf->url('/import')) ?>">⇪ <?= e($sf->t('imp_open')) ?></a> <a class="btn primary" href="<?= e($sf->url('/products/new')) ?>">＋ <?= e($sf->t('new_product')) ?></a></span></div>
 
 <form class="bar" method="get">
   <input name="q" value="<?= e($f['q']) ?>" placeholder="<?= e($sf->t('search_products')) ?>" autofocus>
