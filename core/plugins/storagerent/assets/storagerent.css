@@ -36,7 +36,7 @@
 .sr-card-body h3{margin:0;font-size:1.05em}
 .sr-addr{color:var(--muted,#777);font-size:.9em}
 .sr-facts{display:flex;gap:12px;flex-wrap:wrap}
-.sr-svc{display:flex;gap:10px;font-size:1.2em}
+.sr-svc{display:flex;gap:12px;color:var(--mut,#5b6270)}.sr-svc span,.sr-svc-i{display:inline-flex;align-items:center}.sr-ic{width:26px;height:26px;flex:none}.sr-svc-i{vertical-align:middle;margin-right:4px;color:var(--mut,#5b6270)}
 .sr-map-canvas{width:100%;border-radius:12px;overflow:hidden;margin-bottom:16px}
 .sr-pop{max-width:260px;line-height:1.4}.sr-pop-cta{margin-top:8px;padding-top:8px;border-top:1px solid #ddd}
 .sr-photos{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}

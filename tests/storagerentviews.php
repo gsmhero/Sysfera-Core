@@ -15,7 +15,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.1.3']; public array $missing = [];
+    public array $manifest = ['version' => '0.1.4']; public array $missing = [];
     public function __construct(private array $l, private array $set = []) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'MISSING:' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/storagerent/' . ltrim($p, '/'); }
@@ -139,4 +139,10 @@ $all = ''; foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator
 ok(!preg_match('/(password|passwd|secret|api[_-]?key|apikey|token)\s*[=:]\s*[\'"][A-Za-z0-9_\-]{12,}/i', preg_replace("/'(yandex_key|cron_token)'[^\n]*/", '', $all)) && !preg_match('/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/', $all), 'no credentials, map keys or tokens in the plugin sources');
 ok(!preg_match('~https?://(?!api-maps\.yandex\.ru|example\.org|www\.w3\.org|claude)[a-z0-9.\-]+~i', file_get_contents("$dir/assets/storagerent.js") . file_get_contents("$dir/assets/storagerent.css")), 'assets: the only external host is the Yandex Maps API');
 ok(!str_contains(file_get_contents("$dir/assets/storagerent.js"), 'innerHTML') && str_contains(file_get_contents("$dir/assets/storagerent.js"), 'api-maps.yandex.ru') , 'script: no innerHTML, loads the Yandex API with the key from data-key');
+/* service icons: line style without fill, one per service, no emoji left in the card and the offer page */
+require_once "$dir/views/_h.php";
+foreach (['video', 'parking', 'h24', 'security'] as $k) { $svg = sr_icon($k, $k); ok(str_contains($svg, 'fill="none"') && str_contains($svg, 'stroke="currentColor"') && (str_contains($svg, '<path') || str_contains($svg, '<rect')), "icon $k is a line icon without fill"); }
+ok(sr_icon('video') !== sr_icon('parking') && !str_contains(sr_icon('video'), 'fill="#'), 'icons differ and carry no fill colour');
+$emoji = []; foreach (['_card.php', 'offer.php'] as $vf) if (preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', (string)file_get_contents("$dir/views/$vf"))) $emoji[] = $vf;
+ok(!$emoji, 'no emoji icons in the card and the offer page' . ($emoji ? ' (still in: ' . implode(', ', $emoji) . ')' : ''));
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);
