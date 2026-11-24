@@ -41,5 +41,5 @@ $src = file_get_contents("$dir/views/index.php") . file_get_contents("$dir/plugi
 $miss = array_diff(array_filter(array_unique($mm[1]), fn($k) => !str_ends_with($k, '_')), array_keys($en)); ok(!$miss, 'every key used exists in en.php' . ($miss ? ' (' . implode(', ', $miss) . ')' : ''));
 foreach (['f_theme', 'no_theme', 'edit_note', 'view_card', 'view_list'] as $k) ok(isset($ru[$k]) && $ru[$k] !== $en[$k], "ru translation: $k");
 ok(is_file("$dir/migrations/003_notes_theme.sql") && str_contains((string)file_get_contents("$dir/migrations/003_notes_theme.sql"), '{p}hello_notes ADD COLUMN theme'), 'additive migration adds the theme column');
-ok(json_decode((string)file_get_contents("$dir/plugin.json"), true)['version'] === '1.2.0', 'plugin.json is 1.2.0');
+ok(json_decode((string)file_get_contents("$dir/plugin.json"), true)['version'] === '1.2.1', 'plugin.json is 1.2.1');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);
