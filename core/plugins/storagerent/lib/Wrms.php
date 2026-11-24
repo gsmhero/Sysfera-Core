@@ -298,7 +298,7 @@ final class Wrms
         if (!in_array($ownerType, self::DOC_OWNERS, true)) throw new Err('bad_request');
         $title = self::clean($title, 190); if ($title === '') $title = self::clean($fileName, 190);
         return $this->st->insert('documents', ['owner_type' => $ownerType, 'owner_id' => $ownerId, 'tenant_id' => $tenantId, 'kind' => self::clean($kind, 16), 'title' => $title, 'file_name' => self::clean($fileName, 190),
-            'stored' => $stored, 'mime' => self::clean($mime, 80), 'size' => $size, 'uploaded_by' => $c->uid, 'created_at' => ($this->now)()]);
+            'file_key' => $stored, 'mime' => self::clean($mime, 80), 'size' => $size, 'uploaded_by' => $c->uid, 'created_at' => ($this->now)()]);
     }
     public function document(int $id): ?array { return $this->st->one('documents', ['id' => $id]); }
     public function documents(string $ownerType, int $ownerId): array { return $this->st->find('documents', ['owner_type' => $ownerType, 'owner_id' => $ownerId], 'id DESC'); }

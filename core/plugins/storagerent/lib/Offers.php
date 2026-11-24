@@ -96,7 +96,7 @@ final class Offers
     {
         $l = $this->st->one('listings', ['id' => $listingId]) ?? throw new Err('not_found', '', 404); if ((int)$l['user_id'] !== $uid && !$isAdmin) throw new Err('forbidden', '', 403);
         $have = $this->photos($listingId); if (count($have) >= self::MAX_PHOTOS) throw new Err('photos_max');
-        return $this->st->insert('listing_photos', ['listing_id' => $listingId, 'stored' => $stored, 'mime' => $mime, 'size' => $size, 'sort' => count($have), 'created_at' => ($this->now)()]);
+        return $this->st->insert('listing_photos', ['listing_id' => $listingId, 'file_key' => $stored, 'mime' => $mime, 'size' => $size, 'sort' => count($have), 'created_at' => ($this->now)()]);
     }
     public function removePhoto(int $uid, bool $isAdmin, int $photoId): ?array
     {

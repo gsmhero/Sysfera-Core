@@ -141,8 +141,8 @@ return function (\Sysfera\Plugin $sf): void {
     $get('/doc/{id}', function (array $p) use ($svc, $ctx) {
         $d = $svc()['wr']->document((int)$p['id']); $c = $ctx();
         if (!$d || !($c->staff() || ($c->role === 'tenant' && (int)($d['tenant_id'] ?? 0) === $c->tenantId))) { http_response_code(404); echo 'Not found'; return; }
-        $f = Files::path((string)$d['stored']); if (!$f) { http_response_code(404); echo 'Not found'; return; }
-        $ext = strtolower(pathinfo((string)$d['stored'], PATHINFO_EXTENSION)); $name = preg_replace('/[^\w.\- ]+/u', '_', (string)$d['file_name']);
+        $f = Files::path((string)$d['file_key']); if (!$f) { http_response_code(404); echo 'Not found'; return; }
+        $ext = strtolower(pathinfo((string)$d['file_key'], PATHINFO_EXTENSION)); $name = preg_replace('/[^\w.\- ]+/u', '_', (string)$d['file_name']);
         header('Content-Type: ' . Files::mime($ext)); header('X-Content-Type-Options: nosniff'); header('Content-Disposition: ' . (Files::inline($ext) ? 'inline' : 'attachment') . '; filename="' . $name . '"'); header('Content-Length: ' . filesize($f)); header('Cache-Control: private, no-store'); readfile($f);
     });
     $sf->route('POST', '/doc/upload', function () use ($act, $svc, $ctx, $upload, $back) {
@@ -158,7 +158,7 @@ return function (\Sysfera\Plugin $sf): void {
         }, $back('/p/storagerent/documents'), 'doc_saved');
     });
     $sf->route('POST', '/doc/{id}/delete', function (array $p) use ($act, $svc, $ctx, $back) {
-        $act(function () use ($p, $svc, $ctx) { $d = $svc()['wr']->deleteDocument($ctx(), (int)$p['id']); if ($d) Files::remove((string)$d['stored']); }, $back('/p/storagerent/documents'), 'deleted');
+        $act(function () use ($p, $svc, $ctx) { $d = $svc()['wr']->deleteDocument($ctx(), (int)$p['id']); if ($d) Files::remove((string)$d['file_key']); }, $back('/p/storagerent/documents'), 'deleted');
     });
 
     /* ================================================================== WRMS actions */
@@ -272,8 +272,8 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('GET', '/offers/{id}/edit', fn(array $p) => $page(fn() => $svc()['pg']->offerForm($ctx(), (int)$p['id']), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/photo/{id}', function (array $p) use ($svc, $ctx) {
         $ph = $svc()['st']->one('listing_photos', ['id' => (int)$p['id']]); $l = $ph ? $svc()['st']->one('listings', ['id' => (int)$ph['listing_id']]) : null; $c = $ctx();
-        if (!$ph || !$l || ($l['status'] !== 'published' && (int)$l['user_id'] !== $c->uid && $c->role !== 'admin') || !($f = Files::path((string)$ph['stored']))) { http_response_code(404); return; }
-        $ext = strtolower(pathinfo((string)$ph['stored'], PATHINFO_EXTENSION)); header('Content-Type: ' . Files::mime($ext)); header('X-Content-Type-Options: nosniff'); header('Cache-Control: public, max-age=86400'); header('Content-Length: ' . filesize($f)); readfile($f);
+        if (!$ph || !$l || ($l['status'] !== 'published' && (int)$l['user_id'] !== $c->uid && $c->role !== 'admin') || !($f = Files::path((string)$ph['file_key']))) { http_response_code(404); return; }
+        $ext = strtolower(pathinfo((string)$ph['file_key'], PATHINFO_EXTENSION)); header('Content-Type: ' . Files::mime($ext)); header('X-Content-Type-Options: nosniff'); header('Cache-Control: public, max-age=86400'); header('Content-Length: ' . filesize($f)); readfile($f);
     }, ['auth' => false]);
     $sf->route('GET', '/offers/{id}', fn(array $p) => $page(fn() => $svc()['pg']->offer($ctx(), (int)$p['id']), '/p/storagerent/offers'), ['auth' => false]);
     $sf->route('POST', '/offers/save', function () use ($act, $svc, $ctx, $sf, $uploads, $tr) {
@@ -291,8 +291,8 @@ return function (\Sysfera\Plugin $sf): void {
     $sf->route('POST', '/offers/{id}/do', function (array $p) use ($act, $svc, $ctx, $sf) {
         $id = (int)$p['id']; $do = (string)($_POST['do'] ?? ''); $c = $ctx(); $adm = $sf->auth()->isAdmin(); $of = $svc()['of'];
         $act(function () use ($do, $id, $c, $adm, $of) {
-            if ($do === 'delete') { foreach ($of->delete($c->uid, $adm, $id) as $ph) Files::remove((string)$ph['stored']); return null; }
-            if ($do === 'photo_delete') { $ph = $of->removePhoto($c->uid, $adm, (int)($_POST['photo_id'] ?? 0)); if ($ph) Files::remove((string)$ph['stored']); return null; }
+            if ($do === 'delete') { foreach ($of->delete($c->uid, $adm, $id) as $ph) Files::remove((string)$ph['file_key']); return null; }
+            if ($do === 'photo_delete') { $ph = $of->removePhoto($c->uid, $adm, (int)($_POST['photo_id'] ?? 0)); if ($ph) Files::remove((string)$ph['file_key']); return null; }
             $of->setStatus($c->uid, $adm, $id, $do); return null;
         }, $do === 'delete' ? '/p/storagerent/offers' : ($do === 'photo_delete' ? '/p/storagerent/offers/' . $id . '/edit' : '/p/storagerent/offers/' . $id), 'done');
     });

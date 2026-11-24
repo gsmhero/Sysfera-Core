@@ -223,4 +223,12 @@ $calls = 0; $fetch = function ($u) use (&$calls, $json) { $calls++; return $json
 $r1 = $ofr->remote(['https://peer.test/api/storagerent/v1/listings', 'http://insecure.test/x', 'ftp://x'], $fetch); $r2 = $ofr->remote(['https://peer.test/api/storagerent/v1/listings'], $fetch); ok(count($r1) === 1 && count($r2) === 1 && $calls === 1, 'peers: https only, fetched once and cached');
 $now += 1000; $ofr->remote(['https://peer.test/api/storagerent/v1/listings'], fn($u) => null); ok(count($ofr->remote(['https://peer.test/api/storagerent/v1/listings'], fn($u) => null)) === 1, 'a failing peer keeps its old copy');
 
+/* MySQL reserved words must never be bare column names in the migrations (STORED broke 002_extras.sql on a real server) */
+$reserved = ['stored', 'virtual', 'generated', 'rank', 'groups', 'system', 'window', 'lateral', 'empty', 'function', 'range', 'rows', 'row', 'usage', 'read', 'write', 'key', 'keys', 'index', 'order', 'group', 'limit', 'check', 'condition', 'release', 'signal', 'schema', 'over', 'except', 'intersect', 'cube', 'persist', 'recursive', 'grouping', 'of', 'lead', 'lag', 'ntile', 'first_value', 'last_value', 'dense_rank', 'percent_rank', 'cume_dist', 'nth_value', 'row_number'];
+$bad = [];
+foreach (glob("$dir/migrations/*.sql") as $mf) foreach (preg_split('/\R/', (string)file_get_contents($mf)) as $ln) {
+    if (preg_match('/^\s+([a-z_]+)\s+(?:VARCHAR|INT|BIGINT|TINYINT|SMALLINT|DECIMAL|DATE|DATETIME|TEXT|MEDIUMTEXT|LONGTEXT|CHAR|JSON|BLOB)\b/i', $ln, $m) && in_array(strtolower($m[1]), $reserved, true)) $bad[] = basename($mf) . ':' . $m[1];
+}
+ok(!$bad, 'no reserved word as a bare column name in migrations' . ($bad ? ' (' . implode(', ', $bad) . ')' : ''));
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

@@ -1,4 +1,4 @@
--- Sysfera Storage Rent 0.3.0: utilities (meters, readings), documents, notification templates and log, on-site access log, tenant requests. Additive only.
+-- Sysfera Storage Rent: utilities (meters, readings), documents, notification templates and log, on-site access log, tenant requests. Additive only.
 
 CREATE TABLE IF NOT EXISTS {p}sr_meters (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS {p}sr_documents (
   kind VARCHAR(16) NOT NULL DEFAULT 'file',
   title VARCHAR(190) NOT NULL,
   file_name VARCHAR(190) NOT NULL,
-  stored VARCHAR(64) NOT NULL,
+  file_key VARCHAR(64) NOT NULL,
   mime VARCHAR(80) NOT NULL DEFAULT '',
   size INT UNSIGNED NOT NULL DEFAULT 0,
   uploaded_by INT UNSIGNED NOT NULL DEFAULT 0,
