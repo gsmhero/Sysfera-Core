@@ -1,6 +1,6 @@
 {
   "slug": "hello",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "name": { "en": "Notes", "ru": "Заметки" },
   "description": {
     "en": "Personal notes with titles, themes, tags and search, grouped by theme in a card or list view. Edit them, share by e-mail or send to another user of the site.",
