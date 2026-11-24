@@ -102,4 +102,7 @@ return [
     'err_share_invalid' => 'The share must be between 0 and 100.', 'err_size_required' => 'Enter the area or volume.', 'err_state_invalid' => 'This is not possible in the current state.', 'err_status_invalid' => 'Invalid status.', 'err_template_empty' => 'The subject and the text are required.', 'err_tenant_archived' => 'The tenant is archived.',
     'err_tenant_not_active' => 'The tenant is not active.', 'err_tenant_required' => 'Choose a tenant.', 'err_time_invalid' => 'Invalid time.', 'err_tin_invalid' => 'The TIN must have 10 digits (legal entity) or 12 (sole proprietor).', 'err_title_required' => 'Enter a title.', 'err_type_invalid' => 'Invalid type.',
     'err_unit_in_use' => 'The unit is used by a contract.', 'err_unit_overbooked' => 'The unit is already let for these dates.', 'err_unit_required' => 'Choose a unit.', 'err_user_taken' => 'This user is already linked to another tenant.', 'err_util_invalid' => 'Invalid utilities setting.', 'err_vat_invalid' => 'Invalid VAT.', 'err_warehouse_required' => 'Choose a warehouse.',
+    'lb_close' => 'Close',
+    'lb_prev' => 'Previous photo',
+    'lb_next' => 'Next photo',
 ];

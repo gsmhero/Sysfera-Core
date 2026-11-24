@@ -88,4 +88,7 @@ return [
     'err_share_invalid' => 'Доля должна быть от 0 до 100.', 'err_size_required' => 'Укажите площадь или объём.', 'err_state_invalid' => 'В текущем состоянии это невозможно.', 'err_status_invalid' => 'Неверный статус.', 'err_template_empty' => 'Нужны тема и текст.', 'err_tenant_archived' => 'Арендатор в архиве.',
     'err_tenant_not_active' => 'Арендатор не активен.', 'err_tenant_required' => 'Выберите арендатора.', 'err_time_invalid' => 'Неверное время.', 'err_tin_invalid' => 'ИНН: 10 цифр для юрлица или 12 для ИП.', 'err_title_required' => 'Укажите название.', 'err_type_invalid' => 'Неверный тип.',
     'err_unit_in_use' => 'Помещение есть в договоре.', 'err_unit_overbooked' => 'Помещение уже сдано на эти даты.', 'err_unit_required' => 'Выберите помещение.', 'err_user_taken' => 'Этот пользователь уже связан с другим арендатором.', 'err_util_invalid' => 'Неверная настройка коммунальных услуг.', 'err_vat_invalid' => 'Неверный НДС.', 'err_warehouse_required' => 'Выберите склад.',
+    'lb_close' => 'Закрыть',
+    'lb_prev' => 'Предыдущее фото',
+    'lb_next' => 'Следующее фото',
 ];
