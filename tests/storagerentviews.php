@@ -15,7 +15,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.1.1']; public array $missing = [];
+    public array $manifest = ['version' => '0.1.2']; public array $missing = [];
     public function __construct(private array $l, private array $set = []) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'MISSING:' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/storagerent/' . ltrim($p, '/'); }

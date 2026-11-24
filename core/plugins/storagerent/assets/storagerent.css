@@ -43,5 +43,5 @@
 .sr-photos img{height:120px;border-radius:8px;object-fit:cover}
 .sr-photos figure{margin:0;display:flex;flex-direction:column;gap:4px}
 .sr-dl{display:grid;grid-template-columns:minmax(140px,240px) 1fr;gap:6px 16px}.sr-dl dt{color:var(--muted,#777)}.sr-dl dd{margin:0}
-.sr-offer fieldset{border:0;padding:16px}.sr-offer legend{font-weight:700;padding:0}
+.sr-offer fieldset{border:0;padding:16px;margin:0 0 16px;min-width:0;display:flow-root}.sr-offer legend{float:left;width:100%;box-sizing:border-box;font-weight:700;font-size:16px;padding:0;margin:0 0 12px}.sr-offer legend+*{clear:both}
 @media (max-width:640px){.sr-2{grid-template-columns:1fr}.sr-dl{grid-template-columns:1fr}}
