@@ -16,12 +16,14 @@ return function (\Sysfera\Plugin $sf): void {
         }
         return $out ? ',' . implode(',', $out) . ',' : '';
     };
+    /** one theme per note: spaces collapsed, max 80 characters, empty = no theme */
+    $theme = fn(string $raw): string => trim(mb_substr(trim((string)preg_replace('/\s+/u', ' ', $raw)), 0, 80));
     $mine = function (int $id) use ($sf, $me): ?array {   // a note the user owns (notes from before this version have no owner: everybody with access)
         $n = $sf->db()->row('SELECT * FROM {p}hello_notes WHERE id = ? AND (user_id = ? OR user_id IS NULL)', [$id, $me()]);
         return $n ?: null;
     };
 
-    $sf->route('*', '/', function () use ($sf, $me, $tags, $mine) {
+    $sf->route('*', '/', function () use ($sf, $me, $tags, $theme, $mine) {
         $db = $sf->db(); $uid = $me(); $user = $sf->auth()->user() ?? [];
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = (string)($_POST['do'] ?? 'save'); $id = (int)($_POST['id'] ?? 0); $back = '/p/hello/' . (str_starts_with((string)($_POST['qs'] ?? ''), '?') ? preg_replace('/[^\w\-=&%+.?]/u', '', (string)$_POST['qs']) : '');
@@ -30,8 +32,8 @@ return function (\Sysfera\Plugin $sf): void {
                 $title = trim(mb_substr(trim((string)($_POST['title'] ?? '')), 0, 190)); $text = trim(mb_substr((string)($_POST['text'] ?? ''), 0, 5000));
                 if ($title === '' && $text === '') { flash($sf->t('e_empty'), 'bad'); redirect($back); }
                 if ($id && !$n) { flash($sf->t('e_missing'), 'bad'); redirect($back); }
-                if ($n) { $db->q('UPDATE {p}hello_notes SET title = ?, body = ?, tags = ?, updated_at = NOW() WHERE id = ?', [$title, $text, $tags((string)($_POST['tags'] ?? '')), $n['id']]); flash($sf->t('saved')); }
-                else { $db->q('INSERT INTO {p}hello_notes (user_id, title, body, tags) VALUES (?,?,?,?)', [$uid, $title, $text, $tags((string)($_POST['tags'] ?? ''))]); flash($sf->t('added')); }
+                if ($n) { $db->q('UPDATE {p}hello_notes SET title = ?, body = ?, tags = ?, theme = ?, updated_at = NOW() WHERE id = ?', [$title, $text, $tags((string)($_POST['tags'] ?? '')), $theme((string)($_POST['theme'] ?? '')), $n['id']]); flash($sf->t('saved')); }
+                else { $db->q('INSERT INTO {p}hello_notes (user_id, title, body, tags, theme) VALUES (?,?,?,?,?)', [$uid, $title, $text, $tags((string)($_POST['tags'] ?? '')), $theme((string)($_POST['theme'] ?? ''))]); flash($sf->t('added')); }
             } elseif (!$n) { flash($sf->t('e_missing'), 'bad');
             } elseif ($do === 'delete') { $db->q('DELETE FROM {p}hello_notes WHERE id = ?', [$n['id']]); flash($sf->t('deleted'));
             } elseif ($do === 'email') {
@@ -41,7 +43,7 @@ return function (\Sysfera\Plugin $sf): void {
                 elseif (count($_SESSION['note_mail']) >= 20) flash($sf->t('e_rate'), 'bad');
                 else {
                     $name = (string)($user['name'] ?? ''); $head = $n['title'] !== '' ? $n['title'] : mb_substr(trim((string)preg_split('/\R/', (string)$n['body'])[0]), 0, 80);
-                    $text = $head . "\n\n" . $n['body'] . ($n['tags'] !== '' ? "\n\n#" . implode(' #', array_filter(explode(',', $n['tags']))) : '') . "\n\n— " . $name;
+                    $text = $head . "\n\n" . $n['body'] . ($n['theme'] !== '' ? "\n\n" . $sf->t('f_theme') . ': ' . $n['theme'] : '') . ($n['tags'] !== '' ? "\n\n#" . implode(' #', array_filter(explode(',', $n['tags']))) : '') . "\n\n— " . $name;
                     $err = $sf->mail($to, $head !== '' ? $head : $sf->t('title'), $text, null, [(string)($user['email'] ?? ''), $name]);   // "From" = the signed-in user
                     if ($err === null) { $_SESSION['note_mail'][] = time(); flash($sf->t('mailed', ['n' => count($to)])); }
                     else flash($err === 'not_configured' ? $sf->t('e_mail_off') : $sf->t('e_mail', ['e' => $err]), 'bad');
@@ -52,7 +54,7 @@ return function (\Sysfera\Plugin $sf): void {
                 if (!$ok) flash($sf->t('e_user'), 'bad');
                 elseif ((int)$db->val('SELECT COUNT(*) FROM {p}hello_notes WHERE from_user_id = ? AND created_at > (NOW() - INTERVAL 1 DAY)', [$uid]) >= 50) flash($sf->t('e_rate'), 'bad');
                 else {
-                    $db->q('INSERT INTO {p}hello_notes (user_id, from_user_id, title, body, tags) VALUES (?,?,?,?,?)', [$to, $uid, $n['title'], $n['body'], $n['tags']]);
+                    $db->q('INSERT INTO {p}hello_notes (user_id, from_user_id, title, body, tags, theme) VALUES (?,?,?,?,?,?)', [$to, $uid, $n['title'], $n['body'], $n['tags'], $n['theme']]);
                     $sf->log('note.sent', ['to' => $to]); flash($sf->t('sent'));
                 }
             }
@@ -62,15 +64,16 @@ return function (\Sysfera\Plugin $sf): void {
         /* list: search, tag filter, sort */
         $q = trim(mb_substr((string)($_GET['q'] ?? ''), 0, 80)); $tag = mb_strtolower(trim((string)($_GET['tag'] ?? ''))); $sort = in_array($_GET['sort'] ?? '', ['old', 'tags', 'title'], true) ? $_GET['sort'] : 'new';
         $w = ['(n.user_id = ? OR n.user_id IS NULL)']; $a = [$uid];
-        if ($q !== '') { $like = '%' . addcslashes($q, '%_\\') . '%'; $w[] = '(n.title LIKE ? OR n.body LIKE ? OR n.tags LIKE ?)'; array_push($a, $like, $like, $like); }
+        if ($q !== '') { $like = '%' . addcslashes($q, '%_\\') . '%'; $w[] = '(n.title LIKE ? OR n.body LIKE ? OR n.tags LIKE ? OR n.theme LIKE ?)'; array_push($a, $like, $like, $like, $like); }
         if ($tag !== '') { $w[] = 'n.tags LIKE ?'; $a[] = '%,' . addcslashes($tag, '%_\\') . ',%'; }
         $order = ['new' => 'n.id DESC', 'old' => 'n.id ASC', 'tags' => "(n.tags = ''), n.tags, n.id DESC", 'title' => "(n.title = ''), n.title, n.id DESC"][$sort];
         $notes = $db->rows('SELECT n.*, f.name AS author FROM {p}hello_notes n LEFT JOIN {p}users f ON f.id = n.from_user_id WHERE ' . implode(' AND ', $w) . " ORDER BY $order LIMIT 200", $a);
         $all = [];   // every tag of the user with its count
         foreach ($db->rows("SELECT tags FROM {p}hello_notes WHERE (user_id = ? OR user_id IS NULL) AND tags <> ''", [$uid]) as $r) foreach (array_filter(explode(',', $r['tags'])) as $t) $all[$t] = ($all[$t] ?? 0) + 1;
         ksort($all);
+        $themes = array_column($db->rows("SELECT theme FROM {p}hello_notes WHERE (user_id = ? OR user_id IS NULL) AND theme <> '' GROUP BY theme ORDER BY theme LIMIT 200", [$uid]), 'theme');   // autocomplete
         $edit = isset($_GET['edit']) ? $mine((int)$_GET['edit']) : null;
-        $sf->render('index', ['notes' => $notes, 'q' => $q, 'tag' => $tag, 'sort' => $sort, 'allTags' => $all, 'edit' => $edit,
+        $sf->render('index', ['notes' => $notes, 'q' => $q, 'tag' => $tag, 'sort' => $sort, 'allTags' => $all, 'themes' => $themes, 'uid' => $uid, 'edit' => $edit,
             'users' => $db->rows("SELECT id, name FROM {p}users WHERE status = 'active' AND id <> ? ORDER BY name LIMIT 500", [$uid]), 'myEmail' => (string)($user['email'] ?? '')], $sf->t('title'));
     }, ['cap' => 'hello.use']);
 

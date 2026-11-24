@@ -1,5 +1,6 @@
 <?php
 return [
+    'f_theme' => 'Theme', 'no_theme' => 'No theme', 'edit_note' => 'Edit note', 'view' => 'View', 'view_card' => 'Card view', 'view_list' => 'List view',
     'menu' => 'Notes', 'title' => 'Notes', 'open' => 'open', 'new' => 'New note', 'edit' => 'Edit', 'add' => 'Add note', 'save' => 'Save', 'added' => 'Note added.', 'saved' => 'Note saved.', 'deleted' => 'Note deleted.', 'confirm' => 'Delete this note?',
     'f_title' => 'Title', 'note' => 'Note', 'f_tags' => 'Tags', 'tags_ph' => 'work, ideas, personal', 'search' => 'Search notes…', 'find' => 'Search', 'clear' => 'Clear',
     'sort_new' => 'Newest first', 'sort_old' => 'Oldest first', 'sort_tags' => 'By tags', 'sort_title' => 'By title', 'none' => 'No notes yet.', 'none_found' => 'No notes found.',
