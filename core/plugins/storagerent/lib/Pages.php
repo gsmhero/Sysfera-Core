@@ -158,16 +158,24 @@ final class Pages
     {
         $mine = $c->uid > 0 ? $this->offers->cards($this->offers->listings('', $c->uid), $this->photoUrl) : [];
         $statuses = []; if ($c->uid > 0) foreach ($this->offers->listings('', $c->uid) as $l) $statuses[(int)$l['id']] = (string)$l['status'];
-        return ['view' => 'offers', 'title' => 'offers', 'cards' => $this->cards($q, $remote), 'mine' => $mine, 'mineStatus' => $statuses, 'q' => $q, 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== '', 'staff' => $c->staff()];
+        return ['view' => 'offers', 'title' => 'offers', 'cards' => $this->cards($q, $remote), 'mine' => $mine, 'mineStatus' => $statuses, 'q' => $q, 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== '', 'staff' => $c->staff(), 'favs' => $this->offers->favoriteRefs($c->uid)];
     }
     public function map(Ctx $c, array $remote = []): array
     {
         return ['view' => 'map', 'title' => 'offers_map', 'cards' => $this->cards('', $remote), 'signedIn' => $c->uid > 0];
     }
+    /** The favorites tab of a signed-in user. */
+    public function favorites(Ctx $c): array
+    {
+        if ($c->uid <= 0) throw new Err('forbidden', '', 403);
+        $items = $this->offers->favorites($c->uid, $this->photoUrl);
+        return ['view' => 'favorites', 'title' => 'offers', 'items' => $items, 'signedIn' => true, 'favs' => array_fill_keys(array_column($items, 'ref'), true), 'key' => false];
+    }
     public function offer(Ctx $c, int $id, array $remote = []): array
     {
         $l = $this->offers->get($id); if (!$l || ($l['status'] !== 'published' && $l['user_id'] !== $c->uid && $c->role !== 'admin')) throw new Err('not_found', '', 404);
-        return ['view' => 'offer', 'title' => 'offers', 'l' => $l, 'card' => $this->offers->card($l, $this->photoUrl), 'd' => $l['d'], 'owner' => $c->uid > 0 && ((int)$l['user_id'] === $c->uid || $c->role === 'admin'), 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== ''];
+        return ['view' => 'offer', 'title' => 'offers', 'l' => $l, 'card' => $this->offers->card($l, $this->photoUrl), 'd' => $l['d'], 'owner' => $c->uid > 0 && ((int)$l['user_id'] === $c->uid || $c->role === 'admin'), 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== '',
+            'favs' => $this->offers->favoriteRefs($c->uid), 'isAuthor' => $c->uid > 0 && (int)$l['user_id'] === $c->uid, 'hasContacts' => Offers::hasContacts($l['d'])];
     }
     /** The listing form; $prefill from a WRMS warehouse (?wh=ID) when the user owns it (or is WRMS staff). */
     public function offerForm(Ctx $c, int $id, int $warehouseId = 0): array

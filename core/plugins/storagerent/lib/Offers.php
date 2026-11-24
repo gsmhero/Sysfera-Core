@@ -22,7 +22,10 @@ final class Offers
         'loading_equipment' => [3, 't', 1000], 'extra_racking' => [3, 'b'], 'extra_charging' => [3, 'b'], 'extra_accounting' => [3, 'b'], 'extra_text' => [3, 't', 1000],
         'zones' => [4, 't', 1000], 'parking' => [4, 't', 1000], 'fence' => [4, 'b'], 'lighting' => [4, 'b'], 'territory_text' => [4, 't', 1000],
         'purpose' => [5, 't', 1500], 'access_24h' => [6, 'b'], 'access_from' => [6, 'h'], 'access_to' => [6, 'h'], 'prohibitions' => [7, 't', 1500],
+        // block 9: the contacts the author fills in; shown to signed-in users only, never in the public card or the feed
+        'contact_person' => [9, 's', 120], 'contact_phone' => [9, 's', 60], 'contact_email' => [9, 's', 120], 'contact_hours' => [9, 's', 120], 'contact_text' => [9, 't', 1500],
     ];
+    public const MAX_FAVORITES = 500;
     public const SERVICES = ['video', 'parking', 'h24', 'security'];
 
     public function __construct(private Store $st, private $now) {}
@@ -45,6 +48,7 @@ final class Offers
                 case 'h': $s = trim((string)($v ?? '')); if ($s !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $s)) throw new Err('time_invalid'); $out[$k] = $s; break;
             }
         }
+        if ($out['contact_email'] !== '' && !filter_var($out['contact_email'], FILTER_VALIDATE_EMAIL)) throw new Err('email_invalid');
         if ($out['access_24h']) { $out['access_from'] = ''; $out['access_to'] = ''; }
         elseif ($out['access_from'] === '' && $out['access_to'] !== '' || $out['access_from'] !== '' && $out['access_to'] === '') throw new Err('time_invalid');
         return $out;
@@ -126,6 +130,47 @@ final class Offers
             'photo' => $ph ? $photoUrl($ph[0], (int)$l['id']) : '', 'updated_at' => (int)$l['updated_at']];
     }
     public function cards(array $listings, callable $photoUrl): array { return array_map(fn($l) => $this->card($l, $photoUrl), $listings); }
+
+    /** True when the listing has anything in the Contacts block. */
+    public static function hasContacts(array $d): bool { foreach (['contact_person', 'contact_phone', 'contact_email', 'contact_hours', 'contact_text'] as $k) if (trim((string)($d[$k] ?? '')) !== '') return true; return false; }
+
+    /* ================================================================== favorites */
+    /** The key of a card in the favorites: L<id> for this domain, R<hash of the origin>-<id> for a listing of another domain. */
+    public static function ref(array $card): string
+    {
+        return empty($card['origin']) ? 'L' . (int)$card['id'] : 'R' . substr(sha1((string)$card['origin']), 0, 12) . '-' . (int)$card['id'];
+    }
+    /** [ref => true] of the user, for the hearts in the lists. */
+    public function favoriteRefs(int $uid): array
+    {
+        if ($uid <= 0) return []; $out = []; foreach ($this->st->find('favorites', ['user_id' => $uid], 'id DESC', self::MAX_FAVORITES + 1) as $r) $out[(string)$r['ref']] = true; return $out;
+    }
+    /** Adds or removes a favorite. Returns true when the listing is now a favorite. $remote: the cards of other domains (to find a "R..." ref). */
+    public function toggleFavorite(int $uid, string $ref, callable $photoUrl, array $remote = []): bool
+    {
+        if ($uid <= 0) throw new Err('forbidden', '', 403);
+        if (!preg_match('/^(L\d{1,10}|R[0-9a-f]{12}-\d{1,10})$/', $ref)) throw new Err('not_found', '', 404);
+        $have = $this->st->one('favorites', ['user_id' => $uid, 'ref' => $ref]);
+        if ($have) { $this->st->delete('favorites', (int)$have['id']); return false; }
+        if (count($this->st->find('favorites', ['user_id' => $uid], 'id', self::MAX_FAVORITES + 1)) >= self::MAX_FAVORITES) throw new Err('favorites_max');
+        $card = null;
+        if ($ref[0] === 'L') { $l = $this->get((int)substr($ref, 1)); if ($l && $l['status'] === 'published') $card = $this->card($l, $photoUrl); }
+        else foreach ($remote as $c) if (self::ref($c) === $ref) { $card = $c; break; }
+        if ($card === null) throw new Err('not_found', '', 404);
+        $this->st->insert('favorites', ['user_id' => $uid, 'ref' => $ref, 'snapshot' => json_encode($card, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'created_at' => ($this->now)()]);
+        return true;
+    }
+    /** The favorites of a user, newest first: [['ref', 'card', 'gone' => the local listing was removed or unpublished]]. A local card is read live; a remote one is the saved snapshot. */
+    public function favorites(int $uid, callable $photoUrl): array
+    {
+        $out = [];
+        foreach ($uid > 0 ? $this->st->find('favorites', ['user_id' => $uid], 'id DESC', self::MAX_FAVORITES) : [] as $r) {
+            $snap = json_decode((string)$r['snapshot'], true); if (!is_array($snap)) continue; $ref = (string)$r['ref']; $gone = false;
+            if ($ref[0] === 'L') { $l = $this->get((int)substr($ref, 1)); if ($l && $l['status'] === 'published') $snap = $this->card($l, $photoUrl); else $gone = true; }
+            $out[] = ['ref' => $ref, 'card' => $snap + ['origin' => '', 'url' => null, 'photo' => '', 'services' => [], 'city' => '', 'street' => '', 'name' => '', 'area' => 0, 'price_m2' => 0], 'gone' => $gone];
+        }
+        return $out;
+    }
 
     /** Form defaults from the user's WRMS data: a warehouse and (optionally) some of its units. */
     public function prefill(array $warehouse, array $units): array

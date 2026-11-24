@@ -23,6 +23,8 @@ $field = function (string $k) use ($F, $v, $sf, $L): string {
   <fieldset class="card"><legend><?= e($sf->t('blk_8')) ?></legend><p class="muted sm"><?= e($sf->t('blk_8_hint', ['n' => $maxPhotos])) ?></p>
     <?php if ($photos): ?><div class="sr-photos"><?php foreach ($photos as $p): ?><figure><img src="<?= e(url('/p/storagerent/offers/photo/' . (int)$p['id'])) ?>" alt=""><button type="submit" form="srPhoto<?= (int)$p['id'] ?>" class="btn sm danger"><?= e($sf->t('delete')) ?></button></figure><?php endforeach; ?></div><?php endif; ?>
     <label class="fld"><span><?= e($sf->t('of_photos')) ?></span><input type="file" name="photos[]" accept="image/jpeg,image/png,image/webp" multiple></label></fieldset>
+  <fieldset class="card"><legend><?= e($sf->t('blk_9')) ?></legend><p class="muted sm"><?= e($sf->t('blk_9_hint')) ?></p>
+    <?php foreach ($blocks[9] as $k) echo $field($k); ?></fieldset>
   <p><button class="btn primary"><?= e($sf->t('save')) ?></button> <a class="btn" href="<?= e($sf->url($l ? '/offers/' . $id : '/offers')) ?>"><?= e($sf->t('cancel')) ?></a></p></form>
 <?php foreach ($photos as $p): ?><form id="srPhoto<?= (int)$p['id'] ?>" method="post" action="<?= e($sf->url('/offers/' . $id . '/do')) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="photo_delete"><input type="hidden" name="photo_id" value="<?= (int)$p['id'] ?>"></form><?php endforeach; ?>
 <script src="<?= e($sf->asset('storagerent.js')) ?>?v=<?= e($sf->manifest['version']) ?>" defer></script>

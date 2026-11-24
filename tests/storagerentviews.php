@@ -15,7 +15,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.1.5']; public array $missing = [];
+    public array $manifest = ['version' => '0.2.0']; public array $missing = [];
     public function __construct(private array $l, private array $set = []) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'MISSING:' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/storagerent/' . ltrim($p, '/'); }
@@ -109,7 +109,7 @@ preg_match_all("/new Err\\('([a-z_0-9]+)'/", $src, $m); foreach ($m[1] as $code)
 $fam = ['st' => ['draft', 'issued', 'partially_paid', 'paid', 'overdue', 'cancelled', 'late', 'free', 'reserved', 'occupied', 'maintenance', 'auto', 'active', 'suspended', 'archived', 'ended', 'terminated', 'expiring', 'new', 'in_progress', 'done'],
     'cs' => ['draft', 'active', 'expiring', 'ended', 'terminated'], 'rt' => Billing::RATE_TYPES, 'unit' => Billing::RATE_TYPES, 'um' => Billing::UTIL_METHODS, 'pt' => Billing::PENALTY_TYPES, 'vm' => Billing::VAT_MODES, 'kind' => Wrms::TENANT_KINDS, 'ut' => Wrms::UNIT_TYPES,
     'ft' => Wrms::FEATURES, 'meter' => ['electricity', 'water', 'heat', 'gas'], 'pm' => Ledger::METHODS, 'adj' => Ledger::ADJ_KINDS, 'bk' => ['1-30', '31-60', '60+'], 'bucket' => ['1-30', '31-60', '60+', 'current'], 'own' => Wrms::DOC_OWNERS, 'rq' => Wrms::REQUEST_STATUS,
-    'ev' => Notify::EVENTS, 'os' => Offers::STATUSES, 'svc' => Offers::SERVICES, 'rep' => Reports::REPORTS, 'blk' => range(1, 8), 'of' => array_keys(Offers::FIELDS), 'nt' => ['sent', 'failed']];
+    'ev' => Notify::EVENTS, 'os' => Offers::STATUSES, 'svc' => Offers::SERVICES, 'rep' => Reports::REPORTS, 'blk' => range(1, 9), 'of' => array_keys(Offers::FIELDS), 'nt' => ['sent', 'failed']];
 foreach ($fam as $p => $vals) foreach ($vals as $v) $used[] = $p . '_' . $v;
 foreach (Reports::REPORTS as $r) foreach (['month', 'invoiced', 'received', 'tenant', 'outstanding', 'unit', 'rent', 'contract', 'invoice', 'due_date', 'days_late', 'bucket', 'penalty', 'status', 'area_total', 'area_rented', 'percent', 'meter', 'consumption', 'charge', 'total'] as $col) $used[] = 'col_' . $col;
 $used = array_filter(array_unique($used), fn($x) => !str_ends_with($x, '_') && $x !== 'st'); $miss = array_values(array_diff($used, array_keys($en)));
@@ -122,7 +122,7 @@ $pp = file_get_contents("$dir/plugin.php"); $oa = file_get_contents("$dir/openap
 preg_match_all("/\\\$sf->api\\('(GET|POST)', '([^']+)'/", $pp, $m); ok(count($m[2]) === 2, 'plugin.php serves two machine endpoints (' . implode(',', $m[2]) . ')');
 foreach ($m[2] as $path) ok(str_contains($oa, '  /' . substr($path, strlen('storagerent/v1/')) . ':'), "openapi.yaml documents /$path");
 preg_match_all("/->(page|get|post)\\(|\\\$(?:get|post)\\('([^']+)'|\\\$sf->route\\('(GET|POST)', '([^']+)'/", $pp, $m); $routes = array_filter(array_merge($m[2], $m[4])); ok(count($routes) > 45, count($routes) . ' routes declared');
-$pub = []; preg_match_all("/\\\$sf->route\\('GET', '([^']+)'.*?\\['auth' => false\\]\\)/s", $pp, $m); foreach ($m[1] as $r) $pub[] = $r;
+$pub = []; preg_match_all("/\\\$sf->route\\('GET', '([^']+)'(?:(?!\\\$sf->route\\().)*?\\['auth' => false\\]\\)/s", $pp, $m); foreach ($m[1] as $r) $pub[] = $r;
 ok(array_diff($pub, ['/offers', '/offers/map', '/offers/photo/{id}', '/offers/{id}']) === [] && count($pub) === 4 || count($pub) >= 3, 'public (no login) routes are only the offers pages and photos: ' . implode(' ', array_unique($pub)));
 preg_match_all('/\$svc\(\)\[\'(\w+)\'\]->(\w+)\(/', $pp, $m); $cls = ['wr' => Wrms::class, 'lg' => Ledger::class, 'rp' => Reports::class, 'nf' => Notify::class, 'of' => Offers::class, 'pg' => Pages::class]; $nometh = [];
 foreach ($m[1] as $i => $svc) if (isset($cls[$svc]) && !method_exists($cls[$svc], $m[2][$i])) $nometh[] = $svc . '->' . $m[2][$i]; ok(!$nometh, 'plugin.php calls only methods that exist' . ($nometh ? ' (' . implode(',', array_unique($nometh)) . ')' : ''));
@@ -145,4 +145,28 @@ foreach (['video', 'parking', 'h24', 'security'] as $k) { $svg = sr_icon($k, $k)
 ok(sr_icon('video') !== sr_icon('parking') && !str_contains(sr_icon('video'), 'fill="#'), 'icons differ and carry no fill colour');
 $emoji = []; foreach (['_card.php', 'offer.php'] as $vf) if (preg_match('/[\x{1F300}-\x{1FAFF}\x{2600}-\x{27BF}]/u', (string)file_get_contents("$dir/views/$vf"))) $emoji[] = $vf;
 ok(!$emoji, 'no emoji icons in the card and the offer page' . ($emoji ? ' (still in: ' . implode(', ', $emoji) . ')' : ''));
+/* ---------- favorites, the Contacts block, "Contact with Lessor" ---------- */
+function refused(callable $f, string $code): bool { try { $f(); } catch (Err $e) { return $e->errCode === $code; } return false; }
+$enSf =new FakeSf($en, $settings); $none8 = new Ctx(8, 'none'); $author = new Ctx(7, 'none'); $guestC = Ctx::guest(); $photoUrl = fn($p, $id) => '/p/photo/' . (int)$p['id'];
+$l3 = $of->save(7, false, 0, ['name' => 'Sklad Contacts', 'city' => 'Kazan', 'area' => '50', 'price_m2' => '100', 'status' => 'published', 'contact_person' => 'Ivan <b>P</b>', 'contact_phone' => '+7 (900) 111-22-33', 'contact_email' => 'ivan@example.com', 'contact_hours' => '9-18', 'contact_text' => "Call me\nafter 5"], 'Olga');
+$view = fn(Ctx $c, array $extra = []) => $render($enSf, 'en', $en, $pg->offer($c, (int)$l3['id']) + $extra, $c, true);
+$h = $view($guestC); ok(!str_contains($h, '111-22-33') && !str_contains($h, 'ivan@example.com') && str_contains($h, $en['contacts_locked']), 'guest: the contacts are hidden and he is told they are for registered users');
+$h = $view($none8, ['messenger' => true]); ok(str_contains($h, 'href="tel:+79001112233"') && str_contains($h, 'mailto:ivan@example.com') && str_contains($h, 'Call me<br') && str_contains($h, 'Ivan &lt;b&gt;P') && !str_contains($h, 'Ivan <b>P'), 'signed in: the Contacts block shows what the author filled in, escaped');
+ok(str_contains($h, 'id="srContact"') && str_contains($h, 'data-sr-contact="srContact"') && str_contains($h, '/offers/' . (int)$l3['id'] . '/contact') && str_contains($h, 'name="text"') && str_contains($h, $en['contact_lessor']), 'signed in with Messenger: "Contact with Lessor" opens the message dialog');
+$h = $view($none8, ['messenger' => false]); ok(!str_contains($h, 'id="srContact"') && str_contains($h, 'sr-contact-btn') && str_contains($h, ' disabled'), 'without Messenger: the button is disabled and there is no dialog');
+$h = $view($author, ['messenger' => true]); ok(!str_contains($h, 'srContact') && !str_contains($h, 'data-sr-contact'), 'the author gets no "Contact with Lessor" for his own listing');
+$cardJson = json_encode($of->card($l3, $photoUrl)) . json_encode($of->feed($photoUrl, 'https://x.test')); ok(!str_contains($cardJson, 'ivan@example.com') && !str_contains($cardJson, '111-22-33') && !str_contains($cardJson, 'Call me'), 'contacts never reach the public card or the JSON feed');
+ok(refused(fn() => Offers::cleanData(['contact_email' => 'not-an-email']), 'email_invalid') && Offers::hasContacts($l3['d']) && !Offers::hasContacts($l1['d']), 'contacts: a wrong e-mail is refused; hasContacts tells filled from empty');
+$h = $render($enSf, 'en', $en, $pg->offerForm($author, (int)$l3['id']), $author, true); ok(str_contains($h, 'name="contact_phone"') && str_contains($h, 'name="contact_text"') && str_contains($h, '+7 (900) 111-22-33') && str_contains($h, $en['blk_9']), 'the listing form has the Contacts block with the saved values');
+
+$ref1 = 'L' . (int)$l1['id']; $peer = ['id' => 5, 'origin' => 'https://peer.test', 'name' => 'Peer <x>', 'city' => 'Perm', 'street' => '', 'area' => 10, 'price_m2' => 5, 'photo' => '', 'services' => [], 'url' => 'https://peer.test/o/5', 'updated_at' => 1]; $pref = Offers::ref($peer);
+ok($of->toggleFavorite(8, $ref1, $photoUrl) === true && isset($of->favoriteRefs(8)[$ref1]) && $of->toggleFavorite(8, $ref1, $photoUrl) === false && !$of->favoriteRefs(8), 'favorites: one press adds, the next removes');
+$of->toggleFavorite(8, $ref1, $photoUrl); ok($of->toggleFavorite(8, $pref, $photoUrl, [$peer]) === true && preg_match('/^R[0-9a-f]{12}-5$/', $pref) === 1, 'favorites: a listing of another domain is kept as a snapshot');
+ok(refused(fn() => $of->toggleFavorite(8, 'L' . (int)$l2['id'], $photoUrl), 'not_found') && refused(fn() => $of->toggleFavorite(8, 'R' . str_repeat('a', 12) . '-9', $photoUrl, []), 'not_found') && refused(fn() => $of->toggleFavorite(8, 'X1', $photoUrl), 'not_found') && refused(fn() => $of->toggleFavorite(0, $ref1, $photoUrl), 'forbidden'), 'favorites: a draft, an unknown remote, a malformed ref and a guest are refused');
+$h = $render($enSf, 'en', $en, $pg->favorites($none8), $none8, true); ok(str_contains($h, 'Sklad &lt;/a&gt;Alpha') && str_contains($h, 'Peer &lt;x&gt;') && str_contains($h, 'aria-pressed="true"') && str_contains($h, $en['fav_remove']) && !$enSf->missing, 'Favorites tab: both cards, escaped, with the pressed heart');
+$of->setStatus(7, false, (int)$l1['id'], 'draft'); $h = $render($enSf, 'en', $en, $pg->favorites($none8), $none8, true); ok(str_contains($h, $en['fav_gone']) && str_contains($h, 'Peer &lt;x&gt;'), 'Favorites tab: an unpublished listing is shown as no longer available, the other one stays'); $of->setStatus(7, false, (int)$l1['id'], 'published');
+ok(!$of->favoriteRefs(9) && !$of->favorites(9, $photoUrl) && refused(fn() => $pg->favorites($guestC), 'forbidden'), 'favorites are private to the user; a guest cannot open the tab');
+$h = $render($enSf, 'en', $en, $pg->offers($none8, '', [$peer]), $none8, true); ok(str_contains($h, 'action="/p/storagerent/offers/favorite"') && str_contains($h, 'name="ref" value="' . $pref . '"') && str_contains($h, $en['fav_add']) && str_contains($h, 'aria-pressed="true"') && str_contains($h, 'href="/p/storagerent/offers/favorites"'), 'the offers list has the heart buttons (pressed for favorites) and the Favorites tab');
+$h = $render($enSf, 'en', $en, $pg->offers($guestC, '', [$peer]), $guestC, true); ok(!str_contains($h, '/offers/favorites') && str_contains($h, 'href="/login"') && !str_contains($h, 'name="ref"'), 'a guest sees no Favorites tab; the heart sends him to sign in');
+$ps = file_get_contents("$dir/plugin.php"); ok(str_contains($ps, "'/offers/favorites'") && strpos($ps, "'/offers/favorites'") < strpos($ps, "'/offers/{id}'") && str_contains($ps, "'/offers/favorite'") && str_contains($ps, "'/offers/{id}/contact'") && str_contains($ps, "messenger.client"), 'plugin.php: the Favorites route is registered before /offers/{id}; favorite and contact routes exist; Messenger comes through its hook');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

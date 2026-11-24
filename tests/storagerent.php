@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Logic tests of Storage Rent (WRMS + Offers) on an in-memory store: units, tenants, contracts, invoices, payments, penalties, write-offs, notifications, reports, exports, listings.
  *  Also covers the acceptance examples of the specification. No database, no network. Run: php tests/storagerent.php */
 $dir = dirname(__DIR__) . '/core/plugins/storagerent';
-foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files'] as $c) require "$dir/lib/$c.php";
+foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files', 'Contact'] as $c) require "$dir/lib/$c.php";
 require __DIR__ . '/StoragerentMemStore.php';
 use SysferaStoragerent\{Billing as B, Ctx, Wrms, Ledger, Notify, Reports, Xlsx, Offers, Err};
 $fail = 0; function ok(bool $c, string $n): void { global $fail; echo ($c ? '  ok   ' : '  FAIL ') . $n . "\n"; if (!$c) $fail++; }
@@ -230,5 +230,33 @@ foreach (glob("$dir/migrations/*.sql") as $mf) foreach (preg_split('/\R/', (stri
     if (preg_match('/^\s+([a-z_]+)\s+(?:VARCHAR|INT|BIGINT|TINYINT|SMALLINT|DECIMAL|DATE|DATETIME|TEXT|MEDIUMTEXT|LONGTEXT|CHAR|JSON|BLOB)\b/i', $ln, $m) && in_array(strtolower($m[1]), $reserved, true)) $bad[] = basename($mf) . ':' . $m[1];
 }
 ok(!$bad, 'no reserved word as a bare column name in migrations' . ($bad ? ' (' . implode(', ', $bad) . ')' : ''));
+
+/* ---- Contact with Lessor: the message goes through the Messenger client (a fake one here) */
+final class FakeMessenger
+{
+    public array $calls = []; public array $known = []; public bool $ready = true; public string $sendError = ''; public bool $stayUnknown = false;
+    public function ready(): bool { return $this->ready; }
+    public function domain(): string { return 'shop.test'; }
+    public function call(string $m, string $op, array $q = [], ?array $body = null, ?string $raw = null, int $t = 8, ?string $asUid = null): array
+    {
+        $this->calls[] = [$op, $asUid, $body];
+        if ($op === 'me') { if (!$this->stayUnknown) $this->known[$asUid ?? '8'] = true; return ['ok' => true, 'data' => [], 'error' => null]; }
+        if ($this->sendError !== '') return ['ok' => false, 'data' => [], 'error' => $this->sendError];
+        return isset($this->known[explode('@', (string)$body['to'])[0]]) ? ['ok' => true, 'data' => ['id' => 1], 'error' => null] : ['ok' => false, 'data' => [], 'error' => 'no_user'];
+    }
+}
+use SysferaStoragerent\Contact;
+$m = new FakeMessenger(); $sid = Contact::send($m, ['name' => 'Buyer', 'email' => 'b@example.com', 'role' => 'user'], 7, 'Olga', "  Hello, is it free?  ", 'https://shop.test/p/storagerent/offers/3');
+$ops = array_map(fn($c) => $c[0] . ($c[1] !== null ? "@{$c[1]}" : ''), $m->calls);
+ok($sid === '7@shop.test' && $ops === ['me', 'send', 'me@7', 'send'], 'contact: the lessor is not in the hub yet - he is introduced by name and the message is sent again (' . implode(',', $ops) . ')');
+$sent = array_values(array_filter($m->calls, fn($c) => $c[0] === 'send'))[1][2]; ok($sent['to'] === '7@shop.test' && str_starts_with($sent['text'], 'Hello, is it free?') && str_ends_with($sent['text'], 'https://shop.test/p/storagerent/offers/3') && $sent['file'] === '', 'contact: the text is trimmed and carries the link of the listing');
+$intro = array_values(array_filter($m->calls, fn($c) => $c[0] === 'me' && $c[1] === '7'))[0][2]; ok($intro === ['name' => 'Olga', 'email' => '', 'admin' => false], 'contact: the lessor is introduced by name only - no e-mail, not an administrator');
+$m2 = new FakeMessenger(); $m2->known['7'] = true; Contact::send($m2, ['name' => 'Admin', 'email' => 'a@example.com', 'role' => 'admin'], 7, 'Olga', 'Hi there', 'https://x/y');
+ok(array_column($m2->calls, 0) === ['me', 'send'] && $m2->calls[0][2]['admin'] === true, 'contact: a known lessor gets the message at once; the sender keeps his admin flag');
+$m3 = new FakeMessenger(); $m3->stayUnknown = true; ok(refused(fn() => Contact::send($m3, [], 7, '', 'Hi there', 'u'), 'messenger_no_user') && count(array_filter($m3->calls, fn($c) => $c[0] === 'send')) === 2, 'contact: a lessor who cannot be introduced - a clear error after one retry only');
+foreach (['blocked' => 'messenger_blocked', 'rate' => 'messenger_rate', 'network' => 'messenger_failed', 'weird' => 'messenger_failed'] as $hub => $mine) { $m4 = new FakeMessenger(); $m4->known['7'] = true; $m4->sendError = $hub; ok(refused(fn() => Contact::send($m4, [], 7, 'O', 'Hi there', 'u'), $mine), "contact: hub says $hub -> $mine"); }
+$off = new FakeMessenger(); $off->ready = false;
+ok(refused(fn() => Contact::send(null, [], 7, 'O', 'Hi there', 'u'), 'messenger_off') && refused(fn() => Contact::send($off, [], 7, 'O', 'Hi there', 'u'), 'messenger_off') && !$off->calls, 'contact: Messenger missing or not connected - refused before any call');
+ok(refused(fn() => Contact::send(new FakeMessenger(), [], 7, 'O', ' x ', 'u'), 'message_empty') && refused(fn() => Contact::send(new FakeMessenger(), [], 7, 'O', str_repeat('a', Contact::MAX + 1), 'u'), 'message_long') && Contact::send($m2, [], 7, 'O', str_repeat('я', Contact::MAX), 'u') === '7@shop.test', 'contact: empty and over-long messages are refused, the maximum is accepted');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

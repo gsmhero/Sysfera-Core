@@ -55,3 +55,13 @@
 .sr-lb-p{left:16px}.sr-lb-n{right:16px}
 .sr-lb-cnt{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#e6e8ec;font-size:14px}
 @media(max-width:600px){.sr-lb-a{width:42px;height:42px;font-size:32px}.sr-lb-p{left:6px}.sr-lb-n{right:6px}}
+.sr-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.sr-fav{margin:0;display:inline}
+.sr-fav-btn,.sr-contact-btn{display:inline-flex;align-items:center;gap:6px;cursor:pointer;text-decoration:none}
+.sr-fav-btn{border:1px solid var(--line,#d7dbe2);background:transparent;color:var(--mut,#5b6270);border-radius:8px;padding:6px 10px;font:inherit;font-size:14px}
+.sr-fav-btn:hover{border-color:#d6336c;color:#d6336c}.sr-fav-btn.on{border-color:#d6336c;color:#d6336c}
+.sr-fav-btn .sr-ic,.sr-contact-btn .sr-ic{width:20px;height:20px;flex:none}
+.sr-contact-btn[disabled]{opacity:.55;cursor:not-allowed}
+.sr-card-act{margin-top:8px}.sr-gone{opacity:.8}
+.sr-dialog{border:0;border-radius:12px;padding:18px 20px;width:min(520px,92vw);box-shadow:0 12px 48px rgba(0,0,0,.35)}.sr-dialog::backdrop{background:rgba(10,12,16,.6)}
+.sr-dialog h3{margin:0 0 6px}.sr-dialog textarea{width:100%;box-sizing:border-box;margin:8px 0;font:inherit}.sr-dialog-act{display:flex;gap:8px;justify-content:flex-end}
+.sr-contacts a{word-break:break-all}

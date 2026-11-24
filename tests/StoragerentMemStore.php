@@ -4,7 +4,7 @@ declare(strict_types=1);
 final class StoragerentMemStore implements SysferaStoragerent\Store
 {
     public array $t = []; private array $seq = [];
-    private const UNIQ = ['invoices' => [['contract_id', 'kind', 'period_start'], ['number']], 'contracts' => [['number']], 'templates' => [['event', 'lang']], 'notify_log' => [['dedupe']], 'contract_versions' => [['contract_id', 'version']], 'remote_cache' => [['url_hash']]];
+    private const UNIQ = ['invoices' => [['contract_id', 'kind', 'period_start'], ['number']], 'contracts' => [['number']], 'templates' => [['event', 'lang']], 'notify_log' => [['dedupe']], 'contract_versions' => [['contract_id', 'version']], 'remote_cache' => [['url_hash']], 'favorites' => [['user_id', 'ref']]];
 
     public function insert(string $table, array $row): int
     {

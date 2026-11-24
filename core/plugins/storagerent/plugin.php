@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers, Pages, Files, Xlsx, Text, DbStore};
+use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers, Pages, Files, Xlsx, Text, DbStore, Contact};
 
 /**
  * Sysfera Storage Rent: two tabs under one menu entry.
@@ -12,7 +12,7 @@ use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers
  * tenant = a Sysfera user linked to a tenant record), settings, the mailer, uploads and the pages. Money is kopecks, dates are DD.MM.YYYY on screen.
  */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files', 'Text', 'Pages', 'DbStore'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files', 'Text', 'Pages', 'DbStore', 'Contact'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $L = ['en' => require __DIR__ . '/lang/en.php', 'ru' => require __DIR__ . '/lang/ru.php'];
     $lang = function () use ($sf): string { $l = (string)($sf->auth()->user()['lang'] ?? ''); if ($l === '') $l = \Sysfera\I18n::lang(); return $l === 'en' ? 'en' : 'ru'; };
@@ -268,6 +268,11 @@ return function (\Sysfera\Plugin $sf): void {
     };
     $sf->route('GET', '/offers', fn() => $page(fn() => $svc()['pg']->offers($ctx(), trim((string)($_GET['q'] ?? '')), $remote()), '/p/storagerent/'), ['auth' => false]);
     $sf->route('GET', '/offers/map', fn() => $page(fn() => $svc()['pg']->map($ctx(), $remote())), ['auth' => false]);
+    /** Messenger (another component) lends its connection through a hook; null when it is not installed. */
+    $messengerClient = fn() => \Sysfera\Hooks::filter('messenger.client', null);
+    $messengerReady = function () use ($messengerClient): bool { $c = $messengerClient(); return $c !== null && $c->ready(); };
+
+    $sf->route('GET', '/offers/favorites', fn() => $page(fn() => $svc()['pg']->favorites($ctx()), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/new', fn() => $page(fn() => $svc()['pg']->offerForm($ctx(), 0, (int)($_GET['wh'] ?? 0)), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/{id}/edit', fn(array $p) => $page(fn() => $svc()['pg']->offerForm($ctx(), (int)$p['id']), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/photo/{id}', function (array $p) use ($svc, $ctx) {
@@ -275,8 +280,29 @@ return function (\Sysfera\Plugin $sf): void {
         if (!$ph || !$l || ($l['status'] !== 'published' && (int)$l['user_id'] !== $c->uid && $c->role !== 'admin') || !($f = Files::path((string)$ph['file_key']))) { http_response_code(404); return; }
         $ext = strtolower(pathinfo((string)$ph['file_key'], PATHINFO_EXTENSION)); header('Content-Type: ' . Files::mime($ext)); header('X-Content-Type-Options: nosniff'); header('Cache-Control: public, max-age=86400'); header('Content-Length: ' . filesize($f)); readfile($f);
     }, ['auth' => false]);
-    $sf->route('GET', '/offers/{id}', fn(array $p) => $page(fn() => $svc()['pg']->offer($ctx(), (int)$p['id']), '/p/storagerent/offers'), ['auth' => false]);
-    $sf->route('POST', '/offers/save', function () use ($act, $svc, $ctx, $sf, $uploads, $tr) {
+    $sf->route('GET', '/offers/{id}', fn(array $p) => $page(fn() => $svc()['pg']->offer($ctx(), (int)$p['id']) + ['messenger' => $messengerReady()], '/p/storagerent/offers'), ['auth' => false]);
+    $sf->route('POST', '/offers/favorite', function () use ($act, $svc, $ctx, $tr, $back, $remote) {
+        $ref = (string)($_POST['ref'] ?? '');
+        $act(function () use ($svc, $ctx, $tr, $ref, $remote) {
+            $c = $ctx(); $remoteCards = str_starts_with($ref, 'R') ? $remote() : [];
+            $on = $svc()['of']->toggleFavorite($c->uid, $ref, fn(array $p, int $id) => url('/p/storagerent/offers/photo/' . (int)$p['id']), $remoteCards);
+            flash($tr($on ? 'fav_added' : 'fav_removed')); return null;
+        }, $back('/p/storagerent/offers'), '');
+    });
+
+    /** "Contact with Lessor": the message goes into the Messenger chat with the author of the listing (his Sysfera ID is <user id>@<this domain>). */
+    $sf->route('POST', '/offers/{id}/contact', function (array $p) use ($svc, $ctx, $sf, $tr, $fail, $abs, $messengerClient) {
+        $id = (int)$p['id']; $to = '/p/storagerent/offers/' . $id;
+        try {
+            $c = $ctx(); if ($c->uid <= 0) throw new Err('forbidden', '', 403);
+            $l = $svc()['of']->get($id); if (!$l || $l['status'] !== 'published') throw new Err('not_found', '', 404);
+            if ((int)$l['user_id'] === $c->uid) throw new Err('contact_own');
+            $sid = Contact::send($messengerClient(), $sf->auth()->user() ?? [], (int)$l['user_id'], (string)$l['contact_name'], (string)($_POST['text'] ?? ''), $abs(url($to)));
+            flash($tr('contact_sent')); redirect('/p/messenger/chat?with=' . rawurlencode($sid));
+        } catch (Err $e) { flash($fail($e), 'bad'); redirect($e->errCode === 'not_found' || $e->errCode === 'forbidden' ? '/p/storagerent/offers' : $to);
+        } catch (\Throwable $e) { \Sysfera\App::log('storagerent contact ' . $e); flash($tr('err_server'), 'bad'); redirect($to); }
+    });
+    $sf->route('POST', '/offers/save',function () use ($act, $svc, $ctx, $sf, $uploads, $tr) {
         $id = (int)($_POST['id'] ?? 0);
         $act(function () use ($svc, $ctx, $sf, $uploads, $id, $tr) {
             $c = $ctx(); $of = $svc()['of']; $u = $sf->auth()->user() ?? [];

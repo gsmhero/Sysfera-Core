@@ -10,7 +10,7 @@ if (!function_exists('sr_m')) {
     {
         return match ($s) { 'paid', 'active', 'free', 'done', 'sent', 'published' => 'ok', 'overdue', 'terminated', 'cancelled', 'maintenance', 'suspended', 'failed' => 'bad', 'partially_paid', 'expiring', 'reserved', 'draft', 'in_progress', 'ended', 'new' => 'warn', 'occupied', 'issued' => 'info', default => 'mute' };
     }
-    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security, warehouse. */
+    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security, warehouse, heart, chat. */
     function sr_icon(string $k, string $label = ''): string
     {
         $p = [
@@ -18,12 +18,22 @@ if (!function_exists('sr_m')) {
             'video' => '<path d="M3 4.5v9"/><path d="M3 8h3"/><rect x="6" y="5.5" width="14" height="6.5" rx="1.6" transform="rotate(8 13 8.7)"/><circle cx="17" cy="9.3" r="1.3"/><path d="M10 14.5v3"/><path d="M7 20.5h6"/>',
             // a warehouse: roof, walls and a roller door (placeholder of a card without a photo)
             'warehouse' => '<path d="M3 9.5L12 4l9 5.5"/><path d="M4.5 8.6V20h15V8.6"/><rect x="8" y="12.5" width="8" height="7.5" rx="0.8"/><path d="M8 15h8M8 17.5h8"/>',
+            'heart' => '<path d="M12 20.3S3.6 15.1 2.9 9.6C2.5 6.5 4.6 4.3 7.2 4.3c1.9 0 3.6 1 4.8 2.9 1.2-1.9 2.9-2.9 4.8-2.9 2.6 0 4.7 2.2 4.3 5.3-.7 5.5-9.1 10.7-9.1 10.7z"/>',
+            'chat' => '<path d="M4 4.5h16v11.2H10.2L6 19.5v-3.8H4z"/><path d="M8 9h8M8 12h5"/>',
             'parking' => '<rect x="3.5" y="3.5" width="17" height="17" rx="3.2"/><path d="M9.6 17.2V7.3h3.4a3 3 0 0 1 0 6H9.6"/>',
             'h24' => '<path d="M20.2 12a8.2 8.2 0 1 1-2.4-5.8"/><path d="M18.6 2.8v3.8h-3.8"/><path d="M12 7.6V12l3 1.8"/>',
             'security' => '<path d="M12 3l7.5 2.8v5.6c0 4.4-3.1 7.9-7.5 9.6-4.4-1.7-7.5-5.2-7.5-9.6V5.8z"/><path d="M8.7 12.2l2.4 2.4 4.2-4.6"/>',
         ][$k] ?? '';
         $a = $label !== '' ? ' role="img" aria-label="' . htmlspecialchars($label, ENT_QUOTES) . '"' : ' aria-hidden="true"';
         return '<svg class="sr-ic" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"' . $a . '>' . $p . '</svg>';
+    }
+    /** The Add to / Remove from Favorites button (a plain POST form, no script needed). $back: where to return to. */
+    function sr_fav(object $sf, string $ref, bool $on, string $back, bool $guest = false): string
+    {
+        $label = $sf->t($on ? 'fav_remove' : 'fav_add');
+        if ($guest) return '<a class="sr-fav-btn" href="' . e(url('/login')) . '" title="' . e($sf->t('fav_login')) . '">' . sr_icon('heart') . '<span>' . e($sf->t('fav_add')) . '</span></a>';
+        return '<form method="post" action="' . e($sf->url('/offers/favorite')) . '" class="sr-fav">' . csrf_field() . '<input type="hidden" name="ref" value="' . e($ref) . '"><input type="hidden" name="back" value="' . e($back) . '">'
+            . '<button type="submit" class="sr-fav-btn' . ($on ? ' on' : '') . '" aria-pressed="' . ($on ? 'true' : 'false') . '">' . sr_icon('heart') . '<span>' . e($label) . '</span></button></form>';
     }
     function sr_num(float|int|string|null $n): string { return rtrim(rtrim(number_format((float)$n, 2, '.', ''), '0'), '.') ?: '0'; }
     /** A form field: label + input. $v is the current value. */

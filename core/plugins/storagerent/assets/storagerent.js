@@ -71,7 +71,18 @@
     var inv = document.getElementById('srInvLines');
     if (inv) { var b = document.createElement('button'); b.type = 'button'; b.className = 'btn sm'; b.textContent = '+'; b.addEventListener('click', function () { cloneLine(inv, true); }); inv.parentNode.insertBefore(b, inv.nextSibling); }
     initLightbox();
+    initContact();
   });
+
+  /* "Contact with Lessor": the message dialog (a native <dialog>; without script support the Contacts block still shows the details). */
+  function initContact() {
+    document.querySelectorAll('[data-sr-contact]').forEach(function (b) {
+      var d = document.getElementById(b.getAttribute('data-sr-contact')); if (!d) return;
+      b.addEventListener('click', function () { if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', ''); var t = d.querySelector('textarea'); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } });
+      d.querySelectorAll('[data-sr-close]').forEach(function (x) { x.addEventListener('click', function () { if (typeof d.close === 'function') d.close(); else d.removeAttribute('open'); }); });
+      d.addEventListener('click', function (e) { if (e.target === d && typeof d.close === 'function') d.close(); });
+    });
+  }
 
   /* Lightbox for the photos of a listing: click a photo, arrows / keys / swipe to slide, Esc or a click outside to close. */
   function initLightbox() {

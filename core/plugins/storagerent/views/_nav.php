@@ -1,6 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $view @var string $lang */
 require_once __DIR__ . '/_h.php';
-$onOffers = in_array($view ?? '', ['offers', 'map', 'offer', 'offer_form'], true);
+$onOffers = in_array($view ?? '', ['offers', 'map', 'offer', 'offer_form', 'favorites'], true);
 $staff = $ctx->staff();
 $srNav = [];   // [path, label key, visible, views that light it up]
 if ($staff) {
@@ -23,5 +23,5 @@ $wrmsUrl = $staff ? '/wrms' : ($ctx->role === 'tenant' ? '/portal' : '');
 <?php endif; ?>
 <?php if ($onOffers): ?>
 <nav class="sr-sub"><a href="<?= e($sf->url('/offers')) ?>" class="<?= ($view ?? '') === 'offers' ? 'on' : '' ?>"><?= e($sf->t('offers_list')) ?></a><a href="<?= e($sf->url('/offers/map')) ?>" class="<?= ($view ?? '') === 'map' ? 'on' : '' ?>"><?= e($sf->t('offers_map')) ?></a>
-  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/new')) ?>" class="<?= ($view ?? '') === 'offer_form' ? 'on' : '' ?>">+ <?= e($sf->t('offers_new')) ?></a><?php endif; ?></nav>
+  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/favorites')) ?>" class="<?= ($view ?? '') === 'favorites' ? 'on' : '' ?>"><?= e($sf->t('offers_favorites')) ?></a><a href="<?= e($sf->url('/offers/new')) ?>" class="<?= ($view ?? '') === 'offer_form' ? 'on' : '' ?>">+ <?= e($sf->t('offers_new')) ?></a><?php endif; ?></nav>
 <?php endif; ?>

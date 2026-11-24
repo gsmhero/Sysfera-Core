@@ -6,7 +6,7 @@ namespace SysferaStoragerent;
 final class DbStore implements Store
 {
     public const TABLES = ['warehouses', 'units', 'tenants', 'contracts', 'contract_units', 'contract_versions', 'invoices', 'invoice_items', 'payments', 'allocations', 'adjustments',
-        'meters', 'readings', 'documents', 'templates', 'notify_log', 'access_log', 'requests', 'audit', 'listings', 'listing_photos', 'remote_cache'];
+        'meters', 'readings', 'documents', 'templates', 'notify_log', 'access_log', 'requests', 'audit', 'listings', 'listing_photos', 'remote_cache', 'favorites'];
     private int $depth = 0;
 
     public function __construct(private \Sysfera\Db $db) {}
