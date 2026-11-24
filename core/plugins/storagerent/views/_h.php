@@ -10,7 +10,7 @@ if (!function_exists('sr_m')) {
     {
         return match ($s) { 'paid', 'active', 'free', 'done', 'sent', 'published' => 'ok', 'overdue', 'terminated', 'cancelled', 'maintenance', 'suspended', 'failed' => 'bad', 'partially_paid', 'expiring', 'reserved', 'draft', 'in_progress', 'ended', 'new' => 'warn', 'occupied', 'issued' => 'info', default => 'mute' };
     }
-    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security, warehouse, heart, chat. */
+    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security, warehouse, heart, chat, list, pin, plus, tag. */
     function sr_icon(string $k, string $label = ''): string
     {
         $p = [
@@ -20,6 +20,10 @@ if (!function_exists('sr_m')) {
             'warehouse' => '<path d="M3 9.5L12 4l9 5.5"/><path d="M4.5 8.6V20h15V8.6"/><rect x="8" y="12.5" width="8" height="7.5" rx="0.8"/><path d="M8 15h8M8 17.5h8"/>',
             'heart' => '<path d="M12 20.3S3.6 15.1 2.9 9.6C2.5 6.5 4.6 4.3 7.2 4.3c1.9 0 3.6 1 4.8 2.9 1.2-1.9 2.9-2.9 4.8-2.9 2.6 0 4.7 2.2 4.3 5.3-.7 5.5-9.1 10.7-9.1 10.7z"/>',
             'chat' => '<path d="M4 4.5h16v11.2H10.2L6 19.5v-3.8H4z"/><path d="M8 9h8M8 12h5"/>',
+            'list' => '<path d="M8.5 6h11.5M8.5 12h11.5M8.5 18h11.5"/><path d="M4 6h.01M4 12h.01M4 18h.01"/>',
+            'pin' => '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+            'plus' => '<path d="M12 5v14M5 12h14"/>',
+            'tag' => '<path d="M3.5 12.6V4.5h8.1l9 9-8.1 8.1z"/><circle cx="8" cy="9" r="1.3"/>',
             'parking' => '<rect x="3.5" y="3.5" width="17" height="17" rx="3.2"/><path d="M9.6 17.2V7.3h3.4a3 3 0 0 1 0 6H9.6"/>',
             'h24' => '<path d="M20.2 12a8.2 8.2 0 1 1-2.4-5.8"/><path d="M18.6 2.8v3.8h-3.8"/><path d="M12 7.6V12l3 1.8"/>',
             'security' => '<path d="M12 3l7.5 2.8v5.6c0 4.4-3.1 7.9-7.5 9.6-4.4-1.7-7.5-5.2-7.5-9.6V5.8z"/><path d="M8.7 12.2l2.4 2.4 4.2-4.6"/>',

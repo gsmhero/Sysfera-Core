@@ -1,11 +1,11 @@
 /* Storage Rent. Uses the platform's theme variables where it can. */
-.sr-top{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:8px}
+.sr-top{display:flex;flex-wrap:wrap;align-items:center;gap:14px 24px;justify-content:space-between;margin-bottom:14px}
 .sr-top h1{margin:0}
-.sr-tabs,.sr-sub{display:flex;flex-wrap:wrap;gap:6px}
-.sr-sub{margin:0 0 16px;border-bottom:1px solid var(--line,#ddd);padding-bottom:8px}
-.sr-tabs a,.sr-sub a{padding:6px 12px;border-radius:8px;text-decoration:none;color:inherit;border:1px solid transparent}
-.sr-tabs a.on{background:var(--accent,#2d6cdf);color:#fff}
-.sr-sub a.on{border-color:var(--accent,#2d6cdf);font-weight:600}
+
+
+
+
+
 .sr-scroll{overflow-x:auto}
 .sr-scroll table,.card>table{width:100%;border-collapse:collapse}
 .card th,.card td{padding:6px 8px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line,#e5e5e5)}
@@ -65,3 +65,20 @@
 .sr-dialog{border:0;border-radius:12px;padding:18px 20px;width:min(520px,92vw);box-shadow:0 12px 48px rgba(0,0,0,.35)}.sr-dialog::backdrop{background:rgba(10,12,16,.6)}
 .sr-dialog h3{margin:0 0 6px}.sr-dialog textarea{width:100%;box-sizing:border-box;margin:8px 0;font:inherit}.sr-dialog-act{display:flex;gap:8px;justify-content:flex-end}
 .sr-contacts a{word-break:break-all}
+/* tabs: the two modules as a segmented control, the pages of a module as a tab bar with icons */
+.sr-tabs{display:inline-flex;gap:4px;padding:4px;border-radius:12px;background:var(--bg,#f5f6f8);border:1px solid var(--line,#e3e6eb)}
+.sr-tabs a{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:9px;text-decoration:none;color:inherit;font-size:16px;font-weight:600;border:1px solid transparent}
+.sr-tabs a:hover{background:color-mix(in srgb,var(--acc,#4f46e5) 10%,transparent)}
+.sr-tabs a.on{background:var(--acc,#4f46e5);color:var(--acc-ink,#fff);box-shadow:0 2px 8px color-mix(in srgb,var(--acc,#4f46e5) 40%,transparent)}
+.sr-tabs .sr-ic{width:22px;height:22px;flex:none}
+.sr-sub{display:flex;flex-wrap:wrap;align-items:flex-end;gap:2px;margin:0 0 18px;border-bottom:2px solid var(--line,#e3e6eb)}
+.sr-sub a{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;margin-bottom:-2px;text-decoration:none;color:inherit;font-size:15px;font-weight:500;border-bottom:3px solid transparent;border-radius:8px 8px 0 0}
+.sr-sub a:hover{background:color-mix(in srgb,var(--acc,#4f46e5) 10%,transparent)}
+.sr-sub a.on{border-bottom-color:var(--acc,#4f46e5);color:var(--acc,#4f46e5);font-weight:700;background:color-mix(in srgb,var(--acc,#4f46e5) 8%,transparent)}
+.sr-sub .sr-ic{width:20px;height:20px;flex:none}
+.sr-sub-offers .sr-sub-add{margin-left:auto;margin-bottom:6px;border:1px solid var(--acc,#4f46e5);border-radius:9px;color:var(--acc,#4f46e5);font-weight:600}
+.sr-sub-offers .sr-sub-add.on{background:var(--acc,#4f46e5);color:var(--acc-ink,#fff)}
+.sr-filter input[type=search]{flex:1;min-width:220px}
+.sr-count{margin:0 0 12px;font-size:14px}
+.sr-cards{grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+@media(max-width:640px){.sr-tabs{width:100%}.sr-tabs a{flex:1;justify-content:center;padding:10px 12px}.sr-sub a{padding:10px 12px;font-size:14px}.sr-sub-offers .sr-sub-add{margin-left:0}}

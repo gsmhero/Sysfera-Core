@@ -14,14 +14,18 @@ $wrmsUrl = $staff ? '/wrms' : ($ctx->role === 'tenant' ? '/portal' : '');
 <div class="sr-top">
   <h1><?= e($sf->t('menu')) ?></h1>
   <nav class="sr-tabs" aria-label="<?= e($sf->t('menu')) ?>">
-    <?php if ($wrmsUrl !== ''): ?><a href="<?= e($sf->url($wrmsUrl)) ?>" class="<?= !$onOffers ? 'on' : '' ?>"><?= e($sf->t('tab_wrms')) ?></a><?php endif; ?>
-    <a href="<?= e($sf->url('/offers')) ?>" class="<?= $onOffers ? 'on' : '' ?>"><?= e($sf->t('tab_offers')) ?></a>
+    <?php if ($wrmsUrl !== ''): ?><a href="<?= e($sf->url($wrmsUrl)) ?>" class="<?= !$onOffers ? 'on' : '' ?>"><?= sr_icon('warehouse') ?><span><?= e($sf->t('tab_wrms')) ?></span></a><?php endif; ?>
+    <a href="<?= e($sf->url('/offers')) ?>" class="<?= $onOffers ? 'on' : '' ?>"><?= sr_icon('tag') ?><span><?= e($sf->t('tab_offers')) ?></span></a>
   </nav>
 </div>
 <?php if (!$onOffers && $srNav): ?>
 <nav class="sr-sub"><?php foreach ($srNav as [$path, $key, $show, $views]): if (!$show) continue; ?><a href="<?= e($sf->url($path)) ?>" class="<?= in_array($view ?? '', $views, true) ? 'on' : '' ?>"><?= e($sf->t($key)) ?></a><?php endforeach; ?></nav>
 <?php endif; ?>
-<?php if ($onOffers): ?>
-<nav class="sr-sub"><a href="<?= e($sf->url('/offers')) ?>" class="<?= ($view ?? '') === 'offers' ? 'on' : '' ?>"><?= e($sf->t('offers_list')) ?></a><a href="<?= e($sf->url('/offers/map')) ?>" class="<?= ($view ?? '') === 'map' ? 'on' : '' ?>"><?= e($sf->t('offers_map')) ?></a>
-  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/favorites')) ?>" class="<?= ($view ?? '') === 'favorites' ? 'on' : '' ?>"><?= e($sf->t('offers_favorites')) ?></a><a href="<?= e($sf->url('/offers/new')) ?>" class="<?= ($view ?? '') === 'offer_form' ? 'on' : '' ?>">+ <?= e($sf->t('offers_new')) ?></a><?php endif; ?></nav>
+<?php if ($onOffers): $srView = $view ?? ''; ?>
+<nav class="sr-sub sr-sub-offers" aria-label="<?= e($sf->t('tab_offers')) ?>">
+  <a href="<?= e($sf->url('/offers')) ?>" class="<?= in_array($srView, ['offers', 'offer'], true) ? 'on' : '' ?>"><?= sr_icon('list') ?><span><?= e($sf->t('offers_list')) ?></span></a>
+  <a href="<?= e($sf->url('/offers/map')) ?>" class="<?= $srView === 'map' ? 'on' : '' ?>"><?= sr_icon('pin') ?><span><?= e($sf->t('offers_map')) ?></span></a>
+  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/favorites')) ?>" class="<?= $srView === 'favorites' ? 'on' : '' ?>"><?= sr_icon('heart') ?><span><?= e($sf->t('offers_favorites')) ?></span></a>
+  <a href="<?= e($sf->url('/offers/new')) ?>" class="sr-sub-add<?= $srView === 'offer_form' ? ' on' : '' ?>"><?= sr_icon('plus') ?><span><?= e($sf->t('offers_new')) ?></span></a><?php endif; ?>
+</nav>
 <?php endif; ?>
