@@ -272,6 +272,7 @@ return function (\Sysfera\Plugin $sf): void {
     $messengerClient = fn() => \Sysfera\Hooks::filter('messenger.client', null);
     $messengerReady = function () use ($messengerClient): bool { $c = $messengerClient(); return $c !== null && $c->ready(); };
 
+    $sf->route('GET', '/offers/mine', fn() => $page(fn() => $svc()['pg']->myOffers($ctx()), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/favorites', fn() => $page(fn() => $svc()['pg']->favorites($ctx()), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/new', fn() => $page(fn() => $svc()['pg']->offerForm($ctx(), 0, (int)($_GET['wh'] ?? 0)), '/p/storagerent/offers'));
     $sf->route('GET', '/offers/{id}/edit', fn(array $p) => $page(fn() => $svc()['pg']->offerForm($ctx(), (int)$p['id']), '/p/storagerent/offers'));

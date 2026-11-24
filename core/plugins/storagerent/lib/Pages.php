@@ -156,13 +156,19 @@ final class Pages
     }
     public function offers(Ctx $c, string $q = '', array $remote = []): array
     {
-        $mine = $c->uid > 0 ? $this->offers->cards($this->offers->listings('', $c->uid), $this->photoUrl) : [];
-        $statuses = []; if ($c->uid > 0) foreach ($this->offers->listings('', $c->uid) as $l) $statuses[(int)$l['id']] = (string)$l['status'];
-        return ['view' => 'offers', 'title' => 'offers', 'cards' => $this->cards($q, $remote), 'mine' => $mine, 'mineStatus' => $statuses, 'q' => $q, 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== '', 'staff' => $c->staff(), 'favs' => $this->offers->favoriteRefs($c->uid)];
+        return ['view' => 'offers', 'title' => 'offers', 'cards' => $this->cards($q, $remote), 'q' => $q, 'signedIn' => $c->uid > 0, 'key' => $this->s('yandex_key') !== '', 'staff' => $c->staff(), 'favs' => $this->offers->favoriteRefs($c->uid)];
     }
     public function map(Ctx $c, array $remote = []): array
     {
         return ['view' => 'map', 'title' => 'offers_map', 'cards' => $this->cards('', $remote), 'signedIn' => $c->uid > 0];
+    }
+    /** The My listings tab: the listings the user has published or drafted, with their status. */
+    public function myOffers(Ctx $c): array
+    {
+        if ($c->uid <= 0) throw new Err('forbidden', '', 403);
+        $rows = $this->offers->listings('', $c->uid); $statuses = [];
+        foreach ($rows as $l) $statuses[(int)$l['id']] = (string)$l['status'];
+        return ['view' => 'mine', 'title' => 'offers', 'cards' => $this->offers->cards($rows, $this->photoUrl), 'mineStatus' => $statuses, 'signedIn' => true, 'favs' => [], 'key' => false];
     }
     /** The favorites tab of a signed-in user. */
     public function favorites(Ctx $c): array

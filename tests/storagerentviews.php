@@ -15,7 +15,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.2.1']; public array $missing = [];
+    public array $manifest = ['version' => '0.2.2']; public array $missing = [];
     public function __construct(private array $l, private array $set = []) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'MISSING:' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/storagerent/' . ltrim($p, '/'); }
@@ -166,6 +166,8 @@ ok(refused(fn() => $of->toggleFavorite(8, 'L' . (int)$l2['id'], $photoUrl), 'not
 $h = $render($enSf, 'en', $en, $pg->favorites($none8), $none8, true); ok(str_contains($h, 'Sklad &lt;/a&gt;Alpha') && str_contains($h, 'Peer &lt;x&gt;') && str_contains($h, 'aria-pressed="true"') && str_contains($h, $en['fav_remove']) && !$enSf->missing, 'Favorites tab: both cards, escaped, with the pressed heart');
 $of->setStatus(7, false, (int)$l1['id'], 'draft'); $h = $render($enSf, 'en', $en, $pg->favorites($none8), $none8, true); ok(str_contains($h, $en['fav_gone']) && str_contains($h, 'Peer &lt;x&gt;'), 'Favorites tab: an unpublished listing is shown as no longer available, the other one stays'); $of->setStatus(7, false, (int)$l1['id'], 'published');
 ok(!$of->favoriteRefs(9) && !$of->favorites(9, $photoUrl) && refused(fn() => $pg->favorites($guestC), 'forbidden'), 'favorites are private to the user; a guest cannot open the tab');
+$h = $render($enSf, 'en', $en, $pg->myOffers($author), $author, true); ok(str_contains($h, '/offers/mine') && (str_contains($h, $en['os_published']) || str_contains($h, $en['os_draft'])) && str_contains($h, '/edit'), 'My listings: own listings with status and Edit live on their own tab');
+$h = $render($enSf, 'en', $en, $pg->offers($author), $author, true); ok(!str_contains($h, '/edit') && refused(fn() => $pg->myOffers($guestC), 'forbidden'), 'the Offers list no longer repeats my listings; a guest cannot open My listings');
 $h = $render($enSf, 'en', $en, $pg->offers($none8, '', [$peer]), $none8, true); ok(str_contains($h, 'action="/p/storagerent/offers/favorite"') && str_contains($h, 'name="ref" value="' . $pref . '"') && str_contains($h, $en['fav_add']) && str_contains($h, 'aria-pressed="true"') && str_contains($h, 'href="/p/storagerent/offers/favorites"'), 'the offers list has the heart buttons (pressed for favorites) and the Favorites tab');
 $h = $render($enSf, 'en', $en, $pg->offers($guestC, '', [$peer]), $guestC, true); ok(!str_contains($h, '/offers/favorites') && str_contains($h, 'href="/login"') && !str_contains($h, 'name="ref"'), 'a guest sees no Favorites tab; the heart sends him to sign in');
 $ps = file_get_contents("$dir/plugin.php"); ok(str_contains($ps, "'/offers/favorites'") && strpos($ps, "'/offers/favorites'") < strpos($ps, "'/offers/{id}'") && str_contains($ps, "'/offers/favorite'") && str_contains($ps, "'/offers/{id}/contact'") && str_contains($ps, "messenger.client"), 'plugin.php: the Favorites route is registered before /offers/{id}; favorite and contact routes exist; Messenger comes through its hook');

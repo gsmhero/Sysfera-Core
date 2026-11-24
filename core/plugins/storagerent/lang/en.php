@@ -138,4 +138,5 @@ return [
     'err_messenger_rate' => 'Too many messages - wait a minute.',
     'err_messenger_failed' => 'The message could not be sent. Try again later.',
     'offers_found' => 'Listings found: {n}',
+    'mine_none' => 'You have no listings yet.',
 ];

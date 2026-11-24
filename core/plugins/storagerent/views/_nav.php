@@ -1,6 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $view @var string $lang */
 require_once __DIR__ . '/_h.php';
-$onOffers = in_array($view ?? '', ['offers', 'map', 'offer', 'offer_form', 'favorites'], true);
+$onOffers = in_array($view ?? '', ['offers', 'map', 'offer', 'offer_form', 'favorites', 'mine'], true);
 $staff = $ctx->staff();
 $srNav = [];   // [path, label key, visible, views that light it up]
 if ($staff) {
@@ -25,7 +25,8 @@ $wrmsUrl = $staff ? '/wrms' : ($ctx->role === 'tenant' ? '/portal' : '');
 <nav class="sr-sub sr-sub-offers" aria-label="<?= e($sf->t('tab_offers')) ?>">
   <a href="<?= e($sf->url('/offers')) ?>" class="<?= in_array($srView, ['offers', 'offer'], true) ? 'on' : '' ?>"><?= sr_icon('list') ?><span><?= e($sf->t('offers_list')) ?></span></a>
   <a href="<?= e($sf->url('/offers/map')) ?>" class="<?= $srView === 'map' ? 'on' : '' ?>"><?= sr_icon('pin') ?><span><?= e($sf->t('offers_map')) ?></span></a>
-  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/favorites')) ?>" class="<?= $srView === 'favorites' ? 'on' : '' ?>"><?= sr_icon('heart') ?><span><?= e($sf->t('offers_favorites')) ?></span></a>
+  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/mine')) ?>" class="<?= $srView === 'mine' ? 'on' : '' ?>"><?= sr_icon('warehouse') ?><span><?= e($sf->t('offers_mine')) ?></span></a>
+  <a href="<?= e($sf->url('/offers/favorites')) ?>" class="<?= $srView === 'favorites' ? 'on' : '' ?>"><?= sr_icon('heart') ?><span><?= e($sf->t('offers_favorites')) ?></span></a>
   <a href="<?= e($sf->url('/offers/new')) ?>" class="sr-sub-add<?= $srView === 'offer_form' ? ' on' : '' ?>"><?= sr_icon('plus') ?><span><?= e($sf->t('offers_new')) ?></span></a><?php endif; ?>
 </nav>
 <?php endif; ?>
