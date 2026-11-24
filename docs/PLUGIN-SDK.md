@@ -74,6 +74,7 @@ $sf->orders()->lines($oid);   $sf->invoices()->createWithLines(['order_id' => $o
 | `app.booted` | `$app` | event |
 | `dashboard.widgets` | `array $html` | filter — return the array with your HTML added |
 | `menu.items` | `array $items` | filter |
+| `landing.blocks` | `string $html` | filter — public landing page, under the hero; return the string with your HTML appended (guests see it, keep it public data only) |
 
 Example — Accounting issues an invoice whenever the Warehouse ships an order (the two never call each other directly):
 ```php

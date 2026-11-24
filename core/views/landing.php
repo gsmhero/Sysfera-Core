@@ -29,6 +29,7 @@ $all = \Sysfera\Landing::components(); ?><!doctype html>
     <?php if ($open): ?><a class="btn big" href="<?= e(url('/login')) ?>"><?= e(t('auth.login')) ?></a><?php endif; ?></p>
   <ul class="land-pts"><li><?= e(t('land.pt1')) ?></li><li><?= e(t('land.pt2')) ?></li><li><?= e(t('land.pt3')) ?></li></ul>
 </div></section>
+<?= \Sysfera\Hooks::filter('landing.blocks', '') /* components add public blocks under the hero (HTML string) */ ?>
 
 <section id="components" class="land-sec"><div class="land-w">
   <h2><?= e(t('land.comp_h')) ?></h2><p class="muted"><?= e(t('land.comp_p')) ?></p>
