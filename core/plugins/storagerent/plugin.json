@@ -1,0 +1,16 @@
+{
+    "slug": "storagerent",
+    "version": "0.1.0",
+    "name": {
+        "en": "Storage Rent",
+        "ru": "Склад в аренду"
+    },
+    "description": {
+        "en": "Two tabs under one menu entry. WRMS (warehouse rental management): warehouses and units with partial-share rental and a floor plan, tenants (TIN, storage restrictions, audit log), contracts (rate types, due day, grace, penalty, deposit, utilities, access schedule, renewal, versions, printable form), monthly and manual invoices, payments with FIFO allocation and manual reassignment, penalties, write-offs, refunds and credit notes, RUB and VAT per tenant, utilities with meter readings and photos, e-mail notifications with templates and a schedule, reports with CSV/XLSX/print export, a tenant portal and a manual access log. Offers: any user posts a storage listing (8-block form, prefill from WRMS), published listings are shown as cards and on a Yandex map to every user and to guests on the landing page, and are exchanged between Sysfera sites by a public JSON feed. Roles: administrator, manager, accountant, tenant. The Yandex Maps key is set in the module Settings and is never stored in the code.",
+        "ru": "Две вкладки в одном пункте меню. WRMS (управление арендой склада): склады и помещения с арендой по долям и планом этажа, арендаторы (ИНН, ограничения по хранению, журнал изменений), договоры (типы ставок, день оплаты, льготный период, пеня, депозит, коммунальные услуги, график доступа, продление, версии, печатная форма), счета ежемесячные и вручную, платежи с распределением FIFO и ручным перераспределением, пеня, списания, возвраты и кредит-ноты, рубли и НДС по арендатору, коммунальные услуги с показаниями и фото, уведомления по почте с шаблонами и расписанием, отчёты с выгрузкой CSV/XLSX/печать, кабинет арендатора и ручной журнал доступа. Предложения: любой пользователь размещает объявление о складе (форма из 8 блоков, заполнение из WRMS), опубликованные объявления видны карточками и на карте Яндекса всем пользователям и гостям на главной странице и передаются между сайтами Sysfera публичной JSON-лентой. Роли: администратор, менеджер, бухгалтер, арендатор. Ключ Яндекс Карт задаётся в настройках модуля и не хранится в коде."
+    },
+    "requires": {
+        "core": ">=0.1.45"
+    },
+    "capabilities": []
+}

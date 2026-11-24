@@ -1,0 +1,9 @@
+<?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $lang @var array $rows @var array $tenants @var array $units @var bool $canWrite */
+require __DIR__ . '/_nav.php'; ?>
+<p class="muted"><?= e($sf->t('acc_help')) ?></p>
+<?php if ($canWrite): ?><form method="post" action="<?= e($sf->url('/access/log')) ?>" class="card sr-form"><?= csrf_field() ?><h3><?= e($sf->t('acc_new')) ?></h3>
+  <div class="sr-2"><?= sr_sel('tenant_id', $sf->t('col_tenant'), $tenants, 0) ?><?= sr_sel('unit_id', $sf->t('col_unit'), [0 => '—'] + $units, 0) ?></div>
+  <div class="sr-2"><?= sr_in('person', $sf->t('acc_person'), '', 'text', 'maxlength="150"') ?><?= sr_sel('dir', $sf->t('acc_direction'), ['in' => $sf->t('acc_in'), 'out' => $sf->t('acc_out')], 'in') ?></div>
+  <?= sr_in('note', $sf->t('f_note'), '', 'text', 'maxlength="255"') ?><button class="btn primary"><?= e($sf->t('acc_log')) ?></button></form><?php endif; ?>
+<?php if (!$rows): ?><div class="card empty"><?= e($sf->t('none')) ?></div><?php else: ?><div class="card sr-scroll"><table><thead><tr><th><?= e($sf->t('col_date')) ?></th><th><?= e($sf->t('col_tenant')) ?></th><th><?= e($sf->t('col_unit')) ?></th><th><?= e($sf->t('acc_person')) ?></th><th><?= e($sf->t('acc_direction')) ?></th><th><?= e($sf->t('f_note')) ?></th></tr></thead><tbody>
+<?php foreach ($rows as $r): ?><tr><td><?= e(sr_dt((int)$r['happened_at'])) ?></td><td><?= e($tenants[(int)$r['tenant_id']] ?? '') ?></td><td><?= e($units[(int)($r['unit_id'] ?? 0)] ?? '') ?></td><td><?= e($r['person']) ?></td><td><?= e($sf->t($r['direction'] === 'out' ? 'acc_out' : 'acc_in')) ?><?= $r['outside_schedule'] ? ' <span class="badge bad">' . e($sf->t('acc_outside')) . '</span>' : '' ?></td><td><?= e($r['note']) ?></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>

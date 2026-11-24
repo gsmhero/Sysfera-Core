@@ -1,0 +1,73 @@
+openapi: 3.0.3
+info:
+  title: Sysfera Storage Rent (Склад в аренду) API
+  version: 0.1.0
+  description: |
+    Two machine endpoints. Everything else in the module is server-rendered pages behind the Sysfera login (cookie + CSRF form field `_t`) and is not an API.
+    **Feed.** `GET /api/storagerent/v1/listings` is public (no login, no key) and returns only what a stranger may see: name, city, street, coordinates, area, price per m², service flags and a photo URL.
+    Contact details and user ids are never included. Other Sysfera sites read this feed (the administrator lists them in Settings > Offers); a site that reads a feed treats it as untrusted data.
+    **Cron.** `POST /api/storagerent/v1/cron` runs the daily job (monthly invoices, statuses, e-mail notifications). It needs the header `X-Cron-Token` equal to the token shown in Settings; without cron the job runs lazily when staff open the module.
+    **Money** is in kopecks (integers). **Dates** are `YYYY-MM-DD` in the database and `DD.MM.YYYY` on screen. The Yandex Maps key is a server setting and is not part of any answer of these endpoints.
+servers:
+  - url: /api/storagerent/v1
+components:
+  schemas:
+    Card:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string, maxLength: 190}
+        city: {type: string, maxLength: 100}
+        street: {type: string, maxLength: 190}
+        lat: {type: number, nullable: true, minimum: -90, maximum: 90}
+        lon: {type: number, nullable: true, minimum: -180, maximum: 180}
+        area: {type: number, description: total area, m2}
+        price_m2: {type: integer, description: price per m2 per month, kopecks}
+        services:
+          type: object
+          properties:
+            video: {type: boolean}
+            parking: {type: boolean}
+            h24: {type: boolean}
+            security: {type: boolean}
+        photo: {type: string, description: absolute URL of the first photo or empty}
+        url: {type: string, description: absolute URL of the listing page}
+        updated_at: {type: integer, description: unix seconds}
+    Feed:
+      type: object
+      properties:
+        v: {type: integer, enum: [1]}
+        site: {type: string}
+        generated: {type: integer, description: unix seconds}
+        listings:
+          type: array
+          items: {$ref: '#/components/schemas/Card'}
+paths:
+  /listings:
+    get:
+      summary: Published listings of this site (public feed)
+      responses:
+        '200':
+          description: The feed. Cached for 5 minutes, CORS open.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Feed'}
+  /cron:
+    post:
+      summary: Daily job (invoices, statuses, notifications)
+      parameters:
+        - in: header
+          name: X-Cron-Token
+          required: true
+          schema: {type: string}
+      responses:
+        '200':
+          description: Done
+          content:
+            application/json:
+              schema: {type: object, properties: {ok: {type: boolean}}}
+        '403':
+          description: Missing or wrong token
+          content:
+            application/json:
+              schema: {type: object, properties: {ok: {type: boolean}, error: {type: string, enum: [forbidden]}}}

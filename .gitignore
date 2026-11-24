@@ -17,6 +17,7 @@ core/plugins/*
 !core/plugins/hr/
 !core/plugins/contracts/
 !core/plugins/contactlog/
+!core/plugins/storagerent/
 .DS_Store
 Thumbs.db
 *.log

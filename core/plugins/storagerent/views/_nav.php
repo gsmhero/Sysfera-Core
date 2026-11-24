@@ -1,0 +1,27 @@
+<?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $view @var string $lang */
+require_once __DIR__ . '/_h.php';
+$onOffers = in_array($view ?? '', ['offers', 'map', 'offer', 'offer_form'], true);
+$staff = $ctx->staff();
+$srNav = [];   // [path, label key, visible, views that light it up]
+if ($staff) {
+    $srNav = [['/wrms', 'wrms_dashboard', true, ['dashboard']], ['/units', 'wrms_units', true, ['units']], ['/tenants', 'wrms_tenants', true, ['tenants', 'tenant']], ['/contracts', 'wrms_contracts', true, ['contracts', 'contract', 'contract_form']],
+        ['/invoices', 'wrms_invoices', $ctx->can('finance'), ['invoices', 'invoice']], ['/payments', 'wrms_payments', $ctx->can('finance'), ['payments']], ['/utilities', 'wrms_utilities', true, ['utilities']], ['/reports', 'wrms_reports', $ctx->can('finance'), ['reports']],
+        ['/notifications', 'wrms_notifications', true, ['notifications']], ['/access', 'wrms_access', true, ['access']], ['/documents', 'wrms_documents', true, ['documents']], ['/requests', 'wrms_requests', true, ['requests']], ['/settings', 'settings', $ctx->can('settings'), ['settings']]];
+}
+$wrmsUrl = $staff ? '/wrms' : ($ctx->role === 'tenant' ? '/portal' : '');
+?>
+<link rel="stylesheet" href="<?= e($sf->asset('storagerent.css')) ?>?v=<?= e($sf->manifest['version']) ?>">
+<div class="sr-top">
+  <h1><?= e($sf->t('menu')) ?></h1>
+  <nav class="sr-tabs" aria-label="<?= e($sf->t('menu')) ?>">
+    <?php if ($wrmsUrl !== ''): ?><a href="<?= e($sf->url($wrmsUrl)) ?>" class="<?= !$onOffers ? 'on' : '' ?>"><?= e($sf->t('tab_wrms')) ?></a><?php endif; ?>
+    <a href="<?= e($sf->url('/offers')) ?>" class="<?= $onOffers ? 'on' : '' ?>"><?= e($sf->t('tab_offers')) ?></a>
+  </nav>
+</div>
+<?php if (!$onOffers && $srNav): ?>
+<nav class="sr-sub"><?php foreach ($srNav as [$path, $key, $show, $views]): if (!$show) continue; ?><a href="<?= e($sf->url($path)) ?>" class="<?= in_array($view ?? '', $views, true) ? 'on' : '' ?>"><?= e($sf->t($key)) ?></a><?php endforeach; ?></nav>
+<?php endif; ?>
+<?php if ($onOffers): ?>
+<nav class="sr-sub"><a href="<?= e($sf->url('/offers')) ?>" class="<?= ($view ?? '') === 'offers' ? 'on' : '' ?>"><?= e($sf->t('offers_list')) ?></a><a href="<?= e($sf->url('/offers/map')) ?>" class="<?= ($view ?? '') === 'map' ? 'on' : '' ?>"><?= e($sf->t('offers_map')) ?></a>
+  <?php if ($ctx->uid > 0): ?><a href="<?= e($sf->url('/offers/new')) ?>" class="<?= ($view ?? '') === 'offer_form' ? 'on' : '' ?>">+ <?= e($sf->t('offers_new')) ?></a><?php endif; ?></nav>
+<?php endif; ?>

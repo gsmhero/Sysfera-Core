@@ -56,6 +56,11 @@ jobs:
           php tests/contracts.php
           php tests/contractsviews.php
           php tests/contractssync.php
+      - name: Storage Rent tests
+        run: |
+          php tests/storagerentbilling.php
+          php tests/storagerent.php
+          php tests/storagerentviews.php
       - name: Notes tests
         run: php tests/noteviews.php
       - name: Build packages

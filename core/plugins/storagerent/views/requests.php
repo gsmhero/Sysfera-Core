@@ -1,0 +1,7 @@
+<?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $lang @var array $rows @var array $tenants @var array $units @var bool $canWrite @var array $statuses */
+require __DIR__ . '/_nav.php'; ?>
+<?php if (!$rows): ?><div class="card empty"><?= e($sf->t('none')) ?></div><?php else: foreach ($rows as $r): ?>
+<div class="card"><div class="row sr-between"><div><b><?= e($r['title']) ?></b> <span class="badge <?= e(sr_cls((string)$r['status'])) ?>"><?= e($sf->t('rq_' . $r['status'])) ?></span><br><small class="muted"><a href="<?= e($sf->url('/tenant/' . $r['tenant_id'])) ?>"><?= e($tenants[(int)$r['tenant_id']] ?? '') ?></a><?= $r['unit_id'] ? ' · ' . e($units[(int)$r['unit_id']] ?? '') : '' ?> · <?= e(sr_dt((int)$r['created_at'])) ?></small></div>
+  <?php if ($canWrite): ?><form method="post" action="<?= e($sf->url('/requests/' . $r['id'] . '/status')) ?>" class="sr-inline"><?= csrf_field() ?><select name="status"><?php foreach ($statuses as $s): ?><option value="<?= e($s) ?>"<?= $s === $r['status'] ? ' selected' : '' ?>><?= e($sf->t('rq_' . $s)) ?></option><?php endforeach; ?></select><button class="btn sm"><?= e($sf->t('save')) ?></button></form><?php endif; ?></div>
+  <?php if ((string)$r['body'] !== ''): ?><p><?= nl2br(e((string)$r['body'])) ?></p><?php endif; ?><?php if ($r['photo_doc_id']): ?><p><a href="<?= e($sf->url('/doc/' . $r['photo_doc_id'])) ?>"><?= e($sf->t('util_photo')) ?></a></p><?php endif; ?></div>
+<?php endforeach; endif; ?>
