@@ -10,12 +10,14 @@ if (!function_exists('sr_m')) {
     {
         return match ($s) { 'paid', 'active', 'free', 'done', 'sent', 'published' => 'ok', 'overdue', 'terminated', 'cancelled', 'maintenance', 'suspended', 'failed' => 'bad', 'partially_paid', 'expiring', 'reserved', 'draft', 'in_progress', 'ended', 'new' => 'warn', 'occupied', 'issued' => 'info', default => 'mute' };
     }
-    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security. */
+    /** The service icons of a listing: line style, no fill, 24x24, drawn in the text colour. Keys: video, parking, h24, security, warehouse. */
     function sr_icon(string $k, string $label = ''): string
     {
         $p = [
             // wall-mounted CCTV camera: wall plate, bracket, body with a lens, a stand
             'video' => '<path d="M3 4.5v9"/><path d="M3 8h3"/><rect x="6" y="5.5" width="14" height="6.5" rx="1.6" transform="rotate(8 13 8.7)"/><circle cx="17" cy="9.3" r="1.3"/><path d="M10 14.5v3"/><path d="M7 20.5h6"/>',
+            // a warehouse: roof, walls and a roller door (placeholder of a card without a photo)
+            'warehouse' => '<path d="M3 9.5L12 4l9 5.5"/><path d="M4.5 8.6V20h15V8.6"/><rect x="8" y="12.5" width="8" height="7.5" rx="0.8"/><path d="M8 15h8M8 17.5h8"/>',
             'parking' => '<rect x="3.5" y="3.5" width="17" height="17" rx="3.2"/><path d="M9.6 17.2V7.3h3.4a3 3 0 0 1 0 6H9.6"/>',
             'h24' => '<path d="M20.2 12a8.2 8.2 0 1 1-2.4-5.8"/><path d="M18.6 2.8v3.8h-3.8"/><path d="M12 7.6V12l3 1.8"/>',
             'security' => '<path d="M12 3l7.5 2.8v5.6c0 4.4-3.1 7.9-7.5 9.6-4.4-1.7-7.5-5.2-7.5-9.6V5.8z"/><path d="M8.7 12.2l2.4 2.4 4.2-4.6"/>',

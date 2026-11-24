@@ -4,7 +4,7 @@ $href = $c['url'] ?? $sf->url('/offers/' . (int)$c['id']); $addr = trim($c['city
 $icons = ['video' => 'svc_video', 'parking' => 'svc_parking', 'h24' => 'svc_h24', 'security' => 'svc_security']; ?>
 <article class="sr-card">
   <a class="sr-card-head" href="<?= e($href) ?>"<?= !empty($c['origin']) ? ' rel="noopener" target="_blank"' : '' ?>>
-    <?php if ($c['photo'] !== ''): ?><img src="<?= e($c['photo']) ?>" alt="" loading="lazy"><?php else: ?><span class="sr-card-ph" aria-hidden="true">📦</span><?php endif; ?>
+    <?php if ($c['photo'] !== ''): ?><img src="<?= e($c['photo']) ?>" alt="" loading="lazy"><?php else: ?><span class="sr-card-ph" aria-hidden="true"><?= sr_icon('warehouse') ?></span><?php endif; ?>
   </a>
   <div class="sr-card-body">
     <div class="sr-addr"><?= e($addr) ?></div>
