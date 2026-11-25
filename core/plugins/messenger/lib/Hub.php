@@ -95,8 +95,8 @@ final class HubServer
             $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE sid = ? AND sid <> ?', [strtolower($q), $me]);
         } elseif (str_contains($q, '@')) {                    // exact e-mail, only people who allowed it
             $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE email_hash = ? AND discoverable = 1 AND sid <> ? LIMIT 20', [hash('sha256', strtolower($q)), $me]);
-        } elseif ((function_exists('mb_strlen') ? mb_strlen($q) : strlen($q)) >= 3) {   // name prefix, only people who allowed it
-            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE name LIKE ? AND discoverable = 1 AND sid <> ? ORDER BY name LIMIT 20', [str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%', $me]);
+        } elseif ((function_exists('mb_strlen') ? mb_strlen($q) : strlen($q)) >= 2) {   // the start of the name or of any word in it ("ivan" finds "Petrov Ivan"), only people who allowed it
+            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE (name LIKE ? OR name LIKE ?) AND discoverable = 1 AND sid <> ? ORDER BY name LIMIT 20', [$like = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%', '% ' . $like, $me]);
         } else { $rows = []; }
         return ['users' => array_map(fn($r) => ['sid' => $r['sid'], 'name' => $r['name']], $rows)];
     }
