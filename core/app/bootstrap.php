@@ -56,6 +56,9 @@ function ago(?string $ts): string {
 /** The Sysfera logo as inline SVG (colours come from CSS so it stays readable in dark mode and on the dark sidebar). */
 function sf_logo(): string {
     static $svg = null;
+    if ($svg === null && ($lf = (string)\Sysfera\App::get()->setting('logo_file', '')) !== '' && is_file(SF_ROOT . '/storage/logo/logo.' . explode('.', $lf)[0])) {
+        $svg = '<img class="logo logo-custom" src="' . e(url('/brand/logo')) . '?v=' . e(explode('.', $lf)[1] ?? '1') . '" alt="' . e((string)\Sysfera\App::get()->setting('site_name', 'Sysfera')) . '">';
+    }
     if ($svg === null) {
         $s = (string)@file_get_contents(SF_ROOT . '/assets/sysfera-logo.svg');
         $s = preg_replace('~<defs>.*?</defs>~s', '', $s);

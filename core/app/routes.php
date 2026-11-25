@@ -156,6 +156,21 @@ return function (App $app): void {
                 $n = $app->grantAllCaps();
                 flash(t('settings.grant_done', ['n' => $n])); redirect('/settings');
             }
+            if (in_array($_POST['do'] ?? '', ['logo_save', 'logo_reset'], true)) {
+                $dir = SF_ROOT . '/storage/logo'; foreach ((array)glob($dir . '/logo.*') as $old) @unlink($old);
+                if ($_POST['do'] === 'logo_reset') { $app->setSetting('logo_file', ''); flash(t('logo.cleared')); redirect('/settings'); }
+                $f = $_FILES['logo'] ?? []; $tmp = (string)($f['tmp_name'] ?? ''); $ext = '';
+                if ($tmp !== '' && ($f['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file($tmp) && (int)$f['size'] > 0 && (int)$f['size'] <= 1048576) {
+                    $head = (string)file_get_contents($tmp, false, null, 0, 4096);
+                    if (str_starts_with($head, "\x89PNG")) $ext = 'png'; elseif (str_starts_with($head, "\xFF\xD8\xFF")) $ext = 'jpg'; elseif (str_starts_with($head, 'GIF8')) $ext = 'gif';
+                    elseif (str_starts_with($head, 'RIFF') && substr($head, 8, 4) === 'WEBP') $ext = 'webp';
+                    elseif (preg_match('~<svg[\s>]~i', $head)) $ext = 'svg';
+                }
+                if ($ext === '') { flash(t('logo.bad'), 'bad'); redirect('/settings'); }
+                if (!is_dir($dir)) @mkdir($dir, 0775, true);
+                if (!@move_uploaded_file($tmp, "$dir/logo.$ext")) { flash(t('logo.bad'), 'bad'); redirect('/settings'); }
+                $app->setSetting('logo_file', $ext . '.' . time()); flash(t('logo.saved')); redirect('/settings');
+            }
             if (($_POST['do'] ?? '') === 'log_clear') { @file_put_contents(SF_ROOT . '/storage/error.log', ''); flash(t('log.cleared')); redirect('/settings'); }
             if (in_array($_POST['do'] ?? '', ['mail_save', 'mail_test'], true)) {
                 $set = fn(string $k, int $max = 190) => $app->setSetting($k, mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max));
@@ -255,6 +270,16 @@ return function (App $app): void {
         $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
         if (!isset($types[$ext]) || !is_file($f)) { http_response_code(404); return; }
         header('Content-Type: ' . $types[$ext]); header('Cache-Control: public, max-age=86400'); readfile($f);
+    });
+
+    /* ---------- the logo an administrator uploaded in Settings (public: it is shown on the sign-in page too) ---------- */
+    $r->add('GET', '/brand/logo', function () use ($app) {
+        $ext = explode('.', (string)$app->setting('logo_file', ''))[0];
+        $types = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml'];
+        $f = SF_ROOT . '/storage/logo/logo.' . $ext;
+        if (!isset($types[$ext]) || !is_file($f)) { http_response_code(404); return; }
+        header('Content-Type: ' . $types[$ext]); header('Cache-Control: public, max-age=86400'); header('X-Content-Type-Options: nosniff');
+        header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox"); readfile($f);
     });
 
     /* ---------- plugin static files (plugins/<slug>/assets/...) ---------- */

@@ -31,6 +31,13 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
   <label class="fld inline"><span><?= e(t('settings.demo_hours')) ?></span><select name="demo_hours"><?php foreach (\Sysfera\Demo::HOURS as $h): ?><option <?= \Sysfera\Demo::hours() === $h ? 'selected' : '' ?>><?= $h ?></option><?php endforeach; ?></select></label>
   <div style="margin-top:14px"><button class="btn primary"><?= e(t('common.save')) ?></button></div>
 </form>
+<form class="card" method="post" enctype="multipart/form-data"><?= csrf_field() ?>
+  <h3><?= e(t('logo.title')) ?></h3><p class="muted sm"><?= e(t('logo.hint')) ?></p>
+  <p class="muted sm"><?= e($app->setting('logo_file', '') !== '' ? t('logo.current') : t('logo.default')) ?></p>
+  <div style="background:var(--card2,#f3f4f6);padding:10px;border-radius:8px;display:inline-block;margin-bottom:10px"><?= sf_logo() ?></div>
+  <label class="fld"><span><?= e(t('logo.file')) ?></span><input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
+  <div class="row"><button class="btn primary" name="do" value="logo_save"><?= e(t('logo.upload')) ?></button><?php if ($app->setting('logo_file', '') !== ''): ?><button class="btn" name="do" value="logo_reset"><?= e(t('logo.reset')) ?></button><?php endif; ?></div>
+</form>
 <form class="card" method="post" data-confirm="<?= e(t('settings.grant_confirm')) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="grant_all">
   <h3><?= e(t('settings.grant_h')) ?></h3><p class="muted sm"><?= e(t('settings.grant_hint')) ?></p><button class="btn"><?= e(t('settings.grant_btn')) ?></button>
 </form>
