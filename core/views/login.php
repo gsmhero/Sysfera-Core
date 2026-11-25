@@ -7,3 +7,4 @@
   <button class="btn primary block"><?= e(t('auth.login')) ?></button>
 </form>
 <?php if (\Sysfera\App::get()->setting('registration', '0') === '1'): ?><p class="muted center"><?= e(t('auth.no_account')) ?> <a href="<?= e(url('/register')) ?>"><?= e(t('auth.register')) ?></a></p><?php endif; ?>
+<?php if (\Sysfera\Landing::enabled(\Sysfera\App::get()->setting('landing', '1'))): ?><p class="muted center"><a href="<?= e(url('/')) ?>">← <?= e(t('auth.to_site')) ?></a></p><?php endif; ?>

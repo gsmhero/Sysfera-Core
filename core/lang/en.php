@@ -42,7 +42,7 @@ return [
     'err.403' => 'Access denied', 'err.403_text' => 'You do not have permission to open this page. Ask an administrator to grant access.',
     'err.404' => 'Page not found', 'err.404_text' => 'This page does not exist.',
 
-    'auth.login' => 'Sign in', 'auth.logout' => 'Sign out', 'auth.register' => 'Create account',
+    'auth.to_site' => 'Back to the site', 'auth.login' => 'Sign in', 'auth.logout' => 'Sign out', 'auth.register' => 'Create account',
     'auth.email' => 'Email', 'auth.password' => 'Password', 'auth.password_min' => 'Password (min. 8 characters)', 'auth.name' => 'Name',
     'auth.no_account' => 'No account yet?', 'auth.have_account' => 'Already have an account?',
     'auth.reg_closed' => 'Registration is closed. Ask the administrator to create an account for you.',
