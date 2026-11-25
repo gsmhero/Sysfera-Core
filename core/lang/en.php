@@ -17,7 +17,7 @@ return [
     'land.c.accounting' => 'Accounting', 'land.c.accounting_d' => 'Income and expenses, invoices and reports for small business.',
     'land.c.crm' => 'CRM', 'land.c.crm_d' => 'Clients, deals on kanban boards, tasks and reminders, reports. Pipelines, fields and access profiles you set up yourself.',
     'land.c.teams' => 'Teams', 'land.c.teams_d' => 'Team chat with channels and @mentions, task boards, a shared calendar and files — one workspace per team.',
-    'land.c.vacancy' => 'Vacancy Manager', 'land.c.vacancy_d' => 'Publish vacancies, collect applications and track hiring stages.',
+    'land.c.vacancy' => 'HR Department', 'land.c.vacancy_d' => 'Roles and vacancies, candidate pipeline with interviews, employee profiles, documents and e-signature, teams and access roles.',
     'land.how_h' => 'Getting started', 'land.s1' => 'Create an account', 'land.s1d' => 'Register with your email — it takes a minute.',
     'land.s2' => 'Open your tools', 'land.s2d' => 'After signing in you see the components available to you.',
     'land.s3' => 'Start working', 'land.s3d' => 'Manage stock and orders, chat with colleagues and follow the news in one account.',

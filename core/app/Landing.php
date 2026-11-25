@@ -35,7 +35,7 @@ final class Landing
     /** Curated cards that stand for one or more plugins: those plugins get no card of their own, and a "soon" card turns "ready" once one of them exists. */
     public const COVERS = [
         'wms' => ['wms'], 'basebase' => ['wms-basebase'], 'messenger' => ['messenger'], 'activity' => ['activity'], 'news' => ['news', 'news-publisher'],
-        'accounting' => ['accounting'], 'crm' => ['crm'], 'teams' => ['teams'], 'vacancy' => ['vacancy'],
+        'accounting' => ['accounting'], 'crm' => ['crm'], 'teams' => ['teams'], 'vacancy' => ['vacancy', 'hr'],
     ];
 
     /**

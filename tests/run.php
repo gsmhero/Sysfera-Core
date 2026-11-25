@@ -70,7 +70,7 @@ ok(\Sysfera\Landing::enabled(null) && \Sysfera\Landing::enabled('1') && !\Sysfer
 $dyn = \Sysfera\Landing::all(['wms' => ['name' => 'W'], 'storagerent' => ['name' => ['en' => 'Storage Rent', 'ru' => 'Склад'], 'description' => ['en' => 'First sentence. Second one.', 'ru' => 'Первое. Второе.']], 'accounting' => ['name' => 'A']], ['newthing' => ['name' => ['en' => 'New thing'], 'description' => 'Does X.']], 'ru');
 $by = array_column($dyn, null, 'slug');
 ok(isset($by['storagerent']) && $by['storagerent']['title'] === 'Склад' && $by['storagerent']['desc'] === 'Первое.' && isset($by['newthing']) && $by['newthing']['title'] === 'New thing', 'landing: installed and offered components get a card by themselves');
-ok(count(array_keys(array_column($dyn, 'slug'), 'wms')) === 1 && $by['accounting']['state'] === 'ready' && $by['vacancy']['state'] === 'soon', 'landing: no duplicate for a curated component; an announced one becomes ready once it exists');
+ok(count(array_keys(array_column($dyn, 'slug'), 'wms')) === 1 && $by['accounting']['state'] === 'ready' && $by['vacancy']['state'] === 'soon' && array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'state', 'slug')['vacancy'] === 'ready' && !in_array('hr', array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'slug'), true), 'landing: no duplicate for a curated component; an announced one becomes ready once it exists');
 
 /* plugin manifests */
 foreach (glob(SF_ROOT . '/plugins/*/plugin.json') as $f) ok(Plugins::readManifest($f) !== null, 'manifest valid: ' . basename(dirname($f)));
