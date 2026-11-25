@@ -212,12 +212,13 @@ final class Offers
     public function remote(array $peers, callable $fetch, int $ttl = 900): array
     {
         $out = []; $n = ($this->now)();
-        foreach (array_slice($peers, 0, 10) as $url) {
+        foreach (array_slice($peers, 0, 60) as $url) {
             if (!preg_match('~^https://[^\s<>"\']{4,250}$~i', $url)) continue; $h = sha1($url); $row = $this->st->one('remote_cache', ['url_hash' => $h]);
             if (!$row || $n - (int)$row['fetched_at'] > $ttl) {
                 $body = $fetch($url);
                 if ($body !== null) { if ($row) $this->st->update('remote_cache', (int)$row['id'], ['fetched_at' => $n, 'body' => $body]); else $this->st->insert('remote_cache', ['url_hash' => $h, 'url' => $url, 'fetched_at' => $n, 'body' => $body]); $row = ['body' => $body]; }
                 elseif ($row) $this->st->update('remote_cache', (int)$row['id'], ['fetched_at' => $n - $ttl + 120]);   // keep the old copy, try again in two minutes
+                else { $this->st->insert('remote_cache', ['url_hash' => $h, 'url' => $url, 'fetched_at' => $n - $ttl + 600, 'body' => '']); $row = ['body' => '']; }   // a site that has no Storage Rent: ask again in ten minutes, not on every page view
             }
             if ($row && ($row['body'] ?? null) !== null) $out = array_merge($out, self::parseFeed((string)$row['body'], (string)(parse_url($url, PHP_URL_HOST) ?: $url)));
         }

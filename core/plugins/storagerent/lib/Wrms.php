@@ -132,7 +132,8 @@ final class Wrms
         $vm = (string)($in['vat_mode'] ?? 'none'); if (!in_array($vm, Billing::VAT_MODES, true)) throw new Err('vat_invalid');
         $vr = self::num($in['vat_rate'] ?? 20, 0, 30);
         $uid = (int)($in['user_id'] ?? 0);
-        if ($uid > 0) { $o = $this->st->one('tenants', ['user_id' => $uid]); if ($o && (int)$o['id'] !== $id) throw new Err('user_taken'); }
+        if ($uid > 0) { $o = (($this->st instanceof OwnerStore) ? $this->st->unscoped() : $this->st)->one('tenants', ['user_id' => $uid]);   // linked anywhere on the site, not only among my tenants
+            if ($o && (int)$o['id'] !== $id) throw new Err('user_taken'); }
         $row = ['kind' => $kind, 'name' => $name, 'tin' => $tin, 'contact' => self::clean($in['contact'] ?? '', 150), 'phone' => self::clean($in['phone'] ?? '', 40), 'email' => $email,
             'address' => self::clean($in['address'] ?? '', 255), 'restrictions' => self::clean($in['restrictions'] ?? '', 2000), 'status' => $status, 'vat_mode' => $vm, 'vat_rate' => $vr,
             'note' => self::clean($in['note'] ?? '', 2000), 'user_id' => $uid > 0 ? $uid : null, 'updated_at' => ($this->now)()];
@@ -176,7 +177,7 @@ final class Wrms
     private function nextNumber(): string
     {
         $y = gmdate('Y', ($this->now)()); $n = 0;
-        foreach ($this->st->find('contracts', [], 'id DESC', 50) as $k) if (preg_match('/^SR-' . $y . '-(\d+)$/', (string)$k['number'], $m)) $n = max($n, (int)$m[1]);
+        foreach (($this->st instanceof OwnerStore ? $this->st->unscoped() : $this->st)->find('contracts', [], 'id DESC', 50) as $k) if (preg_match('/^SR-' . $y . '-(\d+)$/', (string)$k['number'], $m)) $n = max($n, (int)$m[1]);
         return sprintf('SR-%s-%04d', $y, $n + 1);
     }
     /** Percent of a unit already promised to other contracts (active or draft, not terminated) in the date range. */

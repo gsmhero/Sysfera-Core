@@ -118,7 +118,7 @@ final class Pages
     }
     public function notifications(Ctx $c): array
     {
-        $c->require('view'); $tpl = []; foreach (Notify::EVENTS as $e) foreach (['ru', 'en'] as $l) { $db = $this->st->one('templates', ['event' => $e, 'lang' => $l]); [$sub, $body] = $this->notify->template($e, $l); $tpl[$e][$l] = ['subject' => $sub, 'body' => $body, 'custom' => (bool)$db]; }
+        $c->require('view'); if ($c->owner()) throw new Err('forbidden', '', 403); $tpl = []; foreach (Notify::EVENTS as $e) foreach (['ru', 'en'] as $l) { $db = $this->st->one('templates', ['event' => $e, 'lang' => $l]); [$sub, $body] = $this->notify->template($e, $l); $tpl[$e][$l] = ['subject' => $sub, 'body' => $body, 'custom' => (bool)$db]; }
         return ['view' => 'notifications', 'title' => 'wrms_notifications', 'tpl' => $tpl, 'events' => Notify::EVENTS, 'placeholders' => Notify::PLACEHOLDERS, 'log' => $this->notify->recent(100), 'tenants' => $this->names('tenants'), 'set' => $this->notifySettings(), 'tariff' => $c->can('tariff')];
     }
     public function access(Ctx $c): array
@@ -142,7 +142,7 @@ final class Pages
     }
     public function settings(Ctx $c, bool $platformAdmin = false): array
     {
-        $c->require('settings'); return ['view' => 'settings', 'title' => 'settings', 'platformAdmin' => $platformAdmin, 'v' => ['staff' => $this->s('staff'), 'yandex_key' => $this->s('yandex_key'), 'peers' => $this->s('peers'), 'company_name' => $this->s('company_name'), 'company_details' => $this->s('company_details'),
+        $c->require('settings'); return ['view' => 'settings', 'title' => 'settings', 'platformAdmin' => $platformAdmin, 'v' => ['staff' => $this->s('staff'), 'yandex_key' => $this->s('yandex_key_local'), 'owners_open' => $this->s('owners_open', '1') !== '0', 'yandex_hub' => $this->s('yandex_key_hub') !== '', 'peers' => $this->s('peers'), 'company_name' => $this->s('company_name'), 'company_details' => $this->s('company_details'),
             'notify_lang' => $this->notifySettings()['lang'], 'cron_token' => $this->s('cron_token')] + $this->notifySettings()];
     }
 

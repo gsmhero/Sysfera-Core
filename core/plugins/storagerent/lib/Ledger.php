@@ -83,7 +83,7 @@ final class Ledger
     /* ================================================================== building an invoice */
     private function nextInvoiceNumber(): string
     {
-        $n = 0; foreach ($this->st->find('invoices', [], 'id DESC', 30) as $i) if (preg_match('/^INV-(\d+)$/', (string)$i['number'], $m)) $n = max($n, (int)$m[1]);
+        $n = 0; foreach (($this->st instanceof OwnerStore ? $this->st->unscoped() : $this->st)->find('invoices', [], 'id DESC', 30) as $i) if (preg_match('/^INV-(\d+)$/', (string)$i['number'], $m)) $n = max($n, (int)$m[1]);
         return sprintf('INV-%06d', $n + 1);
     }
     private function newInvoice(array $row): int { return $this->st->insert('invoices', $row + ['net' => 0, 'vat' => 0, 'total' => 0, 'principal' => 0, 'penalty_billed' => 0]); }

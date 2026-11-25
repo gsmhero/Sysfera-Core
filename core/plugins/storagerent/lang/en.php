@@ -139,4 +139,9 @@ return [
     'err_messenger_failed' => 'The message could not be sent. Try again later.',
     'offers_found' => 'Listings found: {n}',
     'mine_none' => 'You have no listings yet.',
+    'set_owners' => 'Owners',
+    'set_owners_open' => 'Every signed-in user manages their own storages',
+    'set_owners_help' => 'Each user (and each sub-user) works with their own warehouses, tenants, contracts and invoices and never sees the data of others. The staff list below sees everything. Listings of all sites are public to everybody.',
+    'set_yandex_hub_on' => 'Left empty, the map key of the hub (core.sysfera.ru) is used. A key typed here takes precedence.',
+    'set_yandex_hub_off' => 'Left empty, the map key of the hub (core.sysfera.ru) is used when this site is connected to it. A key typed here takes precedence.',
 ];

@@ -15,7 +15,7 @@ set_error_handler(function (int $no, string $msg, string $file, int $line): bool
 $en = require "$dir/lang/en.php"; $ru = require "$dir/lang/ru.php";
 
 final class FakeSf {
-    public array $manifest = ['version' => '0.2.2']; public array $missing = [];
+    public array $manifest = ['version' => '0.3.0']; public array $missing = [];
     public function __construct(private array $l, private array $set = []) {}
     public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'MISSING:' . $k; } $s = $this->l[$k]; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; }
     public function url(string $p = ''): string { return '/p/storagerent/' . ltrim($p, '/'); }
@@ -88,7 +88,7 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) foreach ($roles as $who => $
 ok($n > 250, "rendered $n pages without warnings or missing translations");
 /* refusals */
 $deny = [['tenant', fn() => $pg->dashboard($roles['tenant'])], ['user', fn() => $pg->tenants($roles['user'])], ['guest', fn() => $pg->invoices($roles['guest'])], ['accountant settings', fn() => $pg->settings($acc)], ['manager settings', fn() => $pg->settings($mgr)],
-    ['manager reports', fn() => 1], ['tenant sees other contract', fn() => $pg->contract(new Ctx(44, 'tenant', (int)$tU['id']), (int)$k['id'])], ['draft offer to a stranger', fn() => $pg->offer(new Ctx(8, 'none'), (int)$l2['id'])], ['guest offer form', fn() => $pg->offerForm(Ctx::guest(), 0)], ['staff on portal', fn() => $pg->portal($adm)]];
+    ['manager reports', fn() => 1], ['tenant sees other contract', fn() => $pg->contract(new Ctx(44, 'tenant', (int)$tU['id']), (int)$k['id'])], ['draft offer to a stranger', fn() => $pg->offer(new Ctx(8, 'none'), (int)$l2['id'])], ['guest offer form', fn() => $pg->offerForm(Ctx::guest(), 0)], ['staff on portal', fn() => $pg->portal($adm)], ['owner notifications', fn() => $pg->notifications(new Ctx(7, 'owner'))], ['owner settings', fn() => $pg->settings(new Ctx(7, 'owner'))]];
 foreach ($deny as [$name, $f]) { if ($name === 'manager reports') continue; $thrown = false; try { $f(); } catch (Err $e) { $thrown = in_array($e->errCode, ['forbidden', 'not_found'], true); } ok($thrown, "refused: $name"); }
 $sf = new FakeSf($ru, $settings);
 $html = $render($sf, 'ru', $ru, $pg->offers(Ctx::guest(), '', []), Ctx::guest(), true); ok(!str_contains($html, 'Sklad </a>') && str_contains($html, 'Kazan') && !str_contains($html, 'Draft'), 'guest list: published listings only, escaped');
@@ -128,7 +128,7 @@ preg_match_all('/\$svc\(\)\[\'(\w+)\'\]->(\w+)\(/', $pp, $m); $cls = ['wr' => Wr
 foreach ($m[1] as $i => $svc) if (isset($cls[$svc]) && !method_exists($cls[$svc], $m[2][$i])) $nometh[] = $svc . '->' . $m[2][$i]; ok(!$nometh, 'plugin.php calls only methods that exist' . ($nometh ? ' (' . implode(',', array_unique($nometh)) . ')' : ''));
 $sql = ''; foreach (glob("$dir/migrations/*.sql") as $f) $sql .= file_get_contents($f); preg_match_all('/CREATE TABLE IF NOT EXISTS \{p\}sr_([a-z_]+)/', $sql, $m);
 ok(!array_diff(DbStore::TABLES, $m[1]) && !array_diff($m[1], DbStore::TABLES), 'migrations: exactly the tables the store knows (' . count($m[1]) . ')' . (array_diff(DbStore::TABLES, $m[1]) ? ' lacks ' . implode(',', array_diff(DbStore::TABLES, $m[1])) : '') . (array_diff($m[1], DbStore::TABLES) ? ' extra ' . implode(',', array_diff($m[1], DbStore::TABLES)) : ''));
-ok(!preg_match('/\b(DROP|TRUNCATE|DELETE FROM|ALTER)\b/i', $sql) && substr_count($sql, 'CREATE TABLE') === substr_count($sql, 'IF NOT EXISTS {p}sr_'), 'migrations: additive only, every name prefixed');
+ok(!preg_match('/\b(DROP|TRUNCATE|DELETE FROM|ALTER(?! TABLE {p}sr_[a-z_]+ ADD COLUMN))\b/i', $sql) && substr_count($sql, 'CREATE TABLE') === substr_count($sql, 'IF NOT EXISTS {p}sr_'), 'migrations: additive only, every name prefixed');
 $mf = json_decode(file_get_contents("$dir/plugin.json"), true);
 ok(($mf['slug'] ?? '') === 'storagerent' && preg_match('/^\d+\.\d+\.\d+$/', $mf['version'] ?? '') && ($mf['name']['ru'] ?? '') === 'Склад в аренду' && !empty($mf['name']['en']) && !empty($mf['description']['en']) && !empty($mf['description']['ru']) && ($mf['capabilities'] ?? null) === [], 'manifest: slug, version, names, descriptions; no platform capabilities (the platform grants them to every new user)');
 ok(!str_contains($pp, "'storagerent.' . ") === false && !str_contains($pp, 'caps_list'), 'staff roles come from the module setting, not from platform capabilities');
@@ -171,4 +171,5 @@ $h = $render($enSf, 'en', $en, $pg->offers($author), $author, true); ok(!str_con
 $h = $render($enSf, 'en', $en, $pg->offers($none8, '', [$peer]), $none8, true); ok(str_contains($h, 'action="/p/storagerent/offers/favorite"') && str_contains($h, 'name="ref" value="' . $pref . '"') && str_contains($h, $en['fav_add']) && str_contains($h, 'aria-pressed="true"') && str_contains($h, 'href="/p/storagerent/offers/favorites"'), 'the offers list has the heart buttons (pressed for favorites) and the Favorites tab');
 $h = $render($enSf, 'en', $en, $pg->offers($guestC, '', [$peer]), $guestC, true); ok(!str_contains($h, '/offers/favorites') && str_contains($h, 'href="/login"') && !str_contains($h, 'name="ref"'), 'a guest sees no Favorites tab; the heart sends him to sign in');
 $ps = file_get_contents("$dir/plugin.php"); ok(str_contains($ps, "'/offers/favorites'") && strpos($ps, "'/offers/favorites'") < strpos($ps, "'/offers/{id}'") && str_contains($ps, "'/offers/favorite'") && str_contains($ps, "'/offers/{id}/contact'") && str_contains($ps, "messenger.client"), 'plugin.php: the Favorites route is registered before /offers/{id}; favorite and contact routes exist; Messenger comes through its hook');
+ok(str_contains($ps, 'rent.setup') && str_contains($ps, '$eff(\'yandex_key\')') && str_contains($ps, 'hubSetup()[') && str_contains($ps, '$sf->setting(\'owners_open\'') && str_contains($ps, 'new OwnerStore('), 'plugin.php: the map key and the feeds come from the hub unless the site has its own, and the data is kept per owner');
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers, Pages, Files, Xlsx, Text, DbStore, Contact};
+use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers, Pages, Files, Xlsx, Text, DbStore, Contact, OwnerStore};
 
 /**
  * Sysfera Storage Rent: two tabs under one menu entry.
@@ -12,39 +12,92 @@ use SysferaStoragerent\{Err, Ctx, Billing, Wrms, Ledger, Notify, Reports, Offers
  * tenant = a Sysfera user linked to a tenant record), settings, the mailer, uploads and the pages. Money is kopecks, dates are DD.MM.YYYY on screen.
  */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files', 'Text', 'Pages', 'DbStore', 'Contact'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Err', 'Store', 'Billing', 'Ctx', 'Wrms', 'Ledger', 'Notify', 'Reports', 'Xlsx', 'Offers', 'Files', 'Text', 'Pages', 'DbStore', 'Contact', 'OwnerStore'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $L = ['en' => require __DIR__ . '/lang/en.php', 'ru' => require __DIR__ . '/lang/ru.php'];
     $lang = function () use ($sf): string { $l = (string)($sf->auth()->user()['lang'] ?? ''); if ($l === '') $l = \Sysfera\I18n::lang(); return $l === 'en' ? 'en' : 'ru'; };
     $tr = function (string $k, array $v = []) use ($L, $lang): string { $s = $L[$lang()][$k] ?? $L['en'][$k] ?? $k; foreach ($v as $a => $b) $s = str_replace('{' . $a . '}', (string)$b, $s); return $s; };
     $today = fn(): string => date('Y-m-d');
-    $svc = function () use ($sf, $today): array {
-        static $o = null; if ($o) return $o;
-        $st = new DbStore($sf->db()); $now = fn() => time();
+    /* ---------- values kept once on the hub (core.sysfera.ru): the map key and the feeds of all connected sites. What an administrator types on a site wins over the hub's value ---------- */
+    $mdir = dirname($sf->dir) . '/messenger/lib/';
+    foreach (['Util', 'Hub', 'Client'] as $lf) if (is_file($mdir . "$lf.php")) require_once $mdir . "$lf.php";
+    $hostNow = fn(): string => (string)preg_replace('/:\d+$/', '', strtolower((string)($_SERVER['HTTP_HOST'] ?? '')));
+    /** the public feeds of all sites connected to the hub (and the hub itself), without $exclude (the asking site) */
+    $feedsOf = function (\Sysfera\Db $hdb, string $exclude) use ($hostNow): array {
+        $out = []; $add = function (string $base) use (&$out, $exclude) {
+            $p = parse_url(trim($base)); if (!$p || strtolower((string)($p['scheme'] ?? '')) !== 'https' || empty($p['host'])) return;
+            $host = strtolower($p['host']); if ($host === $exclude) return;
+            $out[$host] = 'https://' . $host . (isset($p['port']) ? ':' . (int)$p['port'] : '') . '/api/storagerent/v1/listings';
+        };
+        if ($hostNow() !== '') $add('https://' . ($_SERVER['HTTP_HOST'] ?? ''));
+        foreach ($hdb->rows('SELECT domain, base FROM {p}msg_installs ORDER BY enrolled_at DESC LIMIT 60') as $r) $add((string)$r['base'] !== '' ? (string)$r['base'] : 'https://' . $r['domain']);
+        return array_slice(array_values($out), 0, 60);
+    };
+    if (class_exists(\SysferaMsg\HubServer::class)) {
+        // the hub answers the installations (user 0) with its map key and the feeds of everybody
+        \SysferaMsg\HubServer::register('rent.setup', function (\SysferaMsg\Ctx $c, \Sysfera\Db $hdb) use ($sf, $feedsOf) {
+            return ['yandex_key' => $sf->setting('yandex_key', ''), 'feeds' => $feedsOf($hdb, strtolower($c->domain))];
+        }, true);
+    }
+    /** a site: what the hub sent, kept for an hour in a file; on the hub itself the feeds come from its own table */
+    $hubSetup = function () use ($feedsOf): array {
+        static $mem = null; if ($mem !== null) return $mem;
+        if ($hub = \Sysfera\Hooks::filter('messenger.hub', null)) { try { return $mem = ['yandex_key' => '', 'feeds' => $feedsOf($hub->db(), '')]; } catch (\Throwable) { return $mem = []; } }
+        $file = SF_ROOT . '/storage/storagerent-setup.json';
+        $cached = is_file($file) ? (json_decode((string)@file_get_contents($file), true) ?: []) : [];
+        $age = is_file($file) ? time() - (int)filemtime($file) : PHP_INT_MAX;
+        if ($age >= 3600 && !(is_file($file . '.try') && time() - (int)filemtime($file . '.try') < 300)) {
+            @file_put_contents($file . '.try', (string)time());
+            $c = \Sysfera\Hooks::filter('messenger.client', null);
+            if ($c && method_exists($c, 'ready') && $c->ready()) {
+                try { $r = $c->call('GET', 'rent.setup', [], null, null, 4, '0'); if ($r['ok']) { $cached = ['yandex_key' => (string)($r['data']['yandex_key'] ?? ''), 'feeds' => array_values(array_filter((array)($r['data']['feeds'] ?? []), 'is_string'))]; @file_put_contents($file, json_encode($cached)); } } catch (\Throwable) {}
+            }
+        }
+        return $mem = $cached;
+    };
+    /** the settings the module reads: the map key is the site's own, else the hub's ("yandex_key_local" / "yandex_key_hub" give the two parts for the settings page) */
+    $eff = function (string $k, string $d = '') use ($sf, $hubSetup): string {
+        if ($k === 'yandex_key_local') return (string)$sf->setting('yandex_key', $d);
+        if ($k === 'yandex_key_hub') return (string)($hubSetup()['yandex_key'] ?? '');
+        if ($k === 'yandex_key') { $v = (string)$sf->setting('yandex_key', ''); return $v !== '' ? $v : ((string)($hubSetup()['yandex_key'] ?? '') ?: $d); }
+        return (string)$sf->setting($k, $d);
+    };
+    /** The services on a store limited to one owner ($scope = user id; $legacy: plus the rows of the site itself) or, with scope 0, on the whole site (staff, the daily run). */
+    $svcFor = function (int $scope, bool $legacy = false) use ($sf, $today, $eff): array {
+        static $cache = []; $key = $scope . ($legacy ? 'L' : ''); if (isset($cache[$key])) return $cache[$key];
+        $st = new OwnerStore(new DbStore($sf->db()), $scope, $legacy); $now = fn() => time();
         $wr = new Wrms($st, $now, $today); $lg = new Ledger($st, $now, $today); $rp = new Reports($st, $lg, $wr, $today);
         $site = \Sysfera\App::get()->setting('site_name', 'Sysfera');
         $nf = new Notify($st, $lg, $now, $today, fn($to, $s, $b) => $sf->mail($to, $s, $b, null), $site);
         $of = new Offers($st, $now);
         $photo = fn(array $p, int $id) => url('/p/storagerent/offers/photo/' . (int)$p['id']);
-        $pg = new Pages($st, $wr, $lg, $rp, $nf, $of, fn($k, $d = '') => $sf->setting($k, $d), $photo, $today);
-        return $o = compact('st', 'wr', 'lg', 'rp', 'nf', 'of', 'pg');
+        $pg = new Pages($st, $wr, $lg, $rp, $nf, $of, fn($k, $d = '') => $eff($k, $d), $photo, $today);
+        return $cache[$key] = compact('st', 'wr', 'lg', 'rp', 'nf', 'of', 'pg');
     };
     /** The staff list kept in the setting "staff", one "user id:role" per line (roles: admin, manager, accountant) => [user id => role]. */
     $staffMap = function () use ($sf): array {
         $m = []; foreach (preg_split('/\R/', (string)$sf->setting('staff', '')) ?: [] as $line) if (preg_match('/^\s*(\d{1,9})\s*[:=]\s*(admin|manager|accountant)\s*$/', $line, $x)) $m[(int)$x[1]] = $x[2];
         return $m;
     };
-    $ctx = function () use ($sf, $svc, $staffMap): Ctx {
+    $ctx = function () use ($sf, $svcFor, $staffMap): Ctx {
         static $c = null; if ($c) return $c; $u = $sf->auth()->user(); if (!$u) return $c = Ctx::guest();
-        $t = $svc()['wr']->tenantOfUser((int)$u['id']);
+        $all = $svcFor(0); $t = $all['wr']->tenantOfUser((int)$u['id']);
         // Staff roles come from the module's own list (Settings > Staff), NOT from platform capabilities: the platform may grant every capability to every new user.
         $role = $staffMap()[(int)$u['id']] ?? null;
-        return $c = Ctx::for((int)$u['id'], $sf->auth()->isAdmin(), $role ? ['storagerent.' . $role] : [], $t ? (int)$t['id'] : null);
+        $owners = $sf->setting('owners_open', '1') !== '0';   // every signed-in user manages their own storages (the administrator may switch it off in the settings)
+        return $c = Ctx::for((int)$u['id'], $sf->auth()->isAdmin(), $role ? ['storagerent.' . $role] : [], $t ? (int)$t['id'] : null, $owners, $t && $all['st']->one('warehouses', ['owner_id' => (int)$u['id']]) !== null);
+    };
+    /** Whose data the current user works with: an owner and a platform administrator without a staff role see only their own storages (the administrator also the site's older rows); staff and tenants are limited by their role. */
+    $svc = function () use ($svcFor, $ctx, $staffMap, $sf): array {
+        $c = $ctx();
+        if ($c->owner()) return $svcFor($c->uid);
+        if ($c->role === 'admin' && $sf->auth()->isAdmin() && !isset($staffMap()[$c->uid])) return $svcFor($c->uid, true);
+        return $svcFor(0);
     };
     $abs = function (string $path): string { $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'; return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . $path; };
 
     /** Common variables of every view. */
-    $common = fn(): array => ['sf' => $sf, 'ctx' => $ctx(), 'lang' => $lang(), 'L' => $L[$lang()], 'regOpen' => \Sysfera\App::get()->setting('registration', '0') === '1'];
+    $common = fn(): array => ['sf' => $sf, 'mapKey' => $eff('yandex_key'), 'ctx' => $ctx(), 'lang' => $lang(), 'L' => $L[$lang()], 'regOpen' => \Sysfera\App::get()->setting('registration', '0') === '1'];
     $render = function (array $page) use ($sf, $common, $tr, $ctx): void {
         if ($ctx()->uid <= 0 && empty($page['bare'])) {   // a guest sees the public pages (offers) in a plain shell: the platform layout needs a signed-in user
             $inner = \Sysfera\View::file($sf->dir . '/views/' . $page['view'] . '.php', $page + $common());
@@ -91,10 +144,10 @@ return function (\Sysfera\Plugin $sf): void {
     };
 
     /* ---------------------------------------------------------------- the daily run (invoices, statuses, notifications): lazily on staff page views, and by cron */
-    $tick = function (bool $force = false) use ($sf, $svc, $today): void {
+    $tick = function (bool $force = false) use ($sf, $svcFor, $today): void {
         $day = $today(); if (!$force && $sf->setting('last_tick') === $day) return;
         $sf->setSetting('last_tick', $day);
-        try { $s = $svc(); $s['lg']->tick($day); $set = $s['pg']->notifySettings(); $s['nf']->run($set); }
+        try { $s = $svcFor(0); $s['lg']->tick($day); $set = $s['pg']->notifySettings(); $s['nf']->run($set); }
         catch (\Throwable $e) { \Sysfera\App::log('storagerent tick ' . $e); }
     };
 
@@ -214,7 +267,7 @@ return function (\Sysfera\Plugin $sf): void {
     $post('/notifications/template', function () use ($act, $svc, $ctx) {
         $act(function () use ($svc, $ctx) { $n = $svc()['nf']; if (!empty($_POST['reset'])) $n->resetTemplate($ctx(), (string)($_POST['event'] ?? ''), (string)($_POST['lang'] ?? '')); else $n->saveTemplate($ctx(), (string)($_POST['event'] ?? ''), (string)($_POST['lang'] ?? ''), (string)($_POST['subject'] ?? ''), (string)($_POST['body'] ?? '')); }, '/p/storagerent/notifications');
     });
-    $post('/notifications/run', fn() => $act(function () use ($svc, $ctx, $tr) { $ctx()->require('write'); [$s, $f, $k] = $svc()['nf']->run($svc()['pg']->notifySettings()); flash($tr('notify_ran', ['sent' => $s, 'failed' => $f, 'skipped' => $k])); }, '/p/storagerent/notifications', ''));
+    $post('/notifications/run', fn() => $act(function () use ($svc, $ctx, $tr) { $ctx()->require('write'); if ($ctx()->owner()) throw new Err('forbidden', '', 403); [$s, $f, $k] = $svc()['nf']->run($svc()['pg']->notifySettings()); flash($tr('notify_ran', ['sent' => $s, 'failed' => $f, 'skipped' => $k])); }, '/p/storagerent/notifications', ''));
     $post('/access/log', fn() => $act(fn() => $svc()['wr']->logAccess($ctx(), (int)($_POST['tenant_id'] ?? 0), ((int)($_POST['unit_id'] ?? 0)) ?: null, (string)($_POST['person'] ?? ''), (string)($_POST['dir'] ?? 'in'), (string)($_POST['note'] ?? '')), '/p/storagerent/access'));
     $post('/requests/{id}/status', fn(array $p) => $act(fn() => $svc()['wr']->setRequestStatus($ctx(), (int)$p['id'], (string)($_POST['status'] ?? '')), '/p/storagerent/requests'));
     $post('/portal/request', function () use ($act, $svc, $ctx, $upload) {
@@ -227,9 +280,10 @@ return function (\Sysfera\Plugin $sf): void {
     $post('/settings/save', function () use ($act, $sf, $ctx, $svc) {
         $act(function () use ($sf, $ctx) {
             $ctx()->require('settings');
-            $key = trim((string)($_POST['yandex_key'] ?? '')); if ($key !== '' && !preg_match('/^[A-Za-z0-9\-_]{8,80}$/', $key)) throw new Err('key_invalid'); $sf->setSetting('yandex_key', $key);
+            $key = trim((string)($_POST['yandex_key'] ?? '')); if ($key !== '' && !preg_match('/^[A-Za-z0-9\-_]{8,80}$/', $key)) throw new Err('key_invalid'); $sf->setSetting('yandex_key', $key); @unlink(SF_ROOT . '/storage/storagerent-setup.json.try');
             $peers = []; foreach (preg_split('/\R/', (string)($_POST['peers'] ?? '')) ?: [] as $u) { $u = trim($u); if ($u === '') continue; if (!preg_match('~^https://[^\s<>"\']{4,250}$~i', $u)) throw new Err('peer_invalid'); $peers[] = $u; }
             $sf->setSetting('peers', implode("\n", array_slice($peers, 0, 10)));
+            $sf->setSetting('owners_open', !empty($_POST['owners_open']) ? '1' : '0');
             if ($sf->auth()->isAdmin()) {   // only a platform administrator hands out staff roles
                 $staff = []; foreach (preg_split('/\R/', (string)($_POST['staff'] ?? '')) ?: [] as $line) { if (trim($line) === '') continue; if (!preg_match('/^\s*(\d{1,9})\s*[:=]\s*(admin|manager|accountant)\s*$/', $line, $x)) throw new Err('staff_invalid'); $staff[(int)$x[1]] = $x[2]; }
                 foreach (array_keys($staff) as $uid) if (!$sf->db()->rows('SELECT id FROM {p}users WHERE id = ?', [$uid])) throw new Err('staff_invalid');
@@ -257,8 +311,10 @@ return function (\Sysfera\Plugin $sf): void {
     });
 
     /* ================================================================== Offers */
-    $remote = function () use ($sf, $svc): array {
+    $remote = function () use ($sf, $svc, $hubSetup, $hostNow): array {
+        // the feeds typed on this site, plus the ones of every site connected to the hub (the site's own address left out)
         $peers = array_values(array_filter(array_map('trim', preg_split('/\R/', $sf->setting('peers')) ?: [])));
+        foreach ((array)($hubSetup()['feeds'] ?? []) as $f) if (is_string($f) && !in_array($f, $peers, true) && strtolower((string)parse_url($f, PHP_URL_HOST)) !== $hostNow()) $peers[] = $f;
         if (!$peers) return [];
         $fetch = function (string $url): ?string {
             $ctx = stream_context_create(['http' => ['timeout' => 3, 'follow_location' => 0, 'ignore_errors' => false, 'header' => "Accept: application/json\r\nUser-Agent: Sysfera-StorageRent\r\n"], 'ssl' => ['verify_peer' => true]]);
@@ -343,6 +399,6 @@ return function (\Sysfera\Plugin $sf): void {
         $lg = \Sysfera\I18n::lang() === 'en' ? 'en' : 'ru'; $l = $L[$lg];
         try { $cards = $svc()['pg']->cards('', $remote()); } catch (\Throwable $e) { \Sysfera\App::log('storagerent landing ' . $e); return $html; }
         $open = \Sysfera\App::get()->setting('registration', '0') === '1' || \Sysfera\Demo::on();
-        return $html . \Sysfera\View::file($sf->dir . '/views/landing_block.php', ['sf' => $sf, 'L' => $l, 'lang' => $lg, 'cards' => array_slice($cards, 0, 300), 'key' => $sf->setting('yandex_key'), 'open' => $open]);
+        return $html . \Sysfera\View::file($sf->dir . '/views/landing_block.php', ['sf' => $sf, 'L' => $l, 'lang' => $lg, 'cards' => array_slice($cards, 0, 300), 'key' => $eff('yandex_key'), 'open' => $open]);
     });
 };

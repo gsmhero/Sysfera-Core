@@ -6,7 +6,7 @@ $srNav = [];   // [path, label key, visible, views that light it up]
 if ($staff) {
     $srNav = [['/wrms', 'wrms_dashboard', true, ['dashboard']], ['/units', 'wrms_units', true, ['units']], ['/tenants', 'wrms_tenants', true, ['tenants', 'tenant']], ['/contracts', 'wrms_contracts', true, ['contracts', 'contract', 'contract_form']],
         ['/invoices', 'wrms_invoices', $ctx->can('finance'), ['invoices', 'invoice']], ['/payments', 'wrms_payments', $ctx->can('finance'), ['payments']], ['/utilities', 'wrms_utilities', true, ['utilities']], ['/reports', 'wrms_reports', $ctx->can('finance'), ['reports']],
-        ['/notifications', 'wrms_notifications', true, ['notifications']], ['/access', 'wrms_access', true, ['access']], ['/documents', 'wrms_documents', true, ['documents']], ['/requests', 'wrms_requests', true, ['requests']], ['/settings', 'settings', $ctx->can('settings'), ['settings']]];
+        ['/notifications', 'wrms_notifications', !$ctx->owner(), ['notifications']], ['/access', 'wrms_access', true, ['access']], ['/documents', 'wrms_documents', true, ['documents']], ['/requests', 'wrms_requests', true, ['requests']], ['/settings', 'settings', $ctx->can('settings'), ['settings']]];
 }
 $wrmsUrl = $staff ? '/wrms' : ($ctx->role === 'tenant' ? '/portal' : '');
 ?>

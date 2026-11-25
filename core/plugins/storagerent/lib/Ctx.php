@@ -17,6 +17,8 @@ final class Ctx
         'admin'      => ['view', 'write', 'finance', 'export', 'tariff', 'settings', 'audit'],
         'manager'    => ['view', 'write', 'finance', 'export', 'audit'],
         'accountant' => ['view', 'finance', 'export'],
+        // an owner is any signed-in user without a staff role: manages their own storages only (OwnerStore keeps the data apart); no site settings, no site-wide notifications
+        'owner'      => ['view', 'write', 'finance', 'export', 'tariff', 'audit'],
         'tenant'     => ['portal'],
         'none'       => [],
     ];
@@ -24,14 +26,16 @@ final class Ctx
     public function __construct(public readonly int $uid, public readonly string $role = 'none', public readonly int $tenantId = 0) {}
 
     public static function guest(): self { return new self(0, 'none', 0); }
-    public static function for(int $uid, bool $platformAdmin, array $caps, ?int $tenantId): self
+    /** $owners: every signed-in user without a staff role manages their own storages (a tenant who owns storage stays an owner). */
+    public static function for(int $uid, bool $platformAdmin, array $caps, ?int $tenantId, bool $owners = false, bool $ownsStorage = false): self
     {
         if ($uid <= 0) return self::guest();
         $role = $platformAdmin || in_array('storagerent.admin', $caps, true) ? 'admin'
-            : (in_array('storagerent.manager', $caps, true) ? 'manager' : (in_array('storagerent.accountant', $caps, true) ? 'accountant' : ($tenantId ? 'tenant' : 'none')));
+            : (in_array('storagerent.manager', $caps, true) ? 'manager' : (in_array('storagerent.accountant', $caps, true) ? 'accountant' : ($tenantId && !$ownsStorage ? 'tenant' : ($owners ? 'owner' : ($tenantId ? 'tenant' : 'none')))));
         return new self($uid, $role, (int)$tenantId);
     }
     public function can(string $perm): bool { return in_array($perm, self::PERMS[$this->role] ?? [], true); }
+    public function owner(): bool { return $this->role === 'owner'; }
     public function staff(): bool { return $this->can('view'); }
     /** The tenant record a tenant user may see (0 for staff: no restriction by tenant). */
     public function onlyTenant(): int { return $this->role === 'tenant' ? $this->tenantId : 0; }

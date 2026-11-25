@@ -1,6 +1,6 @@
 <?php /** @var \Sysfera\Plugin $sf @var \SysferaStoragerent\Ctx $ctx @var string $lang @var array $l @var array $card @var array $d @var bool $owner @var bool $signedIn @var bool $key */
 require __DIR__ . '/_nav.php'; $F = \SysferaStoragerent\Offers::FIELDS; $blocks = []; foreach ($F as $k => $def) $blocks[$def[0]][] = $k;
-$mapId = 'srMapOffer'; $mapKey = (string)$sf->setting('yandex_key'); $guest = !$signedIn; $regOpen = !empty($regOpen); ?>
+$mapId = 'srMapOffer'; $mapKey = (string)($mapKey ?? $sf->setting('yandex_key')); $guest = !$signedIn; $regOpen = !empty($regOpen); ?>
 <p><a href="<?= e($sf->url('/offers')) ?>">← <?= e($sf->t('offers_list')) ?></a></p>
 <?php $cards = [$card]; $noFav = true; require __DIR__ . '/_map.php'; unset($noFav); ?>
 <div class="card"><div class="row sr-between"><div><h2 style="margin:0"><?= e($l['name']) ?> <?php if ($l['status'] !== 'published'): ?><span class="badge warn"><?= e($sf->t('os_' . $l['status'])) ?></span><?php endif; ?></h2>

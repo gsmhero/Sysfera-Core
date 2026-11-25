@@ -14,7 +14,7 @@ $field = function (string $k) use ($F, $v, $sf, $L): string {
     <div class="sr-2"><?= sr_in('city', $sf->t('of_city'), $v['city'] ?? '', 'text', 'required maxlength="100"') ?><?= sr_in('street', $sf->t('of_street'), $v['street'] ?? '', 'text', 'maxlength="190"') ?></div>
     <div class="sr-2"><?= sr_in('lat', $sf->t('of_lat'), $v['lat'] ?? '', 'text', 'inputmode="decimal" id="srLat"') ?><?= sr_in('lon', $sf->t('of_lon'), $v['lon'] ?? '', 'text', 'inputmode="decimal" id="srLon"') ?></div>
     <p class="muted sm"><?= e($sf->t($key ? 'of_geo_help_key' : 'of_geo_help')) ?></p>
-    <div class="sr-map" id="srMapPicker" data-key="<?= e((string)$sf->setting('yandex_key')) ?>" data-lang="<?= e($lang === 'en' ? 'en_US' : 'ru_RU') ?>" data-picker="1"><div class="sr-map-canvas" hidden></div></div>
+    <div class="sr-map" id="srMapPicker" data-key="<?= e((string)($mapKey ?? $sf->setting('yandex_key'))) ?>" data-lang="<?= e($lang === 'en' ? 'en_US' : 'ru_RU') ?>" data-picker="1"><div class="sr-map-canvas" hidden></div></div>
     <div class="sr-2"><?= sr_in('area', $sf->t('of_area'), $v['area'] ?? '', 'text', 'required inputmode="decimal"') ?><?= sr_in('price_m2', $sf->t('of_price_m2'), $v['price_m2'] ?? '', 'text', 'required inputmode="decimal"') ?></div>
     <?php foreach ($blocks[1] as $k) echo $field($k); ?>
     <?= sr_sel('status', $sf->t('of_status'), ['published' => $sf->t('os_published'), 'draft' => $sf->t('os_draft'), 'archived' => $sf->t('os_archived')], $v['status'] ?? 'published') ?></fieldset>

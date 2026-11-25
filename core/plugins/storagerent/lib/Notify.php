@@ -42,14 +42,14 @@ final class Notify
     }
     public function saveTemplate(Ctx $c, string $event, string $lang, string $subject, string $body): void
     {
-        $c->require('tariff'); if (!in_array($event, self::EVENTS, true) || !in_array($lang, ['en', 'ru'], true)) throw new Err('bad_request');
+        $c->require('tariff'); if ($c->owner()) throw new Err('forbidden', '', 403); if (!in_array($event, self::EVENTS, true) || !in_array($lang, ['en', 'ru'], true)) throw new Err('bad_request');
         $subject = Wrms::clean($subject, 190); $body = Wrms::clean($body, 4000); if ($subject === '' || $body === '') throw new Err('template_empty');
         $row = $this->st->one('templates', ['event' => $event, 'lang' => $lang]);
         if ($row) $this->st->update('templates', (int)$row['id'], ['subject' => $subject, 'body' => $body]); else $this->st->insert('templates', ['event' => $event, 'lang' => $lang, 'subject' => $subject, 'body' => $body]);
     }
     public function resetTemplate(Ctx $c, string $event, string $lang): void
     {
-        $c->require('tariff'); $row = $this->st->one('templates', ['event' => $event, 'lang' => $lang]); if ($row) $this->st->delete('templates', (int)$row['id']);
+        $c->require('tariff'); if ($c->owner()) throw new Err('forbidden', '', 403); $row = $this->st->one('templates', ['event' => $event, 'lang' => $lang]); if ($row) $this->st->delete('templates', (int)$row['id']);
     }
 
     /**
