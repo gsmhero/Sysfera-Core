@@ -59,6 +59,11 @@ return function (App $app): void {
     $r->add('GET', '/', function () use ($app, $auth) {
         if (!$auth->user()) {                                  // guests: public landing page (or the sign-in form if switched off)
             if (!\Sysfera\Landing::enabled($app->setting('landing', '1'))) redirect('/login');
+            // the components list follows the update server: refresh the manifest after the page is sent when it is stale (at most every 15 minutes, never blocks the guest)
+            if (time() - (int)$app->setting('update_checked', '0') >= 21600 && time() - (int)$app->setting('landing_try', '0') >= 900) {
+                $app->setSetting('landing_try', (string)time());
+                register_shutdown_function(function () use ($app) { if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request(); try { (new \Sysfera\Updater($app))->manifest(); } catch (\Throwable) {} });
+            }
             echo View::file(SF_ROOT . '/views/landing.php', ['open' => $app->setting('registration', '0') === '1' || Demo::on(), 'siteName' => $app->setting('site_name', 'Sysfera')]);
             return;
         }

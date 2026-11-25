@@ -7,7 +7,10 @@ $icons = [
 ];
 $ico = fn(string $n) => '<svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' . ($icons[$n] ?? '') . '</svg>';
 $langs = \Sysfera\I18n::languages(); $cur = \Sysfera\I18n::lang();
-$all = \Sysfera\Landing::components(); ?><!doctype html>
+$app = \Sysfera\App::get(); $pl = $app->plugins();
+$mine = []; foreach ($pl->available() as $sl => $mf) if ($pl->isEnabled($sl)) $mine[$sl] = $mf;
+$offered = (array)((json_decode((string)$app->setting('update_cache', ''), true) ?: [])['plugins'] ?? []);   // what the update server offers (already fetched; guests download nothing)
+$all = \Sysfera\Landing::all($mine, $offered, $cur); ?><!doctype html>
 <html lang="<?= e($cur) ?>"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= e($siteName) ?> — <?= e(t('land.tagline')) ?></title>
 <meta name="description" content="<?= e(t('land.lead')) ?>">
@@ -36,8 +39,8 @@ $all = \Sysfera\Landing::components(); ?><!doctype html>
   <div class="land-grid">
   <?php foreach ($all as $c): ?><article class="land-card <?= $c['state'] === 'soon' ? 'soon' : '' ?>">
     <div class="land-ic"><?= $ico($c['icon']) ?></div>
-    <h3><?= e(t('land.c.' . $c['slug'])) ?> <?php if ($c['state'] === 'soon'): ?><span class="badge"><?= e(t('land.soon')) ?></span><?php endif; ?></h3>
-    <p><?= e(t('land.c.' . $c['slug'] . '_d')) ?></p></article><?php endforeach; ?>
+    <h3><?= e($c['title'] ?? t('land.c.' . $c['slug'])) ?> <?php if ($c['state'] === 'soon'): ?><span class="badge"><?= e(t('land.soon')) ?></span><?php endif; ?></h3>
+    <p><?= e($c['desc'] ?? t('land.c.' . $c['slug'] . '_d')) ?></p></article><?php endforeach; ?>
   </div>
 </div></section>
 
