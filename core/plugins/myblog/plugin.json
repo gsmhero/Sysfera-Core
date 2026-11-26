@@ -1,6 +1,6 @@
 {
   "slug": "myblog",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "name": { "en": "My Blog", "ru": "Мой блог" },
   "description": {
     "en": "Posts for every user, shared between all Sysfera sites through the hub, with Basebase products and their embed codes. Synchronised with the Basebase blog for users who have a shop there. Needs Sysfera Messenger.",

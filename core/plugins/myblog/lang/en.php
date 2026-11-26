@@ -13,7 +13,7 @@ return [
     'attach' => 'Attach products', 'attach_hint' => 'Readers see these under your text and can buy them on Basebase.', 'products' => 'Products', 'n_products' => 'Products: {n}',
     'no_products' => 'No published products yet. Publish products from the warehouse to Basebase (WMS → Basebase).', 'no_shop_products' => 'Products appear here when you have a shop on Basebase and publish products to it from this site.',
     'on_basebase' => 'Open', 'copy_embed' => 'Copy embed code', 'copied' => 'Copied', 'embed_hint' => 'The embed code is the same as on basebase.ru: paste it into any blog or site, and buyers purchase without leaving it.',
-    'goes_to_basebase' => 'This post is also synchronised with your Basebase blog.', 'shop_linked' => 'Basebase shop: {name}. Posts are synchronised with its blog.', 'sync_now' => 'Synchronise now',
+    'goes_to_basebase' => 'This post is also synchronised with your Basebase blog.', 'shop_linked' => 'Basebase shop: {name}.', 'shop_synced' => 'Posts are synchronised with its blog.', 'sync_now' => 'Synchronise now',
     'sync_unsupported_badge' => 'Basebase does not accept posts yet', 'sync_error_badge' => 'Synchronisation failed',
     'sync_unsupported' => 'Basebase does not offer blog synchronisation yet. Your posts are kept here and will be sent once it does.', 'sync_error' => 'Basebase synchronisation failed: {e}',
     'sync_ok' => 'Synchronised. Sent: {a}, received: {b}, removed: {c}.', 'no_shop' => 'You have no Basebase shop on this site.',

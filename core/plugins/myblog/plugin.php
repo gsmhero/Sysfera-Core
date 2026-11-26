@@ -135,7 +135,7 @@ return function (\Sysfera\Plugin $sf): void {
         $owner = $p ? (int)$p['owner_id'] : $uid();
         sf_session(); $form = $_SESSION['mb_form'] ?? null; unset($_SESSION['mb_form']);
         if (is_array($form) && (int)$form['id'] !== $id) $form = null;
-        $page('edit', ['p' => $p, 'form' => $form, 'products' => $products($owner), 'shop' => $shop($owner), 'siteLang' => \Sysfera\I18n::lang()], $sf->t($p ? 'edit_post' : 'new_post'));
+        $page('edit', ['p' => $p, 'form' => $form, 'products' => $products($owner), 'shop' => $shop($owner), 'synced' => $sf->setting("sync_state_$owner", '') === 'ok', 'siteLang' => \Sysfera\I18n::lang()], $sf->t($p ? 'edit_post' : 'new_post'));
     });
 
     $sf->route('GET', '/products', function () use ($sf, $uid, $products, $shop, $page) {

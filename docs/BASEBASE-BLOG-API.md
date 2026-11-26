@@ -1,7 +1,7 @@
 # Basebase Partner API v1: blog and sets (extension)
 
-Status: **Sysfera side implemented (My Blog 0.1.0). Basebase side NOT implemented yet.**
-Until Basebase answers these addresses, it returns `404 {"error":"not_found","message":"Unknown endpoint."}`; My Blog then keeps the posts, shows "Basebase does not accept posts yet" and tries again later.
+Status: **implemented on both sides** (Sysfera: My Blog; Basebase: `src/api_blog.php`).
+A Basebase without these addresses returns `404 {"error":"not_found","message":"Unknown endpoint."}`; My Blog then keeps the posts, shows "Basebase does not accept posts yet" and tries again later.
 
 Base address, signature headers and errors are those of `docs/BASEBASE-SYSFERA-API-v1.md` (sections 3 and 4). All paths are under `/sellers/{seller_id}`; the seller must belong to the calling Agent (as for products).
 
@@ -35,8 +35,8 @@ Request body of `POST` / `PUT`:
 ```
 
 * `cover_url` and `url` must be absolute `https` addresses on basebase.ru.
-* `updated_at` must change on every edit, in the cabinet too: `posts` has no such column today, so a migration is needed
-  (`ALTER TABLE posts ADD COLUMN updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP`, answer `COALESCE(updated_at, created_at)`), and `external_id VARCHAR(80) NULL` with a unique key per vendor. Note that an edit that only changes `post_items` must also touch `updated_at`.
+* `updated_at` must change on every edit, in the cabinet too: Basebase keeps it in `posts.updated_at` (set by the API and the cabinet; reading a post does not change it)
+  and answers `COALESCE(updated_at, created_at)`; `external_id` is unique per shop.
 
 ## Sets
 

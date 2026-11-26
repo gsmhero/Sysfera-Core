@@ -41,9 +41,10 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
         'index mine' => ['index', ['d' => $page($cards), 'f' => 'mine', 'q' => '"x', 'offline' => false, 'me' => 1, 'shop' => ['shop_name' => 'S<'], 'state' => 'unsupported', 'hubMod' => true]],
         'index all' => ['index', ['d' => $page([$remote], 3), 'f' => 'all', 'q' => '', 'offline' => true, 'me' => 1, 'shop' => null, 'state' => 'error', 'hubMod' => false]],
         'index empty' => ['index', ['d' => $page([]), 'f' => 'site', 'q' => '', 'offline' => false, 'me' => 2, 'shop' => null, 'state' => '', 'hubMod' => false]],
-        'edit new' => ['edit', ['p' => null, 'form' => null, 'products' => [], 'shop' => null]],
-        'edit' => ['edit', ['p' => $p, 'form' => null, 'products' => [$product], 'shop' => ['shop_name' => 'S']]],
-        'edit form' => ['edit', ['p' => null, 'form' => ['id' => 0, 'title' => 'T<', 'products' => ['5']], 'products' => [$product], 'shop' => null]],
+        'edit new' => ['edit', ['p' => null, 'form' => null, 'products' => [], 'shop' => null, 'synced' => false]],
+        'edit' => ['edit', ['p' => $p, 'form' => null, 'products' => [$product], 'shop' => ['shop_name' => 'S'], 'synced' => true]],
+        'edit unlisted product' => ['edit', ['p' => $p, 'form' => null, 'products' => [], 'shop' => ['shop_name' => 'S'], 'synced' => false]],
+        'edit form' => ['edit', ['p' => null, 'form' => ['id' => 0, 'title' => 'T<', 'products' => ['5']], 'products' => [$product], 'shop' => null, 'synced' => false]],
         'products' => ['products', ['products' => [$product], 'shop' => ['shop_name' => 'S']]], 'products none' => ['products', ['products' => [], 'shop' => null]],
         'post mine' => ['post', ['p' => $p, 'card' => Posts::card($p, fn($u) => $u), 'attached' => [$product], 'mine' => true]],
         'post draft' => ['post', ['p' => $st->post($d), 'card' => Posts::card($st->post($d), fn($u) => $u), 'attached' => [], 'mine' => false]],
@@ -62,6 +63,7 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
         if (preg_match('~<script>x</script>|<img src=x|<i>|S<[^/]|T<[^/]~', $html)) $bad[] = "$lang $name: unescaped text";
         if ($name === 'profile products' && str_contains($html, 'data-mb-copy')) $bad[] = "$lang $name: a visitor gets the owner's button";
         if ($name === 'profile products own' && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
+        if ($name === 'edit unlisted product' && !str_contains($html, 'type="hidden" name="products[]" value="5"')) $bad[] = "$lang $name: a product attached on Basebase would be lost";
         if ($view === 'products' && $vars['products'] && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
     }
     if ($sf->missing) $bad[] = "$lang missing keys: " . implode(', ', array_unique($sf->missing));

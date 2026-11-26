@@ -3,7 +3,7 @@
   <div class="row"><a class="btn" href="<?= e($sf->url('products')) ?>"><?= e($sf->t('my_products')) ?></a><a class="btn primary" href="<?= e($sf->url('edit')) ?>">+ <?= e($sf->t('new_post')) ?></a></div></div>
 
 <?php if ($shop): ?>
-<div class="card mb-shop"><span><?= e($sf->t('shop_linked', ['name' => (string)($shop['shop_name'] ?? '')])) ?>
+<div class="card mb-shop"><span><?= e($sf->t('shop_linked', ['name' => (string)($shop['shop_name'] ?? '')])) ?><?php if ($state === 'ok'): ?> <?= e($sf->t('shop_synced')) ?><?php endif; ?>
   <?php if ($state === 'unsupported'): ?><span class="badge warn"><?= e($sf->t('sync_unsupported_badge')) ?></span><?php elseif ($state === 'error'): ?><span class="badge bad"><?= e($sf->t('sync_error_badge')) ?></span><?php endif; ?></span>
   <form method="post" action="<?= e($sf->url('sync')) ?>"><?= csrf_field() ?><button class="btn sm"><?= e($sf->t('sync_now')) ?></button></form></div>
 <?php endif; ?>
