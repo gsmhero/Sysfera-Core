@@ -26,7 +26,8 @@ final class View
         echo self::file(SF_ROOT . '/views/public.php', [
             'title' => $title, 'content' => $content, 'user' => $app->auth()?->user(), 'siteName' => $app->setting('site_name', 'Sysfera'),
             'open' => $app->setting('registration', '0') === '1' || Demo::on(), 'flashes' => flashes(),
-            'description' => (string)($opt['description'] ?? ''), 'wide' => !empty($opt['wide']),
+            'description' => (string)($opt['description'] ?? ''), 'wide' => !empty($opt['wide']), 'nav' => (string)($opt['nav'] ?? ''),
+            'links' => Landing::enabled($app->setting('landing', '1')) || (bool)$app->auth()?->user(),
         ]);
     }
 

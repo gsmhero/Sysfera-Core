@@ -233,6 +233,22 @@ return function (\Sysfera\Plugin $sf): void {
         header('Content-Type: ' . $types[pathinfo($n, PATHINFO_EXTENSION)]); header('X-Content-Type-Options: nosniff'); header('Cache-Control: public, max-age=604800'); header('Content-Length: ' . filesize($f)); readfile($f);
     }, ['auth' => false]);
 
+    /* ---------- the public start page: posts of this site or of all sites, and the search ---------- */
+    $sf->on('landing.feed', function ($v, array $o) use ($sf, $st, $net, $latest, $localFeed, $products, $css) {
+        $q = Text::line((string)($o['q'] ?? ''), 100); $pg = max(1, (int)($o['page'] ?? 1));
+        $n = $net(); $scope = $n && ($o['scope'] ?? '') === 'global' ? 'global' : 'local';
+        $d = null;
+        if ($scope === 'global') $d = $pg === 1 && $q === '' ? $latest() : $n->feed($pg, BlogHub::PER_PAGE, $q);
+        $offline = $scope === 'global' && $d === null;
+        $d ??= $localFeed($q, $pg);
+        $people = []; $found = [];
+        if ($q !== '' && $pg === 1) {   // products, people and shops are those of this site
+            $people = Profile::people((array)Hooks::filter('basebase.shops', [], $q), $st->publicAuthors($q, 24));
+            $found = (array)Hooks::filter('basebase.products', [], ['q' => $q, 'limit' => 24]);
+        }
+        return ['html' => $css() . View::file($sf->dir . '/views/start.php', ['sf' => $sf, 'd' => $d, 'q' => $q, 'scope' => $scope, 'offline' => $offline, 'people' => $people, 'products' => $found]), 'global' => $n !== null];
+    });
+
     /* ---------- dashboard widget and profile card ---------- */
     $sf->on('dashboard.widgets', function (array $w) use ($sf, $latest, $localFeed, $css) {
         $d = Demo::on() ? null : $latest();

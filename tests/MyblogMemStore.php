@@ -27,6 +27,12 @@ final class MyblogMemStore implements Store
     public function hubDirty(int $limit): array { return array_slice(array_values(array_map(fn($p) => $this->join($p), array_filter($this->posts, fn($p) => !empty($p['hub_dirty'])))), 0, $limit); }
     public function userName(int $uid): ?string { $u = $this->users[$uid] ?? null; return $u && $u['status'] === 'active' ? $u['name'] : null; }
 
+    public function publicAuthors(string $q, int $limit): array
+    {
+        $out = [];
+        foreach ($this->publicPosts(null, '', 1000, 0)[0] as $p) { if (stripos($p['author'], $q) === false) continue; $u = $p['owner_id']; $out[$u] ??= ['uid' => $u, 'name' => $p['author'], 'posts' => 0]; $out[$u]['posts']++; }
+        return array_slice(array_values($out), 0, $limit);
+    }
     public function hubGet(string $domain, int $postId): ?array { return $this->hub["$domain#$postId"] ?? null; }
     public function hubPut(string $domain, int $postId, array $row): void { $k = "$domain#$postId"; $this->hub[$k] = array_merge($this->hub[$k] ?? ['id' => ++$this->hseq, 'domain' => $domain, 'post_id' => $postId, 'hidden' => 0, 'new' => true], $row); }
     public function hubDelete(string $domain, int $uid, int $postId): void { $k = "$domain#$postId"; if (isset($this->hub[$k]) && $this->hub[$k]['uid'] === $uid && !$this->hub[$k]['hidden']) unset($this->hub[$k]); }

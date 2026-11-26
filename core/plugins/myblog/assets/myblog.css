@@ -29,3 +29,4 @@
 .mb-cols{display:grid;grid-template-columns:260px minmax(0,1fr);gap:26px;align-items:start}@media(max-width:760px){.mb-cols{grid-template-columns:1fr}}
 .mb-wide{width:100%}.mb-cats{display:flex;flex-direction:column;gap:2px}.mb-cats a{padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none;display:flex;justify-content:space-between;gap:8px}.mb-cats a.on{background:var(--bg);color:var(--acc);font-weight:600}
 .mb-tile{display:flex;flex-direction:column;gap:6px}.mb-tile .mb-item{flex:1}
+.mb-cover{text-decoration:none}.land-sec .mb-found{font-size:20px;margin:6px 0 12px;text-align:left}.mb-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:18px}

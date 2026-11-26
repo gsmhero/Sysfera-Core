@@ -37,6 +37,15 @@ final class Profile
         return $c;
     }
 
+    /** People and shops found by the site search: shops with products and authors of posts, one line per user. */
+    public static function people(array $shops, array $authors): array
+    {
+        $out = [];
+        foreach ($shops as $s) $out[(int)$s['owner_id']] = ['uid' => (int)$s['owner_id'], 'name' => (string)$s['shop_name'], 'products' => (int)$s['products'], 'posts' => 0];
+        foreach ($authors as $a) { $out[$a['uid']] ??= ['uid' => $a['uid'], 'name' => $a['name'], 'products' => 0, 'posts' => 0]; $out[$a['uid']]['posts'] = $a['posts']; }
+        return array_values($out);
+    }
+
     /** Somebody has a public profile once something of his is public; the person and administrators always see it. */
     public static function visible(?string $name, int $posts, int $products, bool $own): bool { return $name !== null && ($own || $posts > 0 || $products > 0); }
 }

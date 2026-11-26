@@ -16,6 +16,9 @@ Posts of every signed-in user, public on their own site and, with "All Sysfera s
 ## Public profile
 `/p/myblog/u/{id}` is laid out like a shop page on Basebase: tabs Posts, Products (filter sidebar: name or SKU, price, category) and Sets. It exists once the user has a published post or product (otherwise 404, except for the user and administrators) and never shows the e-mail. "About me" is edited on the core Profile page. Sets come from Basebase and are cached for 10 minutes.
 
+## Start page
+For guests `/` shows post cards (hook `landing.feed`) with **Local only posts / Global** and a search over this site's products, people and shop names (posts follow the chosen scope). Without My Blog `/` shows the Sysfera introduction, which otherwise lives at `/components`; `/how` explains how it works. Public blocks of other components (`landing.blocks`) stay on `/`. Settings → start page off: guests are sent to sign in.
+
 ## Permissions
 Any signed-in user writes posts; the author and site administrators edit and delete them. No platform capability is used (new users get all capabilities).
 

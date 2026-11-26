@@ -18,6 +18,8 @@ interface Store
     /** Posts still to be sent to the hub, oldest change first. */
     public function hubDirty(int $limit): array;
     public function userName(int $uid): ?string;
+    /** Active users with a published post whose name matches. @return list<array{uid:int,name:string,posts:int}> */
+    public function publicAuthors(string $q, int $limit): array;
 
     /* hub site only */
     public function hubGet(string $domain, int $postId): ?array;
@@ -72,6 +74,12 @@ final class DbStore implements Store
     public function hubDirty(int $limit): array { return $this->db->rows(self::POST . ' WHERE p.hub_dirty = 1 ORDER BY p.updated_at, p.id LIMIT ' . max(1, $limit)); }
 
     public function userName(int $uid): ?string { $n = $this->db->val("SELECT name FROM {p}users WHERE id = ? AND status = 'active'", [$uid]); return $n === null ? null : (string)$n; }
+
+    public function publicAuthors(string $q, int $limit): array
+    {
+        $rows = $this->db->rows("SELECT u.id, u.name, COUNT(*) AS n FROM {p}myblog_posts p JOIN {p}users u ON u.id = p.owner_id WHERE p.status = 'published' AND p.deleted = 0 AND u.status = 'active' AND u.name LIKE ? GROUP BY u.id, u.name ORDER BY u.name LIMIT " . max(1, $limit), [self::like($q)]);
+        return array_map(fn($r) => ['uid' => (int)$r['id'], 'name' => (string)$r['name'], 'posts' => (int)$r['n']], $rows);
+    }
 
     public function hubGet(string $domain, int $postId): ?array { return $this->db->row('SELECT * FROM {p}myblog_hub WHERE domain = ? AND post_id = ?', [$domain, $postId]); }
 

@@ -72,6 +72,21 @@ $by = array_column($dyn, null, 'slug');
 ok(isset($by['storagerent']) && $by['storagerent']['title'] === 'Склад' && $by['storagerent']['desc'] === 'Первое.' && isset($by['newthing']) && $by['newthing']['title'] === 'New thing', 'landing: installed and offered components get a card by themselves');
 ok(count(array_keys(array_column($dyn, 'slug'), 'wms')) === 1 && $by['accounting']['state'] === 'ready' && $by['vacancy']['state'] === 'soon' && array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'state', 'slug')['vacancy'] === 'ready' && !in_array('hr', array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'slug'), true), 'landing: no duplicate for a curated component; an announced one becomes ready once it exists');
 
+/* the public pages render in every language, search text is escaped */
+foreach (['en', 'ru'] as $l) {
+    I18n::setLang($l);
+    $html = [
+        'start' => \Sysfera\View::file(SF_ROOT . '/views/landing.php', ['feed' => ['html' => '<p>posts</p>', 'global' => true], 'scope' => 'local', 'q' => '"<x', 'blocks' => '<b>block</b>']),
+        'one site' => \Sysfera\View::file(SF_ROOT . '/views/landing.php', ['feed' => ['html' => '', 'global' => false], 'scope' => 'local', 'q' => '', 'blocks' => '']),
+        'components' => \Sysfera\View::file(SF_ROOT . '/views/components.php', ['open' => true, 'all' => \Sysfera\Landing::all([], [], $l), 'blocks' => '']),
+        'how' => \Sysfera\View::file(SF_ROOT . '/views/how.php', ['open' => false]),
+    ];
+    ok(str_contains($html['start'], '<p>posts</p>') && str_contains($html['start'], '<b>block</b>') && !str_contains($html['start'], '"<x') && str_contains($html['start'], 'scope=global') && str_contains($html['start'], e(t('land.feed_local'))), "start page ($l): search, switch and posts");
+    ok(!str_contains($html['one site'], 'land-switch'), "start page ($l): no switch without the shared feed");
+    ok(substr_count($html['components'], 'land-card') >= count(\Sysfera\Landing::components()) && !preg_match('/>land\./', $html['components'] . $html['how']) && str_contains($html['how'], e(t('land.f_search_d'))), "components and how-it-works pages ($l)");
+}
+I18n::setLang('en');
+
 /* plugin manifests */
 foreach (glob(SF_ROOT . '/plugins/*/plugin.json') as $f) ok(Plugins::readManifest($f) !== null, 'manifest valid: ' . basename(dirname($f)));
 

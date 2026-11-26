@@ -135,6 +135,8 @@ ok($names(['min' => '200', 'max' => '300']) === ['Nose mask'] && $names(['min' =
 ok($names(['cat' => 'Skin']) === ['Lip patch'] && $names(['cat' => ['x']]) === ['Lip patch', 'Nose mask', 'Bag'], 'products: category');
 ok($P::categories($list) === ['Cosmetics' => 1, 'Skin' => 1], 'categories with counts');
 ok(!$P::visible(null, 5, 5, true) && !$P::visible('A', 0, 0, false) && $P::visible('A', 0, 0, true) && $P::visible('A', 1, 0, false) && $P::visible('A', 0, 1, false), 'a profile is public only once something is public');
+$people = $P::people([['owner_id' => 2, 'shop_name' => 'Olga Shop', 'products' => 3]], [['uid' => 2, 'name' => 'Olga', 'posts' => 1], ['uid' => 3, 'name' => 'Oleg', 'posts' => 4]]);
+ok(count($people) === 2 && $people[0] === ['uid' => 2, 'name' => 'Olga Shop', 'products' => 3, 'posts' => 1] && $people[1]['name'] === 'Oleg', 'search: one line per user, shop name first');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

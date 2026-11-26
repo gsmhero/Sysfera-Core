@@ -150,3 +150,6 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 
 /* public pages */
 .land-main{padding-top:28px;padding-bottom:40px;min-height:60vh}
+.land-top nav>a.on{color:var(--acc);font-weight:600}.land-sec h1.land-h1{font-size:clamp(28px,5vw,40px);margin:0 0 18px;text-align:center}
+.land-feed{padding-top:32px;min-height:55vh}.land-search{display:flex;gap:8px;max-width:640px;margin:0 auto 16px}.land-search input[type=search]{flex:1;min-width:0}
+.land-switch{display:flex;justify-content:center;flex-wrap:wrap;margin:0 0 24px}.land-switch a{padding:8px 18px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}.land-switch a:first-child{border-radius:99px 0 0 99px}.land-switch a:last-child{border-radius:0 99px 99px 0}.land-switch a.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}

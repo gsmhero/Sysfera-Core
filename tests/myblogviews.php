@@ -35,7 +35,9 @@ $bad = []; $all = '';
 foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
     $sf = new FakeSf($L);
     $prof = fn(array $v): array => $v + ['uid' => 1, 'name' => 'N<', 'shopName' => 'S<', 'about' => "About <i>\nline", 'tab' => 'posts', 'postCount' => 2, 'productCount' => 1, 'd' => $page([]), 'items' => [], 'f' => SysferaBlog\Profile::filters([]), 'cats' => [], 'page' => 1, 'pages' => 1, 'sets' => null, 'own' => false];
+    $start = fn(array $v): array => $v + ['d' => $page($cards, 2), 'q' => '', 'scope' => 'global', 'offline' => false, 'people' => [], 'products' => []];
     $cases = [
+        'start' => ['start', $start([])], 'start search' => ['start', $start(['q' => '"x<', 'offline' => true, 'people' => [['uid' => 1, 'name' => 'S<', 'products' => 2, 'posts' => 1]], 'products' => [$product]])], 'start nothing' => ['start', $start(['d' => $page([]), 'q' => 'zz', 'scope' => 'local'])],
         'index mine' => ['index', ['d' => $page($cards), 'f' => 'mine', 'q' => '"x', 'offline' => false, 'me' => 1, 'shop' => ['shop_name' => 'S<'], 'state' => 'unsupported', 'hubMod' => true]],
         'index all' => ['index', ['d' => $page([$remote], 3), 'f' => 'all', 'q' => '', 'offline' => true, 'me' => 1, 'shop' => null, 'state' => 'error', 'hubMod' => false]],
         'index empty' => ['index', ['d' => $page([]), 'f' => 'site', 'q' => '', 'offline' => false, 'me' => 2, 'shop' => null, 'state' => '', 'hubMod' => false]],

@@ -55,16 +55,41 @@ return function (App $app): void {
         View::page(t('auth.register'), View::file(SF_ROOT . '/views/register.php', ['err' => $err, 'open' => $open]), ['bare' => true]);
     });
 
+    /* ---------- public pages: start page (blog posts), components, how it works ---------- */
+    $open = fn(): bool => $app->setting('registration', '0') === '1' || Demo::on();
+    $guestsMaySee = function () use ($app, $auth): void {      // switched off: guests go straight to the sign-in form
+        if (!$auth->user() && !\Sysfera\Landing::enabled($app->setting('landing', '1'))) redirect('/login');
+    };
+    $cards = function () use ($app): array {
+        // the components list follows the update server: refresh the manifest after the page is sent when it is stale (at most every 15 minutes, never blocks the guest)
+        if (time() - (int)$app->setting('update_checked', '0') >= 21600 && time() - (int)$app->setting('landing_try', '0') >= 900) {
+            $app->setSetting('landing_try', (string)time());
+            register_shutdown_function(function () use ($app) { if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request(); try { (new \Sysfera\Updater($app))->manifest(); } catch (\Throwable) {} });
+        }
+        $pl = $app->plugins(); $mine = [];
+        foreach ($pl->available() as $sl => $mf) if ($pl->isEnabled($sl)) $mine[$sl] = $mf;
+        $offered = (array)((json_decode((string)$app->setting('update_cache', ''), true) ?: [])['plugins'] ?? []);   // what the update server offers (already fetched; guests download nothing)
+        return \Sysfera\Landing::all($mine, $offered, I18n::lang());
+    };
+    $blocks = fn(): string => (string)Hooks::filter('landing.blocks', '');   // components add public blocks (HTML string)
+    $show = function (string $view, array $vars, string $title, string $nav = '') use ($app): void {
+        View::publicPage($title, View::file(SF_ROOT . "/views/$view.php", $vars), ['wide' => true, 'nav' => $nav, 'description' => t('land.lead')]);
+    };
+    $startPage = function () use ($open, $guestsMaySee, $cards, $blocks, $show): void {
+        $guestsMaySee();
+        $text = fn(string $k, int $max): string => is_string($_GET[$k] ?? null) && preg_match('/^.{0,' . $max . '}/us', trim($_GET[$k]), $m) ? $m[0] : '';
+        $scope = $text('scope', 10) === 'local' ? 'local' : 'global'; $q = $text('q', 100);
+        $feed = Hooks::filter('landing.feed', null, ['scope' => $scope, 'q' => $q, 'page' => max(1, min(1000, (int)($_GET['page'] ?? 1)))]);
+        if (!is_array($feed)) { $show('components', ['open' => $open(), 'all' => $cards(), 'blocks' => $blocks()], t('land.tagline')); return; }   // no component offers posts: the start page introduces Sysfera
+        $show('landing', ['feed' => $feed, 'scope' => $feed['global'] ? $scope : 'local', 'q' => $q, 'blocks' => $q === '' ? $blocks() : ''], t('land.feed_h'));
+    };
+    $r->add('GET', '/components', function () use ($open, $guestsMaySee, $cards, $show) { $guestsMaySee(); $show('components', ['open' => $open(), 'all' => $cards(), 'blocks' => ''], t('land.nav_components'), 'components'); });
+    $r->add('GET', '/how', function () use ($open, $guestsMaySee, $show) { $guestsMaySee(); $show('how', ['open' => $open()], t('land.nav_how'), 'how'); });
+
     /* ---------- dashboard & profile ---------- */
-    $r->add('GET', '/', function () use ($app, $auth) {
-        if (!$auth->user()) {                                  // guests: public landing page (or the sign-in form if switched off)
-            if (!\Sysfera\Landing::enabled($app->setting('landing', '1'))) redirect('/login');
-            // the components list follows the update server: refresh the manifest after the page is sent when it is stale (at most every 15 minutes, never blocks the guest)
-            if (time() - (int)$app->setting('update_checked', '0') >= 21600 && time() - (int)$app->setting('landing_try', '0') >= 900) {
-                $app->setSetting('landing_try', (string)time());
-                register_shutdown_function(function () use ($app) { if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request(); try { (new \Sysfera\Updater($app))->manifest(); } catch (\Throwable) {} });
-            }
-            echo View::file(SF_ROOT . '/views/landing.php', ['open' => $app->setting('registration', '0') === '1' || Demo::on(), 'siteName' => $app->setting('site_name', 'Sysfera')]);
+    $r->add('GET', '/', function () use ($app, $auth, $startPage) {
+        if (!$auth->user()) {                                  // guests: the public start page
+            $startPage();
             return;
         }
         if ($auth->isAdmin()) $app->updater()->autoInstall();   // no-op unless the administrator switched it on; checks at most every 6 hours
