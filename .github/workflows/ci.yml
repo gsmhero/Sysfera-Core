@@ -61,6 +61,10 @@ jobs:
           php tests/storagerentbilling.php
           php tests/storagerent.php
           php tests/storagerentviews.php
+      - name: My Blog tests
+        run: |
+          php tests/myblog.php
+          php tests/myblogviews.php
       - name: Notes tests
         run: php tests/noteviews.php
       - name: Build packages

@@ -103,7 +103,7 @@ final class App
         }
         unset($i);
         // three zones, separated in the sidebar: 1 daily work, 2 business modules, 3 administration; position inside a zone is fixed here, unknown components go to the end of zone 2
-        $pos = ['/' => [1, 0], 'hello' => [1, 1], 'crm' => [1, 2], 'missions' => [1, 3], '/task-types' => [1, 4], 'contracts' => [1, 5], 'contactlog' => [1, 6],
+        $pos = ['/' => [1, 0], 'myblog' => [1, 0.5], 'hello' => [1, 1], 'crm' => [1, 2], 'missions' => [1, 3], '/task-types' => [1, 4], 'contracts' => [1, 5], 'contactlog' => [1, 6],
             'wms' => [2, 1], 'goodsissue' => [2, 1.5], 'wms-basebase' => [2, 2], 'messenger' => [2, 3], 'activity' => [2, 4], 'teams' => [2, 5],
             '/plugins' => [3, 1], '/users' => [3, 2], '/settings' => [3, 3], 'news-publisher' => [3, 4], '/upgrade' => [3, 5]];
         foreach ($items as &$i) { $k = !empty($i['slug']) ? $i['slug'] : $i['path']; [$i['group'], $i['pos']] = $pos[$k] ?? [2, 50 + (float)($i['order'] ?? 50)]; }

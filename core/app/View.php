@@ -19,6 +19,17 @@ final class View
         self::page($title ?? t('nav.dashboard'), self::file(SF_ROOT . "/views/$tpl.php", $vars));
     }
 
+    /** A page everybody may read (a blog post, an author's profile): site header and footer instead of the sidebar. $opt: 'description', 'wide' => the content brings its own width. */
+    public static function publicPage(string $title, string $content, array $opt = []): void
+    {
+        $app = App::get();
+        echo self::file(SF_ROOT . '/views/public.php', [
+            'title' => $title, 'content' => $content, 'user' => $app->auth()?->user(), 'siteName' => $app->setting('site_name', 'Sysfera'),
+            'open' => $app->setting('registration', '0') === '1' || Demo::on(), 'flashes' => flashes(),
+            'description' => (string)($opt['description'] ?? ''), 'wide' => !empty($opt['wide']),
+        ]);
+    }
+
     public static function page(string $title, string $content, array $opt = []): void
     {
         $app = App::get();

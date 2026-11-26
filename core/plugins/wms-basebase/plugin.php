@@ -215,6 +215,39 @@ return function (\Sysfera\Plugin $sf): void {
     });
     \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['wmsbb.use', 'wmsbb.admin'])));
 
+    /* ================= what other components (My Blog) may ask about a user's shop ================= */
+    require_once __DIR__ . '/lib/Shop.php';
+    /** the user's shop on Basebase, or null */
+    $shopOf = function (int $user) use ($db, $client): ?array {
+        if (!$client->configured() || $user <= 0) return null;
+        $r = $db->row("SELECT s.seller_id, s.shop_name, u.name FROM {p}wmsbb_sellers s JOIN {p}users u ON u.id = s.owner_id WHERE s.owner_id = ? AND s.seller_id > 0 AND u.status = 'active'", [$user]);
+        return $r ? ['seller_id' => (int)$r['seller_id'], 'shop_name' => trim((string)$r['shop_name']) ?: (string)$r['name']] : null;
+    };
+    $sf->on('basebase.shop', fn($v, int $user) => $shopOf($user));
+    // published products; $o: owner (omit = everybody's), q (name or SKU), limit
+    $sf->on('basebase.products', function (array $list, array $o = []) use ($db): array {
+        [$w, $a] = \SysferaBb\Shop::where($o);
+        foreach ($db->rows("SELECT m.bb_url, m.category, m.images, p.name, p.sku, p.sell_price, p.images AS p_images, p.owner_id FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id JOIN {p}users u ON u.id = p.owner_id WHERE $w ORDER BY p.id DESC LIMIT " . max(1, min(500, (int)($o['limit'] ?? 500))), $a) as $r) {
+            $x = \SysferaBb\Shop::product($r);
+            if ($x['bb_id'] > 0) $list[] = $x;
+        }
+        return $list;
+    });
+    // shops found by name, for the site search: only shops that offer at least one product
+    $sf->on('basebase.shops', function (array $list, string $q) use ($db): array {
+        $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+        [$w, $a] = \SysferaBb\Shop::where([]);
+        foreach ($db->rows("SELECT p.owner_id, COALESCE(NULLIF(s.shop_name, ''), u.name) AS shop, COUNT(*) AS n FROM {p}wmsbb_products m JOIN {p}wms_products p ON p.id = m.product_id JOIN {p}users u ON u.id = p.owner_id JOIN {p}wmsbb_sellers s ON s.owner_id = p.owner_id
+            WHERE $w AND (s.shop_name LIKE ? OR u.name LIKE ?) GROUP BY p.owner_id, shop ORDER BY shop LIMIT 24", [...$a, $like, $like]) as $r) $list[] = ['owner_id' => (int)$r['owner_id'], 'shop_name' => (string)$r['shop'], 'products' => (int)$r['n']];
+        return $list;
+    });
+    // a signed request on the user's own seller account: $suffix is the part after /sellers/{id}
+    $sf->on('basebase.request', function ($v, int $user, string $method, string $suffix, ?array $body = null) use ($shopOf, $client) {
+        $s = $shopOf($user);
+        if (!$s || !preg_match('~^(/[A-Za-z0-9._:-]+)+$~D', $suffix)) return $v;
+        return $client->request($method, '/sellers/' . $s['seller_id'] . $suffix, $body, $method === 'GET' ? 6 : 20);   // Basebase downloads a cover picture while answering
+    });
+
     /* ================= fields on the WMS product card ================= */
     $sf->on('wms.product.fields', function (string $html, ?array $p) use ($sf, $db, $cfg): string {
         if (!$sf->can('wmsbb.use')) return $html;
