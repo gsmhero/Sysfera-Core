@@ -13,6 +13,9 @@ Posts of every signed-in user, public on their own site and, with "All Sysfera s
 * Limits: 20 new shared posts per user per day. Administrators of the hub site hide posts at My Blog → Moderate.
 * Unsent changes stay marked and are retried when somebody opens or saves in My Blog.
 
+## Public profile
+`/p/myblog/u/{id}` is laid out like a shop page on Basebase: tabs Posts, Products (filter sidebar: name or SKU, price, category) and Sets. It exists once the user has a published post or product (otherwise 404, except for the user and administrators) and never shows the e-mail. "About me" is edited on the core Profile page. Sets come from Basebase and are cached for 10 minutes.
+
 ## Permissions
 Any signed-in user writes posts; the author and site administrators edit and delete them. No platform capability is used (new users get all capabilities).
 

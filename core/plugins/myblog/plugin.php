@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaBlog\{BbSync, BlogError, BlogHub, DbStore, Network, Posts, Text};
+use SysferaBlog\{BbSync, BlogError, BlogHub, DbStore, Network, Posts, Profile, Text};
 use SysferaMsg\{Ctx, HubError, HubServer};
 use Sysfera\{Demo, Hooks, View};
 
@@ -12,7 +12,7 @@ use Sysfera\{Demo, Hooks, View};
 return function (\Sysfera\Plugin $sf): void {
     $mdir = dirname($sf->dir) . '/messenger/lib/';
     foreach (['Util', 'Hub', 'Client'] as $f) require_once $mdir . "$f.php";
-    foreach (['Text', 'Store', 'Posts', 'Network', 'BbSync'] as $f) require_once __DIR__ . "/lib/$f.php";
+    foreach (['Text', 'Store', 'Posts', 'Network', 'BbSync', 'Profile'] as $f) require_once __DIR__ . "/lib/$f.php";
 
     $db = $sf->db();
     $st = new DbStore($db);
@@ -198,6 +198,34 @@ return function (\Sysfera\Plugin $sf): void {
         $publicPage('post', ['p' => $p, 'card' => $card, 'attached' => $attached, 'mine' => $mine], (string)$p['title'], ['description' => Text::excerpt((string)$p['body'], 160)]);
     }, ['auth' => false]);
 
+    /** The shop's sets for a public profile, kept for 10 minutes so guests do not make the site call Basebase on every visit. */
+    $sets = function (int $u) use ($bb, $dir): ?array {
+        $file = "$dir/sets-$u.json";
+        if (is_file($file) && time() - (int)filemtime($file) < 600) return json_decode((string)file_get_contents($file), true);
+        $r = ($s = $bb($u)) ? $s->sets() : null;
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        @file_put_contents($file, json_encode($r, JSON_UNESCAPED_UNICODE));
+        return $r;
+    };
+
+    // the author's public profile: Posts, Products (with a filter sidebar), Sets
+    $sf->route('GET', '/u/{id}', function (array $a) use ($sf, $st, $uid, $admin, $products, $shop, $sets, $localFeed, $notFound, $publicPage) {
+        $u = (int)$a['id']; $name = $st->userName($u); $own = $uid() > 0 && $uid() === $u;
+        $tab = in_array($_GET['tab'] ?? '', Profile::TABS, true) ? $_GET['tab'] : 'posts';
+        $pg = max(1, min(10000, (int)($_GET['page'] ?? 1)));
+        $all = $name === null ? [] : $products($u);
+        $d = $name === null ? ['items' => [], 'total' => 0, 'pages' => 1] : $localFeed('', $tab === 'posts' ? $pg : 1, $u);
+        if (!Profile::visible($name, $d['total'], count($all), $own || $admin())) { $notFound(); return; }
+        $f = Profile::filters($_GET); $hit = Profile::filter($all, $f);
+        $pages = $tab === 'posts' ? $d['pages'] : ($tab === 'products' ? max(1, (int)ceil(count($hit) / Profile::PER_PAGE)) : 1);
+        $pg = min($pg, $pages);
+        $shopName = (string)($shop($u)['shop_name'] ?? '');
+        $about = $sf->setting("about_$u", '');
+        $publicPage('profile', ['uid' => $u, 'name' => $name, 'shopName' => $shopName, 'about' => $about, 'tab' => $tab, 'postCount' => $d['total'], 'productCount' => count($all), 'd' => $d,
+            'items' => array_slice($hit, ($pg - 1) * Profile::PER_PAGE, Profile::PER_PAGE), 'f' => $f, 'cats' => Profile::categories($all), 'page' => $pg, 'pages' => $pages,
+            'sets' => $tab === 'sets' ? $sets($u) : null, 'own' => $own], $shopName !== '' ? $shopName : (string)$name, ['description' => Text::excerpt($about, 160)]);
+    }, ['auth' => false]);
+
     $sf->route('GET', '/cover/{file}', function (array $a) use ($dir) {
         $n = (string)$a['file']; $f = "$dir/$n";
         if (!Text::coverName($n) || !is_file($f)) { http_response_code(404); return; }
@@ -213,9 +241,16 @@ return function (\Sysfera\Plugin $sf): void {
         return $w;
     });
 
-    $sf->on('profile.cards', function (array $cards) use ($sf, $css) {
-        $cards[] = $css() . View::file($sf->dir . '/views/profile_card.php', ['sf' => $sf]);
+    $sf->on('profile.cards', function (array $cards, array $u) use ($sf, $css) {
+        $cards[] = $css() . View::file($sf->dir . '/views/profile_card.php', ['sf' => $sf, 'uid' => (int)$u['id'], 'about' => $sf->setting('about_' . (int)$u['id'], '')]);
         return $cards;
+    });
+
+    // "About me" on the core Profile page: shown on the public profile
+    $sf->on('profile.save', function (string $do, array $u) use ($sf) {
+        if ($do !== 'x_myblog_about') return;
+        $sf->setSetting('about_' . (int)$u['id'], Text::cut(trim(str_replace("\r\n", "\n", is_string($_POST['about'] ?? null) ? $_POST['about'] : '')), Profile::ABOUT_MAX));
+        flash($sf->t('about_saved'));
     });
 
     /* ---------- moderation of the shared feed (hub site, administrators) ---------- */
@@ -230,7 +265,9 @@ return function (\Sysfera\Plugin $sf): void {
     }, ['admin' => true]);
 
     /* ---------- a user leaves: his posts leave the shared feed ---------- */
-    $sf->on('user.deleted', function (int $u) use ($st, $push, $dir) {
+    $sf->on('user.deleted', function (int $u) use ($st, $push, $dir, $db) {
+        $db->q('DELETE FROM {p}settings WHERE k IN (?,?,?)', ["plugin.myblog.about_$u", "plugin.myblog.sync_$u", "plugin.myblog.sync_state_$u"]);
+        @unlink("$dir/sets-$u.json");
         foreach ($st->ownerPosts($u) as $p) {
             if (!empty($p['cover'])) @unlink("$dir/" . basename((string)$p['cover']));
             $st->update((int)$p['id'], ['deleted' => 1, 'hub_dirty' => 1, 'bb_dirty' => 0, 'cover' => null, 'updated_at' => date('Y-m-d H:i:s')]);   // the Basebase shop is the user's own and stays

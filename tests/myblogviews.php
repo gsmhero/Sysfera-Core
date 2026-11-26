@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Renders every My Blog page (en and ru); a PHP warning, a missing translation or unescaped user text fails. Also: language parity, error keys, migrations, manifest, .gitignore. Run: php tests/myblogviews.php */
 require dirname(__DIR__) . '/core/app/bootstrap.php';
 $dir = SF_ROOT . '/plugins/myblog';
-foreach (['Text', 'Store', 'Posts', 'Network'] as $f) require "$dir/lib/$f.php";
+foreach (['Text', 'Store', 'Posts', 'Network', 'Profile'] as $f) require "$dir/lib/$f.php";
 require __DIR__ . '/MyblogMemStore.php';
 use SysferaBlog\{Posts, Text};
 use Sysfera\View;
@@ -34,6 +34,7 @@ $p = $st->post($id) + []; $p['bb_url'] = 'https://www.basebase.ru/blog/1';
 $bad = []; $all = '';
 foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
     $sf = new FakeSf($L);
+    $prof = fn(array $v): array => $v + ['uid' => 1, 'name' => 'N<', 'shopName' => 'S<', 'about' => "About <i>\nline", 'tab' => 'posts', 'postCount' => 2, 'productCount' => 1, 'd' => $page([]), 'items' => [], 'f' => SysferaBlog\Profile::filters([]), 'cats' => [], 'page' => 1, 'pages' => 1, 'sets' => null, 'own' => false];
     $cases = [
         'index mine' => ['index', ['d' => $page($cards), 'f' => 'mine', 'q' => '"x', 'offline' => false, 'me' => 1, 'shop' => ['shop_name' => 'S<'], 'state' => 'unsupported', 'hubMod' => true]],
         'index all' => ['index', ['d' => $page([$remote], 3), 'f' => 'all', 'q' => '', 'offline' => true, 'me' => 1, 'shop' => null, 'state' => 'error', 'hubMod' => false]],
@@ -45,13 +46,20 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
         'post mine' => ['post', ['p' => $p, 'card' => Posts::card($p, fn($u) => $u), 'attached' => [$product], 'mine' => true]],
         'post draft' => ['post', ['p' => $st->post($d), 'card' => Posts::card($st->post($d), fn($u) => $u), 'attached' => [], 'mine' => false]],
         'widget' => ['widget', ['items' => [$remote, $cards[0]], 'shared' => true]], 'widget local' => ['widget', ['items' => [], 'shared' => false]],
-        'profile card' => ['profile_card', []], 'notice' => ['notice', ['msg' => 'e_no_post']],
+        'profile card' => ['profile_card', ['uid' => 1, 'about' => 'About <i>']],
+        'profile posts' => ['profile', $prof(['tab' => 'posts', 'd' => $page($cards, 2), 'pages' => 2])], 'profile posts empty' => ['profile', $prof(['tab' => 'posts', 'd' => $page([]), 'about' => ''])],
+        'profile products' => ['profile', $prof(['tab' => 'products', 'items' => [$product], 'cats' => ['Skin' => 1, 'C<' => 2], 'f' => SysferaBlog\Profile::filters(['q' => '"x<', 'cat' => 'Skin', 'min' => '1']), 'page' => 2, 'pages' => 3])],
+        'profile products own' => ['profile', $prof(['tab' => 'products', 'items' => [$product], 'own' => true])], 'profile products none' => ['profile', $prof(['tab' => 'products', 'productCount' => 0])],
+        'profile sets' => ['profile', $prof(['tab' => 'sets', 'sets' => [['id' => 1, 'title' => 'Set <i>', 'items' => 2, 'sum' => 99.0, 'url' => 'https://www.basebase.ru/set/1']]])], 'profile sets none' => ['profile', $prof(['tab' => 'sets'])],
+'notice' => ['notice', ['msg' => 'e_no_post']],
         'moderate' => ['moderate', ['rows' => [['id' => 1, 'title' => 'x<', 'excerpt' => 'y', 'author' => 'a', 'domain' => 'd', 'created' => '2026-01-01 00:00:00', 'hidden' => 0], ['id' => 2, 'title' => 'z', 'excerpt' => '', 'author' => '', 'domain' => 'd', 'created' => '2026-01-01', 'hidden' => 1]]]], 'moderate none' => ['moderate', ['rows' => []]],
     ];
     foreach ($cases as $name => [$view, $vars]) {
         try { $html = View::file("$dir/views/$view.php", $vars + ['sf' => $sf]); } catch (Throwable $e) { $bad[] = "$lang $name: " . $e->getMessage(); continue; }
         $all .= $html;
         if (preg_match('~<script>x</script>|<img src=x|<i>|S<[^/]|T<[^/]~', $html)) $bad[] = "$lang $name: unescaped text";
+        if ($name === 'profile products' && str_contains($html, 'data-mb-copy')) $bad[] = "$lang $name: a visitor gets the owner's button";
+        if ($name === 'profile products own' && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
         if ($view === 'products' && $vars['products'] && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
     }
     if ($sf->missing) $bad[] = "$lang missing keys: " . implode(', ', array_unique($sf->missing));
@@ -65,7 +73,7 @@ ok(!$ph, 'placeholders match ' . implode(' ', $ph));
 $src = ''; foreach (array_merge(glob("$dir/*.php"), glob("$dir/lib/*.php"), glob("$dir/views/*.php")) as $f) $src .= file_get_contents($f);
 preg_match_all("/(?:->t|\\\$err)\('([a-z_0-9]+)'[),]/", $src, $m);
 preg_match_all("/BlogError\('([a-z_]+)'\)/", $src, $errs);
-$used = array_unique(array_merge($m[1], array_map(fn($k) => "e_$k", $errs[1]), ['f_all', 'f_site', 'f_mine', 'hide', 'show', 'save', 'publish', 'edit_post', 'new_post', 'saved', 'saved_draft', 'w_title', 'w_title_local', 'none', 'none_mine', 'none_found', 'no_products', 'no_shop_products']));
+$used = array_unique(array_merge($m[1], array_map(fn($k) => "e_$k", $errs[1]), ['f_all', 'f_site', 'f_mine', 'hide', 'show', 'save', 'publish', 'edit_post', 'new_post', 'saved', 'saved_draft', 'w_title', 'w_title_local', 'none', 'none_mine', 'none_found', 'no_products', 'no_shop_products', 'tab_posts', 'tab_products', 'tab_sets', 'no_products_public']));
 $miss = array_filter($used, fn($k) => !isset($en[$k]) && $k !== 'e_' && !str_ends_with($k, '_'));
 ok(!$miss, 'every key the code uses exists' . ($miss ? ' (missing ' . implode(', ', $miss) . ')' : ''));
 

@@ -125,5 +125,16 @@ ok(in_array('DELETE /posts/101', $log, true) && !isset($remote[101]), 'deleted h
 $sets = $sync->sets();
 ok(count($sets) === 1 && $sets[0]['title'] === 'Set', 'sets of the shop');
 
+/* ---------- the public profile ---------- */
+require dirname(__DIR__) . '/core/plugins/myblog/lib/Profile.php';
+$P = SysferaBlog\Profile::class;
+$list = [['title' => 'Lip patch', 'sku' => 'LP-1', 'price' => 145.0, 'category' => 'Skin'], ['title' => 'Nose mask', 'sku' => 'NM-2', 'price' => 250.0, 'category' => 'Cosmetics'], ['title' => 'Bag', 'sku' => '', 'price' => 900.0, 'category' => '']];
+$names = fn(array $in): array => array_column($P::filter($list, $P::filters($in)), 'title');
+ok(count($names([])) === 3 && $names(['q' => 'lip']) === ['Lip patch'] && $names(['q' => 'nm-2']) === ['Nose mask'], 'products: search by name or SKU');
+ok($names(['min' => '200', 'max' => '300']) === ['Nose mask'] && $names(['min' => '1 000']) === [] && count($names(['min' => 'abc', 'max' => '-5'])) === 3, 'products: price range, junk ignored');
+ok($names(['cat' => 'Skin']) === ['Lip patch'] && $names(['cat' => ['x']]) === ['Lip patch', 'Nose mask', 'Bag'], 'products: category');
+ok($P::categories($list) === ['Cosmetics' => 1, 'Skin' => 1], 'categories with counts');
+ok(!$P::visible(null, 5, 5, true) && !$P::visible('A', 0, 0, false) && $P::visible('A', 0, 0, true) && $P::visible('A', 1, 0, false) && $P::visible('A', 0, 1, false), 'a profile is public only once something is public');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

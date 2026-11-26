@@ -21,6 +21,10 @@ return [
     'w_title' => 'Posts from all Sysfera sites', 'w_title_local' => 'Latest posts', 'read_more' => 'Read the full post',
     'quick_title' => 'Write a post', 'with_products' => 'Write with products',
     'moderate' => 'Moderate the shared feed', 'moderate_hint' => 'Hidden posts disappear from the shared feed of every site. They stay on the author\'s own site.', 'hide' => 'Hide', 'show' => 'Show', 'hidden' => 'Hidden', 'moderated' => 'Saved.',
+    'n_posts' => 'Posts: {n}', 'n_items' => 'Items: {n}', 'tab_posts' => 'Posts', 'tab_products' => 'Products', 'tab_sets' => 'Sets', 'edit_profile' => 'Edit profile',
+    'flt_search' => 'Search', 'flt_search_ph' => 'Name or SKU', 'flt_price' => 'Price, ₽', 'flt_from' => 'from', 'flt_to' => 'to', 'apply' => 'Apply', 'categories' => 'Categories', 'all' => 'All',
+    'no_products_public' => 'No products yet.', 'no_sets' => 'No sets yet.', 'public_profile' => 'Public profile', 'about' => 'About me', 'view_profile' => 'View my profile', 'about_saved' => 'Saved.',
+    'public_hint' => 'Your profile becomes public (name, this text, posts and Basebase products) once you publish a post or a product. Your e-mail is never shown.',
     'e_no_post' => 'Post not found.', 'e_need_title' => 'Give your post a title.', 'e_long_title' => 'The title is too long (255 characters at most).', 'e_long_body' => 'The text is too long (20 000 characters at most).',
     'e_bad_cover' => 'The cover must be a JPG, PNG, WEBP or GIF picture up to 5 MB.', 'e_bad_post' => 'The post could not be published.', 'e_post_rate' => 'Daily limit of shared posts reached. The rest will be sent tomorrow.', 'e_other' => 'Something went wrong ({k}).',
 ];
