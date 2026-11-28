@@ -72,6 +72,32 @@ $by = array_column($dyn, null, 'slug');
 ok(isset($by['storagerent']) && $by['storagerent']['title'] === 'Склад' && $by['storagerent']['desc'] === 'Первое.' && isset($by['newthing']) && $by['newthing']['title'] === 'New thing', 'landing: installed and offered components get a card by themselves');
 ok(count(array_keys(array_column($dyn, 'slug'), 'wms')) === 1 && $by['accounting']['state'] === 'ready' && $by['vacancy']['state'] === 'soon' && array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'state', 'slug')['vacancy'] === 'ready' && !in_array('hr', array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'slug'), true), 'landing: no duplicate for a curated component; an announced one becomes ready once it exists');
 
+/* a deploy replaces component files without "Update": the new migrations still run, once */
+$fakeDb = new class extends \PDO {   // stands in for the connection inside the real Db
+    public array $ran = []; public string $version = '0.1.0'; public bool $broken = false; public array $done = [];
+    public function __construct() {}
+    public function exec(string $s): int|false { if (str_starts_with($s, 'CREATE TABLE IF NOT EXISTS sf_migrations')) return 0; if ($this->broken) throw new \RuntimeException('x'); $this->ran[] = $s; return 0; }
+    public function prepare(string $query, array $options = []): \PDOStatement|false {
+        return new class($this, $query) extends \PDOStatement {
+            private array $p = [];
+            public function __construct(private object $o, private string $sql) {}
+            public function execute(?array $params = null): bool { $this->p = $params ?? []; if (str_starts_with($this->sql, 'INSERT INTO sf_migrations')) $this->o->done[$this->p[0]] = true; if (str_starts_with($this->sql, 'UPDATE sf_plugins SET version')) $this->o->version = $this->p[0]; return true; }
+            public function fetchColumn(int $column = 0): mixed { return isset($this->o->done[$this->p[0] ?? '']) ? 1 : false; }
+            public function fetchAll(int $mode = \PDO::FETCH_DEFAULT, mixed ...$args): array { return [['slug' => 'demo', 'version' => $this->o->version, 'enabled' => 1]]; }
+        };
+    }
+};
+$db = new \Sysfera\Db([]); (new \ReflectionProperty($db, 'pdo'))->setValue($db, $fakeDb);
+$mdir = sys_get_temp_dir() . '/sf-catchup-' . bin2hex(random_bytes(4)); mkdir("$mdir/migrations", 0777, true); file_put_contents("$mdir/migrations/001.sql", "CREATE TABLE a (x INT);\n");
+$pl = new Plugins($db, (new \ReflectionClass(\Sysfera\App::class))->newInstanceWithoutConstructor()); $mf = ['dir' => $mdir, 'version' => '0.2.0'];
+$errLog = SF_ROOT . '/storage/error.log'; $logBefore = is_file($errLog) ? file_get_contents($errLog) : null;
+$fakeDb->broken = true; $pl->catchUp('demo', $mf);
+ok($fakeDb->version === '0.1.0' && $fakeDb->ran === [], 'catch-up: a failed migration keeps the old version and does not stop the site');
+$logBefore === null ? @unlink($errLog) : file_put_contents($errLog, $logBefore);
+$fakeDb->broken = false; $pl->catchUp('demo', $mf); $pl->catchUp('demo', $mf);
+ok($fakeDb->version === '0.2.0' && $fakeDb->ran === ['CREATE TABLE a (x INT)'], 'catch-up: new migrations run once and the version is remembered');
+unlink("$mdir/migrations/001.sql"); rmdir("$mdir/migrations"); rmdir($mdir);
+
 /* accent colour */
 ok(sf_accent_css('') === '' && sf_accent_css('red') === '' && sf_accent_css('#fff') === '' && sf_accent_css("#112233\n") === '' && sf_accent_css('#112233;}body{x:1') === '', 'accent: only #rrggbb is accepted');
 ok(str_starts_with(sf_accent_css('#0A7D33'), ':root{--acc:#0a7d33;--acc-ink:#ffffff}') && str_starts_with(sf_accent_css('#ffd400'), ':root{--acc:#ffd400;--acc-ink:#0f1115}'), 'accent: readable text on the colour');

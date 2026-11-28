@@ -1,4 +1,4 @@
-<?php /** @var \Sysfera\Plugin $sf @var string $host @var string $url @var bool $key @var bool $hubMode @var bool|string|null $status @var bool $https */ ?>
+<?php /** @var \Sysfera\Plugin $sf @var string $host @var string $url @var bool $key @var bool $hubMode @var bool|string|null $status @var bool $https @var ?array $directory @var ?string $directoryError */ ?>
 <div class="page-h"><h1><?= e($sf->t('settings')) ?></h1><a class="btn" href="<?= e($sf->url('/')) ?>">← <?= e($sf->t('title')) ?></a></div>
 <section class="card"><h3><?= e($sf->t('s_status')) ?></h3>
   <p><?= e($sf->t('s_domain')) ?>: <code><?= e($host) ?></code></p>
@@ -9,6 +9,12 @@
     <?php if (!$https): ?><p class="muted sm"><?= e($sf->t('s_need_https')) ?></p><?php endif; ?>
     <p class="muted sm"><?= e($sf->t('s_connect_hint')) ?></p>
     <form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="connect"><button class="btn primary"><?= e($sf->t('s_connect')) ?></button></form><?php endif; ?></section>
+<?php if ($hubMode || $key): ?><section class="card"><h3><?= e($sf->t('s_dir')) ?></h3>
+  <p class="muted sm"><?= e($sf->t('s_dir_hint')) ?></p>
+  <?php if ($directoryError !== null): ?><p class="flash bad"><?= e($sf->t('s_dir_failed')) ?> <?= e($directoryError) ?></p>
+  <?php elseif ($directory): ?><p><span class="badge ok"><?= e($sf->t('s_dir_sent', ['n' => (int)$directory['n']])) ?></span> <small class="muted"><?= e(ago(date('Y-m-d H:i:s', (int)$directory['t']))) ?></small></p>
+  <?php endif; ?>
+  <form method="post"><?= csrf_field() ?><input type="hidden" name="do" value="roster"><button class="btn"><?= e($sf->t('s_dir_send')) ?></button></form></section><?php endif; ?>
 <form class="card" method="post"><?= csrf_field() ?><input type="hidden" name="do" value="save"><h3><?= e($sf->t('s_advanced')) ?></h3>
   <label class="fld"><span><?= e($sf->t('s_hub_url')) ?></span><input name="hub_url" value="<?= e($url) ?>"></label>
   <label class="chk"><input type="checkbox" name="hub_mode" value="1" <?= $hubMode ? 'checked' : '' ?>> <?= e($sf->t('s_hub_mode')) ?></label>

@@ -49,6 +49,7 @@ final class Plugins
     {
         foreach ($this->available() as $slug => $m) {
             if (!$this->isEnabled($slug)) continue;
+            $this->catchUp($slug, $m);
             try {
                 I18n::addDir($slug, $m['dir'] . '/lang');
                 $entry = $m['dir'] . '/plugin.php';
@@ -57,6 +58,18 @@ final class Plugins
                 if (is_callable($fn)) $fn(new Plugin($slug, $m, $m['dir'], $this->app));
             } catch (\Throwable $e) { App::log("plugin $slug failed to boot: " . $e->getMessage()); }
         }
+    }
+
+    /** Keeps the database in step with the files: a component whose files were replaced outside "Update" (deploy, FTP) gets its new migrations
+     *  on the next request. A failure is logged and tried again later; the component still starts. */
+    public function catchUp(string $slug, array $m): void
+    {
+        if ((string)($this->installed()[$slug]['version'] ?? '') === (string)$m['version']) return;
+        try {
+            (new Migrator($this->db))->run($m['dir'] . '/migrations', "plugin:$slug:");
+            $this->db->q('UPDATE {p}plugins SET version = ? WHERE slug = ?', [$m['version'], $slug]);
+            $this->installed[$slug]['version'] = $m['version'];
+        } catch (\Throwable $e) { App::log("plugin $slug migrations failed: " . $e->getMessage()); }
     }
 
     /** Capabilities declared by all enabled plugins: cap => label. */

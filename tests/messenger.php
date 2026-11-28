@@ -80,5 +80,9 @@ ok($found('vera@mail.ru') === [] && $found('Ver') === [] && $found('6@b.ru') ===
 $bad = 0; foreach ([fn() => $call('roster', '5', [], ['users' => []]), fn() => $call('roster', '0'), fn() => $call('search', '0', ['q' => 'x'])] as $fn) { try { $fn(); } catch (SysferaMsg\HubError) { $bad++; } }
 ok($bad === 3, 'only the installation itself sends the list, and it cannot search');
 
+/* a deploy replaces files without "Update": the new migrations still run */
+$mig = (string)file_get_contents(dirname(__DIR__) . '/core/plugins/messenger/migrations/004_findable.sql');
+ok(str_contains($mig, 'UPDATE {p}msg_users SET discoverable = 1;'), 'old accounts become findable once');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

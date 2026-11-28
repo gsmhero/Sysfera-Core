@@ -19,5 +19,12 @@ return [
     'e_rate' => 'Too many requests — wait a minute.', 'e_no_user' => 'This person was not found.', 'e_blocked' => 'This person does not accept your messages.', 'e_empty' => 'Write something or attach a file.',
     'e_too_long' => 'The message is too long (2000 characters max).', 'e_file_big' => 'The file is too big (5 MB max).', 'e_file_type' => 'This file type is not allowed.', 'e_bad_file' => 'The attachment was not found.',
     'e_bad_hub' => 'The hub address must start with https://.', 'e_not_hub' => 'That address is not a Sysfera hub.', 'e_storage' => 'The hub could not store the file.', 'e_server_error' => 'The hub had an error. Try again later.',
+    's_dir' => 'User directory',
+    's_dir_hint' => 'The hub learns this site’s active users (name and a hash of the e-mail) so that others can find them. It happens by itself once an hour.',
+    's_dir_send' => 'Send now',
+    's_dir_sent' => 'Users sent to the hub: {n}',
+    's_dir_failed' => 'The user list did not reach the hub:',
+    'e_unknown_op' => 'The hub runs an older Messenger. Update it first.',
+    'e_bad_roster' => 'The hub did not accept the user list.',
     'e_other' => 'Hub error: {k}',
 ];

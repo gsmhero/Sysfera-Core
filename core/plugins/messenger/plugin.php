@@ -35,12 +35,21 @@ return function (\Sysfera\Plugin $sf): void {
     // the unread counter: the last known number is drawn with the page, then the menu asks /unread for a fresh one while the page is open
     $sf->menu('menu', '/', ['order' => 12, 'icon' => 'chat', 'live' => '/unread', 'badge' => fn() => (int)($_SESSION['msg_unread']['n'] ?? 0)]);
 
-    /** Registers every active user of this site in the hub's directory, so people can be found before they ever open Messenger. At most once an hour. */
-    $roster = function () use ($sf, $db, $client, $demo): void {
-        if ($demo() || !$client()->ready() || time() - (int)$sf->setting('roster_at', '0') < 3600) return;
+    /** Registers every active user of this site in the hub's directory, so people can be found before they ever open Messenger.
+     *  Once an hour, 5 minutes after a failure, at once with $force; the outcome is shown on the Connection page. */
+    $roster = function (bool $force = false) use ($sf, $db, $client, $demo): void {
+        if ($demo() || !$client()->ready()) return;
+        $last = json_decode($sf->setting('roster_state'), true);
+        if (!$force && is_array($last) && time() - (int)$sf->setting('roster_at', '0') < (empty($last['error']) ? 3600 : 300)) return;
         $sf->setSetting('roster_at', (string)time());
         $users = $db->rows("SELECT id, name, email, role FROM {p}users WHERE status = 'active' ORDER BY id");
-        foreach (array_chunk(Text::roster($users), 500) as $part) if (!$client()->call('POST', 'roster', [], ['users' => $part], null, 6, '0')['ok']) break;
+        $sent = 0; $error = null;
+        foreach (array_chunk(Text::roster($users), 500) as $part) {
+            $r = $client()->call('POST', 'roster', [], ['users' => $part], null, 6, '0');
+            if (!$r['ok']) { $error = (string)$r['error']; break; }
+            $sent += (int)($r['data']['saved'] ?? 0);
+        }
+        $sf->setSetting('roster_state', (string)json_encode(['t' => time(), 'n' => $sent, 'error' => $error]));
     };
     $sf->on('user.registered', fn() => $sf->setSetting('roster_at', '0'));
 
@@ -167,7 +176,7 @@ return function (\Sysfera\Plugin $sf): void {
     }));
 
     /* ---------- connection settings (administrators) ---------- */
-    $sf->route('*', '/settings', function () use ($sf, $client, $cfg, $demo, $err, $host, $hub, $go) {
+    $sf->route('*', '/settings', function () use ($sf, $client, $cfg, $demo, $err, $host, $hub, $go, $roster) {
         if ($demo()) { $sf->render('notice', ['msg' => 'demo'], $sf->t('title')); return; }
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = (string)($_POST['do'] ?? '');
@@ -185,12 +194,18 @@ return function (\Sysfera\Plugin $sf): void {
                 $sf->setSetting('challenge', '');
                 if ($r['ok']) { $sf->setSetting('hub_key', (string)$r['data']['key']); $sf->setSetting('roster_at', '0'); flash($sf->t('connected_ok')); }
                 else flash($err($r['error']), 'bad');
+            } elseif ($do === 'roster') {
+                $roster(true);
+                $st = json_decode($sf->setting('roster_state'), true) ?: [];
+                if (empty($st['error'])) flash($sf->t('s_dir_sent', ['n' => (int)($st['n'] ?? 0)]));
+                else flash($err((string)$st['error']), 'bad');
             } elseif ($do === 'disconnect') { $sf->setSetting('hub_key', ''); flash($sf->t('disconnected_ok')); }
             $go('settings');
         }
+        $roster();
         $status = null;
         if ($client()->ready()) { $r = $client()->call('GET', 'unread'); $status = $r['ok'] ? true : $err($r['error']); }
-        $sf->render('settings', ['host' => $host, 'url' => $cfg('hub_url', 'https://core.sysfera.ru'), 'key' => $cfg('hub_key', '') !== '', 'hubMode' => $hub() !== null, 'status' => $status, 'https' => !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'], $sf->t('settings'));
+        $sf->render('settings', ['directory' => json_decode($sf->setting('roster_state'), true) ?: null, 'directoryError' => ($e = (json_decode($sf->setting('roster_state'), true) ?: [])['error'] ?? null) ? $err((string)$e) : null, 'host' => $host, 'url' => $cfg('hub_url', 'https://core.sysfera.ru'), 'key' => $cfg('hub_key', '') !== '', 'hubMode' => $hub() !== null, 'status' => $status, 'https' => !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https'], $sf->t('settings'));
     }, ['cap' => 'messenger.admin']);
 
     /* ---------- machine endpoints ---------- */
