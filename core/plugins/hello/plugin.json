@@ -1,10 +1,10 @@
 {
   "slug": "hello",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "name": { "en": "Notes", "ru": "Заметки" },
   "description": {
-    "en": "Personal notes with titles, themes, tags and search, grouped by theme in a card or list view. Edit them, share by e-mail or send to another user of the site.",
-    "ru": "Личные заметки с заголовками, темами, тегами и поиском, сгруппированные по темам в виде карточек или списка. Редактируйте, отправляйте по e-mail или другому пользователю сайта."
+    "en": "Personal notes with titles, themes, tags, priorities and search, grouped by theme in a card or list view. Edit them, share by e-mail or send to another user of the site.",
+    "ru": "Личные заметки с заголовками, темами, тегами, приоритетами и поиском, сгруппированные по темам в виде карточек или списка. Редактируйте, отправляйте по e-mail или другому пользователю сайта."
   },
   "requires": { "core": ">=0.1.0" },
   "capabilities": {
