@@ -15,6 +15,7 @@ final class App
     private array $menu = [];
     private ?array $settings = null;
     private array $repos = [];
+    private ?InterfaceSets $uiSets = null;
 
     public static function get(): App { return self::$inst ??= new App(); }
 
@@ -38,6 +39,8 @@ final class App
     public function router(): Router { return $this->router; }
     public function plugins(): Plugins { return $this->plugins ??= new Plugins($this->db(), $this); }
     public function updater(): Updater { return $this->updater ??= new Updater($this); }
+
+    public function interfaceSets(): InterfaceSets { return $this->uiSets ??= new InterfaceSets(new DbSetStore($this->db())); }
 
     /* ----- shared records ----- */
     public function contacts(): Repo
@@ -94,14 +97,39 @@ final class App
 
     /* ----- menu ----- */
     public function addMenu(array $item): void { $this->menu[] = $item; }
-    /** Sidebar items visible to the current user, in order. Core items first, then plugins. */
+    /** Menu entries the current user has access to, whatever interface set is chosen. */
+    private function allowedMenu(): array
+    {
+        return array_filter(Hooks::filter('menu.items', $this->menu), fn($i) => (empty($i['cap']) || ($this->auth && $this->auth->can($i['cap']))) && (empty($i['admin']) || ($this->auth && $this->auth->isAdmin())));
+    }
+
+    /** Components that have a menu entry for the current user (what an interface set can show or hide): slug => name, in menu order. */
+    public function menuComponents(): array
+    {
+        $mine = [];
+        foreach ($this->sortMenu($this->allowedMenu()) as $i) if (!empty($i['slug'])) $mine[$i['slug']] = (string)$i['slug'];
+        $manifests = $mine ? $this->plugins()->available() : [];
+        foreach ($mine as $slug => $_) if (isset($manifests[$slug])) $mine[$slug] = Plugins::text($manifests[$slug], 'name') ?: $slug;
+        return $mine;
+    }
+
+    /** Sidebar items visible to the current user, in order. Core items first, then plugins; the chosen interface set hides the rest. */
     public function menu(): array
     {
-        $items = array_filter(Hooks::filter('menu.items', $this->menu), fn($i) => (empty($i['cap']) || ($this->auth && $this->auth->can($i['cap']))) && (empty($i['admin']) || ($this->auth && $this->auth->isAdmin())));
+        $items = $this->allowedMenu();
+        if ($this->auth && $this->auth->id()) {
+            try { $items = InterfaceSets::filter($items, $this->interfaceSets()->active($this->auth->id())); }
+            catch (\Throwable $e) { self::log('interface sets: ' . $e->getMessage()); }   // never break the menu: show everything
+        }
         foreach ($items as &$i) {   // a plugin may attach a counter (callable returning a number) to its menu item
             if (isset($i['badge']) && is_callable($i['badge'])) { try { $i['badge'] = (int)($i['badge'])(); } catch (\Throwable $e) { $i['badge'] = 0; } }
         }
         unset($i);
+        return $this->sortMenu($items);
+    }
+
+    private function sortMenu(array $items): array
+    {
         // three zones, separated in the sidebar: 1 daily work, 2 business modules, 3 administration; position inside a zone is fixed here, unknown components go to the end of zone 2
         $pos = ['/' => [1, 0], 'myblog' => [1, 0.5], 'hello' => [1, 1], 'crm' => [1, 2], 'missions' => [1, 3], '/task-types' => [1, 4], 'contracts' => [1, 5], 'contactlog' => [1, 6],
             'wms' => [2, 1], 'goodsissue' => [2, 1.5], 'wms-basebase' => [2, 2], 'messenger' => [2, 3], 'activity' => [2, 4], 'teams' => [2, 5],

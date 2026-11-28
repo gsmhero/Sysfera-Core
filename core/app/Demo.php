@@ -35,6 +35,7 @@ final class Demo
     {
         $db = $app->db();
         foreach (['invoice_lines', 'invoices', 'order_lines', 'orders', 'contacts'] as $t) $db->q("DELETE FROM {p}$t");
+        $db->q("DELETE FROM {p}ui_sets WHERE user_id IN (SELECT id FROM {p}users WHERE role <> 'admin')");
         $db->q("DELETE FROM {p}users WHERE role <> 'admin'");
         $db->q("DELETE FROM {p}events");
         $app->setSetting('demo_last_reset', (string)time());

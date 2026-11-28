@@ -155,3 +155,9 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .land-switch{display:flex;justify-content:center;flex-wrap:wrap;margin:0 0 24px}.land-switch a{padding:8px 18px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}.land-switch a:first-child{border-radius:99px 0 0 99px}.land-switch a:last-child{border-radius:0 99px 99px 0}.land-switch a.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
 /* settings: logo previews and the accent colour */
 .logo-pv{background:var(--bg);padding:10px;border-radius:8px;display:inline-block;margin-bottom:10px;max-width:100%}.logo-pv.dark{background:var(--side)}.logo-pv.dark .lg-a{fill:#c4c9d2}.logo-pv.dark .lg-b{fill:#fff}.logo-pv.dark b{color:#fff}.fld input.accent-pick{width:64px;height:40px;padding:3px;cursor:pointer}
+/* interface sets: switch on the dashboard, list in the profile, checkboxes under a component */
+.ui-switch label{display:flex;align-items:center;gap:10px}.ui-switch select{width:auto;min-width:180px;max-width:260px}.page-h{flex-wrap:wrap;gap:10px}
+.ui-sets{max-width:520px}.ui-add{display:flex;gap:10px;align-items:flex-end;margin:10px 0 6px}.ui-add .fld{flex:1;margin:0}
+.ui-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line)}.ui-row b{flex:1;min-width:0;overflow-wrap:anywhere;font-weight:500}
+.ui-edit{border-top:1px solid var(--line);padding-top:12px}.ui-checks{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 14px;margin:0 0 14px}
+.ui-assign{display:flex;flex-wrap:wrap;gap:4px 0;align-items:center;margin-top:8px}.ui-assign>span{margin-right:14px}

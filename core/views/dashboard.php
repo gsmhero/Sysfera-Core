@@ -1,5 +1,11 @@
-<?php /** @var array $counts @var array $plugins @var array $widgets @var bool $isAdmin */ ?>
-<div class="page-h"><h1><?= e(t('dash.title')) ?></h1></div>
+<?php /** @var array $counts @var array $plugins @var array $widgets @var bool $isAdmin @var array $sets */ ?>
+<div class="page-h"><h1><?= e(t('dash.title')) ?></h1>
+<?php if ($sets): ?>
+  <form class="ui-switch" method="post" action="<?= e(url('/interface')) ?>" data-autosubmit><?= csrf_field() ?><input type="hidden" name="do" value="switch">
+    <label><span><?= e(t('ui.switch')) ?></span><select name="set"><option value="0"><?= e(t('ui.all')) ?></option><?php foreach ($sets as $s): ?><option value="<?= (int)$s['id'] ?>"<?= $s['active'] ? ' selected' : '' ?>><?= e($s['name']) ?></option><?php endforeach; ?></select></label>
+    <noscript><button class="btn"><?= e(t('ui.apply')) ?></button></noscript></form>
+<?php endif; ?>
+</div>
 <div class="stats">
   <?php if (!empty($widgets['wms'])): ?><div class="card wdg stat-w"><?= $widgets['wms'] ?></div><?php endif; ?>
   <div class="card stat"><small><?= e(t('dash.orders')) ?></small><b><?= (int)$counts['orders'] ?></b></div>

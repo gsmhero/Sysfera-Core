@@ -67,6 +67,8 @@ jobs:
           php tests/myblogviews.php
       - name: Notes tests
         run: php tests/noteviews.php
+      - name: Interface sets tests
+        run: php tests/interfacesets.php
       - name: Build packages
         run: php tools/build.php
       - name: Packages are valid zips

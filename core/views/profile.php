@@ -1,4 +1,4 @@
-<?php /** @var array $u */ ?>
+<?php /** @var array $u @var array $sets @var ?array $edit @var array $components */ ?>
 <div class="page-h"><h1><?= e(t('nav.profile')) ?></h1></div>
 <?php if (!empty($u['delete_requested_at'])): ?>
 <form class="card" method="post"><?= csrf_field() ?><h3><?= e(t('profile.delete_asked')) ?></h3><p class="muted"><?= e(t('profile.delete_text')) ?></p>
@@ -15,4 +15,5 @@
     <label class="fld"><span><?= e(t('profile.new')) ?></span><input type="password" name="new" required minlength="8" autocomplete="new-password"></label>
     <button class="btn primary"><?= e(t('common.save')) ?></button></form>
 </div>
+<?php require __DIR__ . '/_interface_sets.php'; ?>
 <?php foreach (\Sysfera\Hooks::filter('profile.cards', [], $u) as $card) echo $card; /* components add their own sections here */ ?>

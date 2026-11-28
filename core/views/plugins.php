@@ -1,4 +1,4 @@
-<?php /** @var array $available @var array $installed @var array $remote @var array $updates @var callable $problems */
+<?php /** @var array $available @var array $installed @var array $remote @var array $updates @var callable $problems @var array $sets @var array $inMenu */
 use Sysfera\Plugins;
 $form = fn(string $do, string $slug, string $label, string $cls = '', string $extra = '') => '<form method="post" class="inline" ' . $extra . '>' . csrf_field() . '<input type="hidden" name="do" value="' . $do . '"><input type="hidden" name="slug" value="' . e($slug) . '"><button class="btn ' . $cls . '">' . e($label) . '</button></form>';
 $notInstalled = array_diff_key($available, $installed);
@@ -10,10 +10,16 @@ $remoteNew = array_diff_key($remote, $available);
 <h2><?= e(t('plugins.installed')) ?></h2>
 <?php if (!$installed): ?><div class="card empty"><p><?= e(t('plugins.none_installed')) ?></p></div><?php endif; ?>
 <div class="list"><?php foreach ($installed as $slug => $row): $m = $available[$slug] ?? null; ?>
-  <div class="card item">
+  <div class="card item" id="c-<?= e($slug) ?>">
     <div class="grow"><b><?= e($m ? Plugins::text($m, 'name') : $slug) ?></b> <span class="badge <?= $row['enabled'] ? 'ok' : 'mute' ?>"><?= e(t($row['enabled'] ? 'plugins.enabled' : 'plugins.disabled')) ?></span> <small class="muted">v<?= e($row['version']) ?></small>
       <?php if (isset($updates[$slug])): ?><span class="badge warn"><?= e(t('plugins.update_to', ['v' => $updates[$slug]['version']])) ?></span><?php endif; ?>
-      <p class="muted sm"><?= e($m ? Plugins::text($m, 'description') : t('plugins.files_missing')) ?></p></div>
+      <p class="muted sm"><?= e($m ? Plugins::text($m, 'description') : t('plugins.files_missing')) ?></p>
+      <?php if ($sets && isset($inMenu[$slug])): ?>
+      <form class="ui-assign" method="post" action="<?= e(url('/interface')) ?>" data-autosubmit><?= csrf_field() ?><input type="hidden" name="do" value="assign"><input type="hidden" name="slug" value="<?= e($slug) ?>">
+        <span class="muted sm"><?= e(t('ui.switch')) ?></span>
+        <?php foreach ($sets as $s): ?><label class="chk"><input type="checkbox" name="sets[]" value="<?= (int)$s['id'] ?>"<?= in_array($slug, $s['items'], true) ? ' checked' : '' ?>> <?= e($s['name']) ?></label><?php endforeach; ?>
+        <noscript><button class="btn sm"><?= e(t('common.save')) ?></button></noscript></form>
+      <?php endif; ?></div>
     <div class="actions">
       <?php if (isset($updates[$slug])) echo '<form method="post" class="inline" action="' . e(url('/upgrade')) . '">' . csrf_field() . '<input type="hidden" name="do" value="plugin"><input type="hidden" name="slug" value="' . e($slug) . '"><button class="btn primary">' . e(t('upd.update')) . '</button></form>'; ?>
       <?php if ($m && $row['enabled']) echo $form('disable', $slug, t('plugins.disable'), '', 'data-confirm="' . e(t('plugins.confirm_disable')) . '"'); ?>

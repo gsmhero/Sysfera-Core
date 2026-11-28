@@ -27,7 +27,7 @@ $jobs = [   // table => where (null = everything)
     'wms_zones' => "warehouse_id IN (SELECT id FROM {p}wms_warehouses WHERE owner_id IS NULL OR owner_id NOT IN ($in))",
     'wms_warehouses' => "owner_id IS NULL OR owner_id NOT IN ($in)",
     'contacts' => "source IN ('basebase','demo')",
-    'msg_users' => "user_id NOT IN ($in)", 'teams_members' => "user_id NOT IN ($in)",
+    'ui_sets' => "user_id NOT IN ($in)", 'msg_users' => "user_id NOT IN ($in)", 'teams_members' => "user_id NOT IN ($in)",
     'users' => "role <> 'admin'",
 ];
 echo $go ? "DELETING:\n" : "Dry run (add --yes to delete). Administrators kept: " . implode(', ', $admins) . "\n";

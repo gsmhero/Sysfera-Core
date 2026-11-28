@@ -38,7 +38,7 @@ return function (\Sysfera\Plugin $sf): void {
 | Method | Purpose |
 |---|---|
 | `route($method, $path, $fn, $opt)` | page under `/p/<slug>/`; `$method` may be `*`; `$opt`: `cap`, `auth` (false = public), `csrf` (false = no token check) |
-| `menu($labelKey, $path, $opt)` | sidebar entry; `$opt`: `cap`, `order` (core items use 0, 90–93), `icon` (`home puzzle users cog refresh`) |
+| `menu($labelKey, $path, $opt)` | sidebar entry; `$opt`: `cap`, `order` (core items use 0, 90–93), `icon` (`home puzzle users cog refresh`). Users can hide it with their interface sets (Profile); entries added through `menu.items` need `slug` for that |
 | `render($view, $vars, $title)` | template `views/<view>.php` inside the layout; `$sf` is available in it |
 | `t($key, $vars)` | translate `slug.key` |
 | `db()` | `Db`: `q`, `rows`, `row`, `val`, `insertId`; write `{p}` for the prefix |

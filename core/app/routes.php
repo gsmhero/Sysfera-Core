@@ -95,13 +95,14 @@ return function (App $app): void {
         if ($auth->isAdmin()) $app->updater()->autoInstall();   // no-op unless the administrator switched it on; checks at most every 6 hours
         $widgets = Hooks::filter('dashboard.widgets', []);
         View::render('dashboard', [
+            'sets' => $app->interfaceSets()->all($auth->id()),
             'counts' => ['contacts' => $app->contacts()->count(), 'orders' => $app->orders()->count(), 'invoices' => $app->invoices()->count()],
             'plugins' => array_filter($app->plugins()->available(), fn($m) => $app->plugins()->isEnabled($m['slug'])),
             'widgets' => $widgets, 'isAdmin' => $auth->isAdmin(),
         ], t('nav.dashboard'));
     });
 
-    $r->add('*', '/profile', function () use ($auth, $db) {   // account, password, agreeing to a deletion asked by the administrator
+    $r->add('*', '/profile', function () use ($app, $auth, $db) {   // account, password, agreeing to a deletion asked by the administrator
         $u = $auth->user();
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $do = $_POST['do'] ?? '';
@@ -110,6 +111,7 @@ return function (App $app): void {
                 if (empty($u['delete_requested_at'])) redirect('/profile');
                 if ($u['role'] === 'admin' && (int)$db->val("SELECT COUNT(*) FROM {p}users WHERE role = 'admin' AND status = 'active'") < 2) { flash(t('profile.last_admin'), 'bad'); redirect('/profile'); }
                 $uid = (int)$u['id']; Hooks::do('user.deleted', $uid);
+                $app->interfaceSets()->deleteUser($uid);
                 $db->q('DELETE FROM {p}users WHERE id = ?', [$uid]); $auth->logout(); redirect('/');
             }
             if (str_starts_with($do, 'x_')) { Hooks::do('profile.save', $do, $u); redirect('/profile'); }   // a component's own form ("x_<slug>")
@@ -126,7 +128,15 @@ return function (App $app): void {
             }
             redirect('/profile');
         }
-        View::render('profile', ['u' => $u], t('nav.profile'));
+        $ui = $app->interfaceSets(); $edit = $ui->find((int)$u['id'], (int)(is_string($_GET['set'] ?? null) ? $_GET['set'] : 0));
+        View::render('profile', ['u' => $u, 'sets' => $ui->all((int)$u['id']), 'edit' => $edit, 'components' => $edit ? $app->menuComponents() : []], t('nav.profile'));
+    }, ['auth' => true]);
+
+    /* ---------- interface sets: every user's own choice of what the menu shows ---------- */
+    $r->add('POST', '/interface', function () use ($app, $auth) {
+        [$to, $msg, $type] = $app->interfaceSets()->handle($auth->id(), $_POST, array_keys($app->menuComponents()));
+        if ($msg !== null) flash(t($msg), $type);
+        redirect($to);
     }, ['auth' => true]);
 
     /* ---------- components (plugins) ---------- */
@@ -151,7 +161,7 @@ return function (App $app): void {
             redirect('/plugins');
         }
         $manifest = $app->updater()->manifest();
-        View::render('plugins', ['available' => $pl->available(), 'installed' => $pl->installed(), 'remote' => (array)($manifest['plugins'] ?? []), 'updates' => $app->updater()->pluginUpdates($manifest), 'problems' => fn($m) => $pl->problems($m)], t('nav.plugins'));
+        View::render('plugins', ['sets' => $app->interfaceSets()->all($app->auth()->id()), 'inMenu' => $app->menuComponents(), 'available' => $pl->available(), 'installed' => $pl->installed(), 'remote' => (array)($manifest['plugins'] ?? []), 'updates' => $app->updater()->pluginUpdates($manifest), 'problems' => fn($m) => $pl->problems($m)], t('nav.plugins'));
     }, ['admin' => true]);
 
     /* ---------- users ---------- */
