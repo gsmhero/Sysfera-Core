@@ -4,6 +4,7 @@ $langs = \Sysfera\I18n::languages(); $cur = \Sysfera\I18n::lang(); $siteName = \
 <title><?= e($title) ?> — <?= e($siteName) ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(url('/assets/sysfera-logo.svg')) ?>">
 <link rel="stylesheet" href="<?= e(url('/assets/sysfera.css')) ?>?v=<?= e(SF_VERSION) ?>">
+<?= function_exists('sf_accent') ? sf_accent() : '' ?>
 </head><body class="land">
 <header class="land-top"><div class="land-w">
   <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo() ?></a>

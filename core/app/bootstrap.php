@@ -53,11 +53,16 @@ function ago(?string $ts): string {
     return $d < 60 ? t('time.now') : ($d < 3600 ? t('time.min', ['n' => (int)($d / 60)]) : ($d < 86400 ? t('time.hour', ['n' => (int)($d / 3600)]) : t('time.day', ['n' => (int)($d / 86400)])));
 }
 
-/** The Sysfera logo as inline SVG (colours come from CSS so it stays readable in dark mode and on the dark sidebar). */
-function sf_logo(): string {
+/**
+ * The site logo: the one uploaded in Settings, else the Sysfera logo as inline SVG (colours come from CSS so it stays readable in dark mode and on the dark sidebar).
+ * @param bool $panel the dark admin panel menu: its own logo when one is uploaded
+ */
+function sf_logo(bool $panel = false): string {
     static $svg = null;
-    if ($svg === null && ($lf = (string)\Sysfera\App::get()->setting('logo_file', '')) !== '' && is_file(SF_ROOT . '/storage/logo/logo.' . explode('.', $lf)[0])) {
-        $svg = '<img class="logo logo-custom" src="' . e(url('/brand/logo')) . '?v=' . e(explode('.', $lf)[1] ?? '1') . '" alt="' . e((string)\Sysfera\App::get()->setting('site_name', 'Sysfera')) . '">';
+    $app = \Sysfera\App::get();
+    foreach (($panel ? ['logo_admin_file' => ['admin', '/brand/logo-admin']] : []) + ['logo_file' => ['logo', '/brand/logo']] as $key => [$name, $path]) {
+        $lf = (string)$app->setting($key, '');
+        if ($lf !== '' && is_file(SF_ROOT . "/storage/logo/$name." . explode('.', $lf)[0])) return '<img class="logo logo-custom" src="' . e(url($path)) . '?v=' . e(explode('.', $lf)[1] ?? '1') . '" alt="' . e((string)$app->setting('site_name', 'Sysfera')) . '">';
     }
     if ($svg === null) {
         $s = (string)@file_get_contents(SF_ROOT . '/assets/sysfera-logo.svg');
@@ -67,4 +72,26 @@ function sf_logo(): string {
         $svg = $s === '' || $s === null ? 'sys<b>fera</b>' : str_replace('<svg ', '<svg class="logo" role="img" aria-label="Sysfera" ', $s);
     }
     return $svg;
+}
+
+const SF_ACCENT = '#4f46e5';
+
+/**
+ * CSS that replaces the accent colour; '' for an empty or invalid value. Text on the accent is white or dark, whichever reads better;
+ * in dark mode a dark colour is lightened so links stay visible.
+ */
+function sf_accent_css(string $hex): string {
+    if (!preg_match('/^#[0-9a-f]{6}$/iD', $hex)) return '';
+    $rgb = array_map('hexdec', str_split(substr($hex, 1), 2));
+    $lum = function (array $c): float { $l = array_map(fn($v) => ($v /= 255) <= 0.03928 ? $v / 12.92 : (($v + 0.055) / 1.055) ** 2.4, $c); return 0.2126 * $l[0] + 0.7152 * $l[1] + 0.0722 * $l[2]; };
+    $rule = function (array $c) use ($lum): string { return ':root{--acc:' . sprintf('#%02x%02x%02x', ...$c) . ';--acc-ink:' . ($lum($c) > 0.19 ? '#0f1115' : '#ffffff') . '}'; };
+    $dark = $rgb;
+    for ($i = 0; $i < 8 && $lum($dark) < 0.22; $i++) $dark = array_map(fn($v) => (int)round($v + (255 - $v) * 0.15), $dark);
+    return $rule($rgb) . '@media (prefers-color-scheme:dark){' . $rule($dark) . '}';
+}
+
+/** The <style> element for the colour chosen in Settings, to go after the stylesheet. */
+function sf_accent(): string {
+    $css = sf_accent_css((string)\Sysfera\App::get()->setting('accent_color', ''));
+    return $css === '' ? '' : "<style>$css</style>";
 }

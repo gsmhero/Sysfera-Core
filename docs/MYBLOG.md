@@ -24,3 +24,9 @@ Any signed-in user writes posts; the author and site administrators edit and del
 
 ## Basebase
 Product embed code is the one the product page of basebase.ru copies (`Text::embedCode`). Blog synchronisation: see [BASEBASE-BLOG-API.md](BASEBASE-BLOG-API.md).
+
+## Gallery and videos (0.4.0)
+
+* Up to 12 gallery pictures per post (stored like covers, in `storage/myblog/`); the first one stands in for a missing cover, also in the shared feed.
+* Up to 8 video links. `lib/Media.php` builds the player address itself for YouTube, VK Video, Rutube, Vimeo, Dailymotion and OK; .mp4/.webm/.ogv play directly; any other link is a button.
+* Gallery and videos are shown on this site only: they are not sent to Basebase.

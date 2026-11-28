@@ -32,11 +32,12 @@ final class Posts
 
     /**
      * Creates or updates a post.
-     * @param array $in title, body, status, scope, products[], remove_cover
+     * @param array $in title, body, status, scope, products[], remove_cover, videos (one link per line), remove_images[]
      * @param list<int> $own Basebase product numbers of the post's author (products already attached stay allowed)
      * @param ?string $cover file name of a newly uploaded picture
+     * @param list<string> $added file names of newly uploaded gallery pictures
      */
-    public function save(int $uid, bool $admin, int $id, array $in, array $own, ?string $cover = null): int
+    public function save(int $uid, bool $admin, int $id, array $in, array $own, ?string $cover = null, array $added = []): int
     {
         $old = $id ? $this->editable($uid, $admin, $id) : null;
         $str = fn(string $k): string => is_string($in[$k] ?? null) ? $in[$k] : '';
@@ -50,6 +51,16 @@ final class Posts
         $row = ['title' => $title, 'body' => $body, 'products' => json_encode($products),
             'status' => $str('status') === 'draft' ? 'draft' : 'published', 'scope' => $str('scope') === 'local' ? 'local' : 'global',
             'bb_dirty' => 1, 'hub_dirty' => 1, 'updated_at' => $this->stamp()];
+        $gone = is_array($in['remove_images'] ?? null) ? $in['remove_images'] : [];
+        $images = array_merge(array_values(array_diff($old ? Media::images($old['images'] ?? null) : [], $gone)), Media::images($added));
+        if (count($images) > Media::MAX_IMAGES) throw new BlogError('many_images');
+        $row['images'] = json_encode($images);
+        if (array_key_exists('videos', $in)) {
+            $videos = Media::parseLines($str('videos'));
+            if ($videos === null) throw new BlogError('bad_video');
+            if (count($videos) > Media::MAX_VIDEOS) throw new BlogError('many_videos');
+            $row['videos'] = json_encode($videos, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
         if ($cover !== null && Text::coverName($cover)) { $row['cover'] = $cover; $row['cover_url'] = null; }
         elseif (!empty($in['remove_cover'])) { $row['cover'] = null; $row['cover_url'] = null; }
         if ($old) { $this->st->update($id, $row); return $id; }
@@ -73,10 +84,18 @@ final class Posts
         if (!$p['bb_dirty'] && !$p['hub_dirty']) $st->purge($id);
     }
 
+    /** The picture that stands for a post: its cover, else the first gallery picture. '' when it has none stored here. */
+    public static function picture(array $p): string
+    {
+        if (!empty($p['cover'])) return (string)$p['cover'];
+        return empty($p['cover_url']) ? (Media::images($p['images'] ?? null)[0] ?? '') : '';
+    }
+
     /** A post of this site as a card. @param \Closure(string):string $url path inside the site => address */
     public static function card(array $p, \Closure $url): array
     {
-        $cover = !empty($p['cover']) ? $url('/p/myblog/cover/' . $p['cover']) : (string)($p['cover_url'] ?? '');
+        $own = self::picture($p);
+        $cover = $own !== '' ? $url('/p/myblog/cover/' . $own) : (string)($p['cover_url'] ?? '');
         return ['id' => (int)$p['id'], 'uid' => (int)$p['owner_id'], 'title' => (string)$p['title'], 'excerpt' => Text::excerpt((string)$p['body']), 'url' => $url('/p/myblog/post/' . (int)$p['id']), 'cover' => $cover,
             'author' => (string)($p['author'] ?? ''), 'author_url' => $url('/p/myblog/u/' . (int)$p['owner_id']), 'domain' => '', 'date' => substr((string)$p['created_at'], 0, 10),
             'products' => count(Text::ids($p['products'])), 'status' => (string)$p['status'], 'scope' => (string)$p['scope']];

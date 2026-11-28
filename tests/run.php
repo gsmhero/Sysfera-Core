@@ -72,6 +72,11 @@ $by = array_column($dyn, null, 'slug');
 ok(isset($by['storagerent']) && $by['storagerent']['title'] === 'Склад' && $by['storagerent']['desc'] === 'Первое.' && isset($by['newthing']) && $by['newthing']['title'] === 'New thing', 'landing: installed and offered components get a card by themselves');
 ok(count(array_keys(array_column($dyn, 'slug'), 'wms')) === 1 && $by['accounting']['state'] === 'ready' && $by['vacancy']['state'] === 'soon' && array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'state', 'slug')['vacancy'] === 'ready' && !in_array('hr', array_column(\Sysfera\Landing::all(['hr' => ['name' => 'HR']]), 'slug'), true), 'landing: no duplicate for a curated component; an announced one becomes ready once it exists');
 
+/* accent colour */
+ok(sf_accent_css('') === '' && sf_accent_css('red') === '' && sf_accent_css('#fff') === '' && sf_accent_css("#112233\n") === '' && sf_accent_css('#112233;}body{x:1') === '', 'accent: only #rrggbb is accepted');
+ok(str_starts_with(sf_accent_css('#0A7D33'), ':root{--acc:#0a7d33;--acc-ink:#ffffff}') && str_starts_with(sf_accent_css('#ffd400'), ':root{--acc:#ffd400;--acc-ink:#0f1115}'), 'accent: readable text on the colour');
+ok(preg_match('/dark\)\{:root\{--acc:(#[0-9a-f]{6})/', sf_accent_css('#000040'), $m) === 1 && $m[1] !== '#000040', 'accent: a dark colour is lightened in dark mode');
+
 /* the public pages render in every language, search text is escaped */
 foreach (['en', 'ru'] as $l) {
     I18n::setLang($l);

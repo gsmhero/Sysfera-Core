@@ -3,9 +3,11 @@
   <h1><?= e($p['title']) ?></h1>
   <p class="muted sm"><?= e($sf->t('author')) ?>: <a href="<?= e($card['author_url']) ?>"><?= e($card['author']) ?></a> · <?= e($card['date']) ?>
     <?php if ($p['status'] === 'draft'): ?><span class="badge warn"><?= e($sf->t('draft_only')) ?></span><?php endif; ?></p>
-  <?php if ($mine): ?><p><a class="btn sm" href="<?= e($sf->url('edit?id=' . $p['id'])) ?>"><?= e($sf->t('edit')) ?></a></p><?php endif; ?>
-  <?php if ($card['cover'] !== ''): ?><img class="mb-hero" src="<?= e($card['cover']) ?>" alt="" referrerpolicy="no-referrer"><?php endif; ?>
+  <?php if ($mine): ?><div class="mb-manage"><a class="btn sm" href="<?= e($sf->url('edit?id=' . $p['id'])) ?>"><?= e($sf->t('edit')) ?></a>
+    <form method="post" action="<?= e($sf->url('delete')) ?>"><?= csrf_field() ?><input type="hidden" name="id" value="<?= (int)$p['id'] ?>"><button class="btn sm danger" data-confirm="<?= e($sf->t('delete_confirm')) ?>"><?= e($sf->t('delete')) ?></button></form></div><?php endif; ?>
+  <?php if ($card['cover'] !== '' && (!empty($p['cover']) || !empty($p['cover_url']))): ?><img class="mb-hero" src="<?= e($card['cover']) ?>" alt="" referrerpolicy="no-referrer"><?php endif; ?>
   <div class="mb-text"><?= nl2br(e($p['body'])) ?></div>
+  <?= \Sysfera\View::file(__DIR__ . '/_media.php', ['sf' => $sf, 'images' => \SysferaBlog\Media::images($p['images'] ?? null), 'videos' => \SysferaBlog\Media::videos($p['videos'] ?? null), 'title' => (string)$p['title']]) ?>
   <?php if (!empty($p['bb_url'])): ?><p><a class="sm" href="<?= e($p['bb_url']) ?>" target="_blank" rel="noopener"><?= e($sf->t('post_on_basebase')) ?></a></p><?php endif; ?>
 </article>
 <?php if ($attached): ?>

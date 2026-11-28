@@ -35,7 +35,7 @@ interface Store
 
 final class DbStore implements Store
 {
-    private const COLS = ['owner_id', 'title', 'body', 'cover', 'cover_url', 'products', 'status', 'scope', 'origin', 'bb_post_id', 'bb_url', 'bb_updated', 'bb_dirty', 'hub_dirty', 'deleted', 'created_at', 'updated_at'];
+    private const COLS = ['owner_id', 'title', 'body', 'cover', 'cover_url', 'images', 'videos', 'products', 'status', 'scope', 'origin', 'bb_post_id', 'bb_url', 'bb_updated', 'bb_dirty', 'hub_dirty', 'deleted', 'created_at', 'updated_at'];
     private const HUB = ['uid', 'author', 'shop', 'title', 'excerpt', 'cover', 'n_products', 'created'];
     private const POST = 'SELECT p.*, u.name AS author, u.status AS author_status FROM {p}myblog_posts p LEFT JOIN {p}users u ON u.id = p.owner_id';
 

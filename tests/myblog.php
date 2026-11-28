@@ -2,10 +2,10 @@
 declare(strict_types=1);
 /** My Blog: posts, permissions, the shared feed (hub), sending to the hub, synchronisation with Basebase, product embed codes. No database. Run: php tests/myblog.php */
 $root = dirname(__DIR__) . '/core/plugins';
-foreach (['Text', 'Store', 'Posts', 'Network', 'BbSync'] as $f) require "$root/myblog/lib/$f.php";
+foreach (['Text', 'Media', 'Store', 'Posts', 'Network', 'BbSync'] as $f) require "$root/myblog/lib/$f.php";
 require "$root/wms-basebase/lib/Bb.php"; require "$root/wms-basebase/lib/Shop.php";
 require __DIR__ . '/MyblogMemStore.php';
-use SysferaBlog\{BbSync, BlogError, BlogHub, Network, Posts, Text};
+use SysferaBlog\{BbSync, BlogError, BlogHub, Media, Network, Posts, Text};
 
 $fail = 0;
 function ok(bool $c, string $n): void { global $fail; echo ($c ? '  ok   ' : '  FAIL ') . $n . "\n"; if (!$c) $fail++; }
@@ -137,6 +137,29 @@ ok($P::categories($list) === ['Cosmetics' => 1, 'Skin' => 1], 'categories with c
 ok(!$P::visible(null, 5, 5, true) && !$P::visible('A', 0, 0, false) && $P::visible('A', 0, 0, true) && $P::visible('A', 1, 0, false) && $P::visible('A', 0, 1, false), 'a profile is public only once something is public');
 $people = $P::people([['owner_id' => 2, 'shop_name' => 'Olga Shop', 'products' => 3]], [['uid' => 2, 'name' => 'Olga', 'posts' => 1], ['uid' => 3, 'name' => 'Oleg', 'posts' => 4]]);
 ok(count($people) === 2 && $people[0] === ['uid' => 2, 'name' => 'Olga Shop', 'products' => 3, 'posts' => 1] && $people[1]['name'] === 'Oleg', 'search: one line per user, shop name first');
+
+/* videos */
+$src = fn(string $u): string => Media::video($u)['src'];
+$yt = 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ';
+ok($src('https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=x') === $yt && $src('https://youtu.be/dQw4w9WgXcQ?si=a') === $yt && $src('https://m.youtube.com/shorts/dQw4w9WgXcQ') === $yt && $src('https://youtu.be/dQw4w9WgXcQ?t=1m5s') === $yt . '?start=65', 'YouTube links');
+$vk = 'https://vk.com/video_ext.php?oid=-123&id=456&hd=2';
+ok($src('https://vk.com/video-123_456') === $vk && $src('https://vkvideo.ru/video-123_456') === $vk && $src('https://vk.com/videos-123?z=video-123_456%2Fpl') === $vk && $src('https://vk.ru/clip-123_456') === $vk
+    && $src('https://vk.com/video_ext.php?oid=-123&id=456&hash=abcdef0123456789') === 'https://vk.com/video_ext.php?oid=-123&id=456&hash=abcdef0123456789&hd=2', 'VK Video links');
+ok($src('https://rutube.ru/video/' . str_repeat('a', 32) . '/') === 'https://rutube.ru/play/embed/' . str_repeat('a', 32) && $src('https://vimeo.com/123456') === 'https://player.vimeo.com/video/123456' && $src('https://dai.ly/x7abcd') === 'https://www.dailymotion.com/embed/video/x7abcd' && $src('https://ok.ru/video/987') === 'https://ok.ru/videoembed/987', 'Rutube, Vimeo, Dailymotion, OK');
+ok(Media::video('https://a.example/m/film.MP4')['type'] === 'file' && Media::video('https://evil.example/watch?v=dQw4w9WgXcQ')['type'] === 'link' && Media::video('https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ')['type'] === 'link' && Media::video('https://youtube.com/watch?v="><x')['type'] === 'link', 'other links are never framed');
+ok(Media::parseLines(" https://youtu.be/dQw4w9WgXcQ \n\n<iframe width=\"560\" src=\"//vk.com/video_ext.php?oid=1&amp;id=2\" frameborder=\"0\"></iframe>\nrutube.ru/video/1/") === ['https://youtu.be/dQw4w9WgXcQ', 'https://vk.com/video_ext.php?oid=1&id=2', 'https://rutube.ru/video/1/'], 'typed links and pasted embed codes');
+ok(Media::parseLines('javascript:alert(1)') === null && Media::parseLines('hello') === null && Media::parseLines('<iframe></iframe>') === null && Media::parseLines('') === [], 'lines that are not links are refused');
+
+/* gallery */
+$g = new MyblogMemStore(); $gp = new Posts($g, fn() => 1_790_000_000);
+$img = fn(string $c): string => str_repeat($c, 32) . '.jpg';
+$gid = $gp->save(1, false, 0, ['title' => 'G', 'videos' => 'https://youtu.be/dQw4w9WgXcQ'], [], null, [$img('a'), $img('b')]);
+ok(Media::images($g->post($gid)['images']) === [$img('a'), $img('b')] && Posts::card($g->post($gid), fn($u) => $u)['cover'] === '/p/myblog/cover/' . $img('a'), 'gallery saved; its first picture stands in for a cover');
+$gp->save(1, false, $gid, ['title' => 'G', 'remove_images' => [$img('a')]], [], null, [$img('c')]);
+ok(Media::images($g->post($gid)['images']) === [$img('b'), $img('c')] && Media::videos($g->post($gid)['videos']) === ['https://youtu.be/dQw4w9WgXcQ'], 'pictures removed and added; videos kept when the field is not sent');
+ok(err(fn() => $gp->save(1, false, $gid, ['title' => 'G'], [], null, array_map(fn($i) => md5((string)$i) . '.jpg', range(1, 11)))) === 'many_images', 'gallery limit');
+ok(err(fn() => $gp->save(1, false, $gid, ['title' => 'G', 'videos' => 'nonsense'], [])) === 'bad_video' && err(fn() => $gp->save(1, false, $gid, ['title' => 'G', 'videos' => implode("\n", array_map(fn($i) => "https://v.example/$i", range(1, 9)))], [])) === 'many_videos', 'video checks');
+ok(err(fn() => $gp->save(2, false, $gid, ['title' => 'x'], [])) === 'no_post' && err(fn() => $gp->delete(2, false, $gid)) === 'no_post', 'only the author edits or deletes');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

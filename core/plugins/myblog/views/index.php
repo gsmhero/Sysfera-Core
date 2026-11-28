@@ -15,7 +15,7 @@
 <?php if ($offline): ?><div class="flash warn"><?= e($sf->t('offline')) ?></div><?php endif; ?>
 
 <?php if (!$d['items']): ?><div class="card empty"><p><?= e($sf->t($q !== '' ? 'none_found' : ($f === 'mine' ? 'none_mine' : 'none'))) ?></p></div>
-<?php else: echo \Sysfera\View::file(__DIR__ . '/_cards.php', ['sf' => $sf, 'items' => $d['items'], 'me' => $me]); endif; ?>
+<?php else: echo \Sysfera\View::file(__DIR__ . '/_cards.php', ['sf' => $sf, 'items' => $d['items'], 'me' => $me, 'admin' => $admin ?? false, 'host' => $host ?? '']); endif; ?>
 
 <?php if ($d['pages'] > 1): ?><nav class="mb-pager"><?php if ($d['page'] > 1): ?><a class="btn sm" href="<?= e($sf->url('?f=' . $f . '&q=' . rawurlencode($q) . '&page=' . ($d['page'] - 1))) ?>">← <?= e($sf->t('newer')) ?></a><?php endif; ?>
   <span class="muted sm"><?= (int)$d['page'] ?> / <?= (int)$d['pages'] ?></span>

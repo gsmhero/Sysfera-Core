@@ -159,7 +159,7 @@ return function (App $app): void {
         if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $id = (int)($_POST['id'] ?? 0); $do = (string)($_POST['do'] ?? '');
             if ($do === 'create') {
-                $res = $auth->register((string)($_POST['email'] ?? ''), (string)($_POST['name'] ?? ''), (string)($_POST['password'] ?? ''), in_array($_POST['role'] ?? '', ['admin', 'user'], true) ? $_POST['role'] : 'user');
+                $res = $auth->register((string)($_POST['email'] ?? ''), (string)($_POST['name'] ?? ''), (string)($_POST['password'] ?? ''), in_array($_POST['role'] ?? '', ['admin', 'user'], true) ? $_POST['role'] : 'user', $app->setting('default_lang', 'en'));
                 if (is_int($res)) $db->q('UPDATE {p}users SET caps = ? WHERE id = ?', [json_encode(array_values($app->defaultCaps())), $res]);   // same access as a self-registered user (the administrator can change it below)
                 is_int($res) ? flash(t('users.created')) : flash(t($res), 'bad');
             } elseif ($id && $id !== $auth->id()) {
@@ -186,9 +186,12 @@ return function (App $app): void {
                 $n = $app->grantAllCaps();
                 flash(t('settings.grant_done', ['n' => $n])); redirect('/settings');
             }
-            if (in_array($_POST['do'] ?? '', ['logo_save', 'logo_reset'], true)) {
-                $dir = SF_ROOT . '/storage/logo'; foreach ((array)glob($dir . '/logo.*') as $old) @unlink($old);
-                if ($_POST['do'] === 'logo_reset') { $app->setSetting('logo_file', ''); flash(t('logo.cleared')); redirect('/settings'); }
+            if (in_array($_POST['do'] ?? '', ['logo_save', 'logo_reset', 'logo_admin_save', 'logo_admin_reset'], true)) {
+                // two logos: the site one (light background) and the admin panel one (its menu is dark)
+                [$key, $name] = str_starts_with($_POST['do'], 'logo_admin') ? ['logo_admin_file', 'admin'] : ['logo_file', 'logo'];
+                $dir = SF_ROOT . '/storage/logo';
+                $clear = function () use ($dir, $name): void { foreach ((array)glob("$dir/$name.*") as $old) @unlink($old); };
+                if (str_ends_with($_POST['do'], '_reset')) { $clear(); $app->setSetting($key, ''); flash(t('logo.cleared')); redirect('/settings'); }
                 $f = $_FILES['logo'] ?? []; $tmp = (string)($f['tmp_name'] ?? ''); $ext = '';
                 if ($tmp !== '' && ($f['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file($tmp) && (int)$f['size'] > 0 && (int)$f['size'] <= 1048576) {
                     $head = (string)file_get_contents($tmp, false, null, 0, 4096);
@@ -196,10 +199,16 @@ return function (App $app): void {
                     elseif (str_starts_with($head, 'RIFF') && substr($head, 8, 4) === 'WEBP') $ext = 'webp';
                     elseif (preg_match('~<svg[\s>]~i', $head)) $ext = 'svg';
                 }
-                if ($ext === '') { flash(t('logo.bad'), 'bad'); redirect('/settings'); }
+                if ($ext === '') { flash(t('logo.bad'), 'bad'); redirect('/settings'); }   // the current logo stays
                 if (!is_dir($dir)) @mkdir($dir, 0775, true);
-                if (!@move_uploaded_file($tmp, "$dir/logo.$ext")) { flash(t('logo.bad'), 'bad'); redirect('/settings'); }
-                $app->setSetting('logo_file', $ext . '.' . time()); flash(t('logo.saved')); redirect('/settings');
+                $clear();
+                if (!@move_uploaded_file($tmp, "$dir/$name.$ext")) { $app->setSetting($key, ''); flash(t('logo.bad'), 'bad'); redirect('/settings'); }
+                $app->setSetting($key, $ext . '.' . time()); flash(t('logo.saved')); redirect('/settings');
+            }
+            if (in_array($_POST['do'] ?? '', ['accent_save', 'accent_reset'], true)) {
+                $c = strtolower((string)($_POST['accent_color'] ?? ''));
+                $app->setSetting('accent_color', $_POST['do'] === 'accent_save' && sf_accent_css($c) !== '' && $c !== SF_ACCENT ? $c : '');
+                flash(t('settings.saved')); redirect('/settings');
             }
             if (($_POST['do'] ?? '') === 'log_clear') { @file_put_contents(SF_ROOT . '/storage/error.log', ''); flash(t('log.cleared')); redirect('/settings'); }
             if (in_array($_POST['do'] ?? '', ['mail_save', 'mail_test'], true)) {
@@ -221,7 +230,16 @@ return function (App $app): void {
             if (!empty($_POST['demo_mode']) && $app->setting('demo_last_reset', '0') === '0') $app->setSetting('demo_last_reset', (string)time());
             $name = trim((string)($_POST['site_name'] ?? ''));
             $app->setSetting('site_name', $name !== '' ? mb_substr($name, 0, 80) : 'Sysfera');
-            if (isset(I18n::languages()[$_POST['default_lang'] ?? ''])) $app->setSetting('default_lang', $_POST['default_lang']);
+            if (isset(I18n::languages()[$_POST['default_lang'] ?? ''])) {
+                $was = $app->setting('default_lang', 'en'); $new = (string)$_POST['default_lang']; $all = !empty($_POST['lang_apply_all']);
+                $app->setSetting('default_lang', $new);
+                if ($new !== $was || $all) {   // every account keeps its own language, so a new default has to be written there too
+                    $all ? $app->db()->q('UPDATE {p}users SET lang = ?', [$new])
+                        : $app->db()->q('UPDATE {p}users SET lang = ? WHERE id = ? OR lang IS NULL OR lang = ?', [$new, $app->auth()->id(), $was]);
+                    setcookie('sflang', $new, ['expires' => time() + 86400 * 365, 'path' => App::basePath() . '/', 'samesite' => 'Lax']);
+                    I18n::setLang($new);
+                }
+            }
             $tz = (string)($_POST['timezone'] ?? 'UTC');
             $app->setSetting('timezone', in_array($tz, timezone_identifiers_list(), true) ? $tz : 'UTC');
             $app->setSetting('registration', !empty($_POST['registration']) ? '1' : '0');
@@ -303,14 +321,16 @@ return function (App $app): void {
     });
 
     /* ---------- the logo an administrator uploaded in Settings (public: it is shown on the sign-in page too) ---------- */
-    $r->add('GET', '/brand/logo', function () use ($app) {
-        $ext = explode('.', (string)$app->setting('logo_file', ''))[0];
+    $brand = function (string $key, string $name) use ($app): void {
+        $ext = explode('.', (string)$app->setting($key, ''))[0];
         $types = ['png' => 'image/png', 'jpg' => 'image/jpeg', 'gif' => 'image/gif', 'webp' => 'image/webp', 'svg' => 'image/svg+xml'];
-        $f = SF_ROOT . '/storage/logo/logo.' . $ext;
+        $f = SF_ROOT . "/storage/logo/$name.$ext";
         if (!isset($types[$ext]) || !is_file($f)) { http_response_code(404); return; }
         header('Content-Type: ' . $types[$ext]); header('Cache-Control: public, max-age=86400'); header('X-Content-Type-Options: nosniff');
         header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox"); readfile($f);
-    });
+    };
+    $r->add('GET', '/brand/logo', function () use ($brand) { $brand('logo_file', 'logo'); });
+    $r->add('GET', '/brand/logo-admin', function () use ($brand) { $brand('logo_admin_file', 'admin'); });
 
     /* ---------- plugin static files (plugins/<slug>/assets/...) ---------- */
     $r->add('GET', '/assets/p/{slug}/{file*}', function ($p) use ($app) {

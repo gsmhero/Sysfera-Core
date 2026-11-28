@@ -1,6 +1,8 @@
-<?php /** @var \Sysfera\Plugin $sf @var array $items @var int $me  (own posts get state badges and buttons) */ ?>
+<?php /** @var \Sysfera\Plugin $sf @var array $items @var int $me  (own posts get state badges and buttons) @var bool $admin may change every post of this site @var string $host this site's domain */
+$bare = fn(string $d): string => (string)preg_replace('/^www\./', '', strtolower($d)); ?>
 <div class="mb-grid">
-<?php foreach ($items as $c): $own = !empty($me) && ($c['domain'] ?? '') === '' && (int)$c['uid'] === (int)$me; ?>
+<?php foreach ($items as $c): $here = ($c['domain'] ?? '') === '' || (!empty($host) && $bare($c['domain']) === $bare($host));
+  $own = !empty($me) && $here && (!empty($admin) || (int)$c['uid'] === (int)$me); ?>
   <article class="mb-card">
     <a class="mb-cover" href="<?= e($c['url']) ?>" tabindex="-1" aria-hidden="true"><?php if ($c['cover'] !== ''): ?><img src="<?= e($c['cover']) ?>" alt="" loading="lazy" referrerpolicy="no-referrer"><?php else: ?><span><?= e(\SysferaBlog\Text::cut($c['title'], 1)) ?></span><?php endif; ?></a>
     <div class="mb-body">

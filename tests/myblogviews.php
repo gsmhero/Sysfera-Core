@@ -3,7 +3,7 @@ declare(strict_types=1);
 /** Renders every My Blog page (en and ru); a PHP warning, a missing translation or unescaped user text fails. Also: language parity, error keys, migrations, manifest, .gitignore. Run: php tests/myblogviews.php */
 require dirname(__DIR__) . '/core/app/bootstrap.php';
 $dir = SF_ROOT . '/plugins/myblog';
-foreach (['Text', 'Store', 'Posts', 'Network', 'Profile'] as $f) require "$dir/lib/$f.php";
+foreach (['Text', 'Media', 'Store', 'Posts', 'Network', 'Profile'] as $f) require "$dir/lib/$f.php";
 require __DIR__ . '/MyblogMemStore.php';
 use SysferaBlog\{Posts, Text};
 use Sysfera\View;
@@ -22,7 +22,7 @@ final class FakeSf {
 if (PHP_SAPI === 'cli') $_SESSION = ['csrf' => 'tok'];
 
 $st = new MyblogMemStore(); $posts = new Posts($st, fn() => 1_790_000_000);
-$id = $posts->save(1, false, 0, ['title' => 'Title <script>x</script>', 'body' => "Body <img src=x onerror=1>\nline", 'products' => [5]], [5], str_repeat('a', 32) . '.png');
+$id = $posts->save(1, false, 0, ['title' => 'Title <script>x</script>', 'body' => "Body <img src=x onerror=1>\nline", 'products' => [5], 'videos' => "https://youtu.be/dQw4w9WgXcQ\nhttps://v.example/page\nhttps://v.example/f.mp4"], [5], str_repeat('a', 32) . '.png', [str_repeat('b', 32) . '.jpg', str_repeat('c', 32) . '.jpg']);
 $d = $posts->save(1, false, 0, ['title' => 'Draft', 'status' => 'draft'], []);
 $l = $posts->save(1, false, 0, ['title' => 'Local', 'scope' => 'local'], []);
 $cards = array_map(fn($p) => Posts::card($p, fn($u) => $u), $st->ownerPosts(1));
@@ -40,6 +40,8 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
         'start' => ['start', $start([])], 'start search' => ['start', $start(['q' => '"x<', 'offline' => true, 'people' => [['uid' => 1, 'name' => 'S<', 'products' => 2, 'posts' => 1]], 'products' => [$product]])], 'start nothing' => ['start', $start(['d' => $page([]), 'q' => 'zz', 'scope' => 'local'])],
         'index mine' => ['index', ['d' => $page($cards), 'f' => 'mine', 'q' => '"x', 'offline' => false, 'me' => 1, 'shop' => ['shop_name' => 'S<'], 'state' => 'unsupported', 'hubMod' => true]],
         'index all' => ['index', ['d' => $page([$remote], 3), 'f' => 'all', 'q' => '', 'offline' => true, 'me' => 1, 'shop' => null, 'state' => 'error', 'hubMod' => false]],
+        'index feed own' => ['index', ['d' => $page([['domain' => 'www.Far.ru'] + $remote]), 'f' => 'all', 'q' => '', 'offline' => false, 'me' => 1, 'shop' => null, 'state' => '', 'hubMod' => false, 'host' => 'far.ru']],
+        'index feed foreign' => ['index', ['d' => $page([$remote]), 'f' => 'all', 'q' => '', 'offline' => false, 'me' => 1, 'admin' => true, 'shop' => null, 'state' => '', 'hubMod' => false, 'host' => 'here.ru']],
         'index empty' => ['index', ['d' => $page([]), 'f' => 'site', 'q' => '', 'offline' => false, 'me' => 2, 'shop' => null, 'state' => '', 'hubMod' => false]],
         'edit new' => ['edit', ['p' => null, 'form' => null, 'products' => [], 'shop' => null, 'synced' => false]],
         'edit' => ['edit', ['p' => $p, 'form' => null, 'products' => [$product], 'shop' => ['shop_name' => 'S'], 'synced' => true]],
@@ -63,6 +65,11 @@ foreach (['en' => $en, 'ru' => $ru] as $lang => $L) {
         if (preg_match('~<script>x</script>|<img src=x|<i>|S<[^/]|T<[^/]~', $html)) $bad[] = "$lang $name: unescaped text";
         if ($name === 'profile products' && str_contains($html, 'data-mb-copy')) $bad[] = "$lang $name: a visitor gets the owner's button";
         if ($name === 'profile products own' && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
+        if ($name === 'post mine' && !(str_contains($html, 'youtube-nocookie.com/embed/dQw4w9WgXcQ') && str_contains($html, '<video') && str_contains($html, 'data-mb-zoom') && str_contains($html, 'data-mb-next') && str_contains($html, 'data-confirm') && str_contains($html, 'edit?id='))) $bad[] = "$lang $name: gallery, videos or manage buttons missing";
+        if ($name === 'post draft' && str_contains($html, 'data-confirm')) $bad[] = "$lang $name: a reader gets the delete button";
+        if ($name === 'index feed own' && !str_contains($html, 'edit?id=')) $bad[] = "$lang $name: own post in the shared feed has no buttons";
+        if ($name === 'index feed foreign' && str_contains($html, 'edit?id=')) $bad[] = "$lang $name: buttons on another site's post";
+        if ($name === 'edit' && !str_contains($html, 'remove_images[]')) $bad[] = "$lang $name: gallery pictures cannot be removed";
         if ($name === 'edit unlisted product' && !str_contains($html, 'type="hidden" name="products[]" value="5"')) $bad[] = "$lang $name: a product attached on Basebase would be lost";
         if ($view === 'products' && $vars['products'] && !str_contains($html, e(Text::embedCode($product['url'])))) $bad[] = "$lang $name: embed code missing";
     }
@@ -85,7 +92,9 @@ $sql = (string)file_get_contents("$dir/migrations/001_myblog.sql");
 preg_match_all('/CREATE TABLE IF NOT EXISTS (\S+)/', $sql, $tb);
 ok($tb[1] === ['{p}myblog_posts', '{p}myblog_hub'], 'migration creates the two tables');
 $cols = (new ReflectionClass(SysferaBlog\DbStore::class))->getConstants();
-ok(!array_filter(array_merge($cols['COLS'], $cols['HUB']), fn($c) => !preg_match('/^\s+' . $c . '\s/m', $sql)), 'every column the store writes exists');
+$all = implode("
+", array_map('file_get_contents', glob("$dir/migrations/*.sql")));   // created at first, or added by a later migration
+ok(!array_filter(array_merge($cols['COLS'], $cols['HUB']), fn($c) => !preg_match('/(^\s+|ADD COLUMN )' . $c . '\s/m', $all)), 'every column the store writes exists');
 ok(\Sysfera\Plugins::readManifest("$dir/plugin.json") !== null, 'manifest valid');
 ok(str_contains((string)file_get_contents(dirname(__DIR__) . '/.gitignore'), '!core/plugins/myblog/'), '.gitignore lets the plugin in');
 ok(is_file(SF_ROOT . '/views/public.php'), 'public page frame exists');

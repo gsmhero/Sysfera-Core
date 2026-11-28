@@ -15,6 +15,7 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
 <title><?= e($title) ?> — <?= e($siteName) ?></title>
 <link rel="icon" type="image/svg+xml" href="<?= e(url("/assets/sysfera-logo.svg")) ?>">
 <link rel="stylesheet" href="<?= e(url('/assets/sysfera.css')) ?>?v=<?= e(SF_VERSION) ?>">
+<?= sf_accent() ?>
 </head><body class="<?= $bare ? 'bare' : '' ?>">
 <?php if ($bare): ?>
 <main class="auth"><div class="auth-box"><div class="wordmark"><?= sf_logo() ?></div><?= $content ?>
@@ -22,7 +23,7 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
 <?php else: ?>
 <div class="shell">
   <aside class="side">
-    <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo() ?></a>
+    <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo(true) ?></a>
     <div class="site"><?= e($siteName) ?></div>
     <nav>
       <?php $lastG = null; foreach ($menu as $m):

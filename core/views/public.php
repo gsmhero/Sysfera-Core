@@ -7,6 +7,7 @@ $langs = \Sysfera\I18n::languages(); $cur = \Sysfera\I18n::lang();
 <?php if ($description !== ''): ?><meta name="description" content="<?= e($description) ?>">
 <?php endif; ?><link rel="icon" type="image/svg+xml" href="<?= e(url('/assets/sysfera-logo.svg')) ?>">
 <link rel="stylesheet" href="<?= e(url('/assets/sysfera.css')) ?>?v=<?= e(SF_VERSION) ?>">
+<?= sf_accent() ?>
 </head><body class="land">
 <header class="land-top"><div class="land-w">
   <a class="wordmark" href="<?= e(url('/')) ?>"><?= sf_logo() ?></a>

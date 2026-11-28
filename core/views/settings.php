@@ -8,6 +8,8 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
     <label class="fld"><span><?= e(t('settings.default_lang')) ?></span><select name="default_lang"><?php foreach ($langs as $c => $n): ?><option value="<?= e($c) ?>" <?= $app->setting('default_lang', 'en') === $c ? 'selected' : '' ?>><?= e($n) ?></option><?php endforeach; ?></select></label>
     <label class="fld"><span><?= e(t('settings.timezone')) ?></span><select name="timezone"><?php foreach (timezone_identifiers_list() as $tz): ?><option <?= $app->setting('timezone', 'UTC') === $tz ? 'selected' : '' ?>><?= e($tz) ?></option><?php endforeach; ?></select></label>
   </div>
+  <label class="chk"><input type="checkbox" name="lang_apply_all" value="1"> <?= e(t('settings.lang_apply_all')) ?></label>
+  <p class="muted sm"><?= e(t('settings.lang_hint')) ?></p>
   <label class="chk"><input type="checkbox" name="landing" value="1" <?= $app->setting('landing', '1') !== '0' ? 'checked' : '' ?>> <?= e(t('settings.landing_on')) ?></label>
   <p class="muted sm"><?= e(t('settings.landing_hint')) ?></p>
   <h3><?= e(t('settings.registration')) ?></h3>
@@ -31,12 +33,19 @@ $app = \Sysfera\App::get(); $defaults = $app->defaultCaps(); ?>
   <label class="fld inline"><span><?= e(t('settings.demo_hours')) ?></span><select name="demo_hours"><?php foreach (\Sysfera\Demo::HOURS as $h): ?><option <?= \Sysfera\Demo::hours() === $h ? 'selected' : '' ?>><?= $h ?></option><?php endforeach; ?></select></label>
   <div style="margin-top:14px"><button class="btn primary"><?= e(t('common.save')) ?></button></div>
 </form>
+<?php foreach (['logo' => ['logo_file', 'logo.title', 'logo.hint', false], 'logo_admin' => ['logo_admin_file', 'logo.admin_title', 'logo.admin_hint', true]] as $do => [$key, $title, $hint, $panel]): $has = $app->setting($key, '') !== ''; ?>
 <form class="card" method="post" enctype="multipart/form-data"><?= csrf_field() ?>
-  <h3><?= e(t('logo.title')) ?></h3><p class="muted sm"><?= e(t('logo.hint')) ?></p>
-  <p class="muted sm"><?= e($app->setting('logo_file', '') !== '' ? t('logo.current') : t('logo.default')) ?></p>
-  <div style="background:var(--card2,#f3f4f6);padding:10px;border-radius:8px;display:inline-block;margin-bottom:10px"><?= sf_logo() ?></div>
+  <h3><?= e(t($title)) ?></h3><p class="muted sm"><?= e(t($hint)) ?></p>
+  <p class="muted sm"><?= e($has ? t('logo.current') : t($panel ? 'logo.admin_default' : 'logo.default')) ?></p>
+  <div class="logo-pv<?= $panel ? ' dark' : '' ?>"><?= sf_logo($panel) ?></div>
   <label class="fld"><span><?= e(t('logo.file')) ?></span><input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"></label>
-  <div class="row"><button class="btn primary" name="do" value="logo_save"><?= e(t('logo.upload')) ?></button><?php if ($app->setting('logo_file', '') !== ''): ?><button class="btn" name="do" value="logo_reset"><?= e(t('logo.reset')) ?></button><?php endif; ?></div>
+  <div class="row"><button class="btn primary" name="do" value="<?= $do ?>_save"><?= e(t('logo.upload')) ?></button><?php if ($has): ?><button class="btn" name="do" value="<?= $do ?>_reset"><?= e(t($panel ? 'logo.admin_reset' : 'logo.reset')) ?></button><?php endif; ?></div>
+</form>
+<?php endforeach; ?>
+<form class="card" method="post"><?= csrf_field() ?>
+  <h3><?= e(t('accent.title')) ?></h3><p class="muted sm"><?= e(t('accent.hint')) ?></p>
+  <label class="fld inline"><span><?= e(t('accent.color')) ?></span><input type="color" class="accent-pick" name="accent_color" value="<?= e($app->setting('accent_color', '') ?: SF_ACCENT) ?>"></label>
+  <div class="row"><button class="btn primary" name="do" value="accent_save"><?= e(t('common.save')) ?></button><?php if ($app->setting('accent_color', '') !== ''): ?><button class="btn" name="do" value="accent_reset"><?= e(t('accent.reset')) ?></button><?php endif; ?></div>
 </form>
 <form class="card" method="post" data-confirm="<?= e(t('settings.grant_confirm')) ?>"><?= csrf_field() ?><input type="hidden" name="do" value="grant_all">
   <h3><?= e(t('settings.grant_h')) ?></h3><p class="muted sm"><?= e(t('settings.grant_hint')) ?></p><button class="btn"><?= e(t('settings.grant_btn')) ?></button>

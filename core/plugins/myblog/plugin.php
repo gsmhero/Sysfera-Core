@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaBlog\{BbSync, BlogError, BlogHub, DbStore, Network, Posts, Profile, Text};
+use SysferaBlog\{BbSync, BlogError, BlogHub, DbStore, Media, Network, Posts, Profile, Text};
 use SysferaMsg\{Ctx, HubError, HubServer};
 use Sysfera\{Demo, Hooks, View};
 
@@ -12,7 +12,7 @@ use Sysfera\{Demo, Hooks, View};
 return function (\Sysfera\Plugin $sf): void {
     $mdir = dirname($sf->dir) . '/messenger/lib/';
     foreach (['Util', 'Hub', 'Client'] as $f) require_once $mdir . "$f.php";
-    foreach (['Text', 'Store', 'Posts', 'Network', 'BbSync', 'Profile'] as $f) require_once __DIR__ . "/lib/$f.php";
+    foreach (['Text', 'Media', 'Store', 'Posts', 'Network', 'BbSync', 'Profile'] as $f) require_once __DIR__ . "/lib/$f.php";
 
     $db = $sf->db();
     $st = new DbStore($db);
@@ -83,9 +83,8 @@ return function (\Sysfera\Plugin $sf): void {
     };
     $notFound = function () use ($publicPage, $sf): void { http_response_code(404); $publicPage('notice', ['msg' => 'e_no_post'], $sf->t('title')); };
 
-    /** Stores an uploaded cover picture and returns its name; null when nothing was uploaded. @throws BlogError */
-    $upload = function () use ($dir): ?string {
-        $f = $_FILES['cover'] ?? null;
+    /** Stores one uploaded picture and returns its name; null when nothing was uploaded. @throws BlogError */
+    $store = function (mixed $f) use ($dir): ?string {
         if (!is_array($f) || ($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
         $tmp = (string)($f['tmp_name'] ?? '');
         if (($f['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file($tmp) || (int)$f['size'] > Text::MAX_COVER) throw new BlogError('bad_cover');
@@ -95,6 +94,20 @@ return function (\Sysfera\Plugin $sf): void {
         $name = bin2hex(random_bytes(16)) . '.' . $ext;
         if (!@move_uploaded_file($tmp, "$dir/$name")) throw new BlogError('bad_cover');
         return $name;
+    };
+    $drop = function (array $names) use ($dir): void { foreach ($names as $n) if (is_string($n) && Text::coverName($n)) @unlink("$dir/$n"); };
+    /** Stores the gallery pictures of the form. All or nothing. @return list<string> @throws BlogError */
+    $storeMany = function () use ($store, $drop): array {
+        $f = $_FILES['gallery'] ?? null; $names = [];
+        if (!is_array($f) || !is_array($f['error'] ?? null)) return $names;
+        try {
+            foreach (array_keys($f['error']) as $i) {
+                $one = ['error' => $f['error'][$i], 'tmp_name' => $f['tmp_name'][$i] ?? '', 'size' => $f['size'][$i] ?? 0];
+                if (($n = $store($one)) !== null) $names[] = $n;
+                if (count($names) > Media::MAX_IMAGES) throw new BlogError('many_images');
+            }
+        } catch (BlogError $e) { $drop($names); throw $e; }
+        return $names;
     };
 
     $sf->menu('menu', '/', ['order' => 5, 'icon' => 'note']);
@@ -109,7 +122,7 @@ return function (\Sysfera\Plugin $sf): void {
     HubServer::register('blog.feed', fn(Ctx $c) => $bh->feed($c->q, fn(string $d): string => $d === $host ? $origin() : 'https://' . $d), true);   // the installation itself (user 0) reads it for widgets and guests
 
     /* ---------- the My Blog page ---------- */
-    $sf->route('GET', '/', function () use ($sf, $st, $uid, $net, $push, $sync, $localFeed, $latest, $shop, $page) {
+    $sf->route('GET', '/', function () use ($sf, $st, $uid, $net, $push, $sync, $localFeed, $latest, $shop, $page, $host) {
         $me = $uid();
         $push(); $sync($me); $push();
         $f = in_array($_GET['f'] ?? '', ['all', 'site', 'mine'], true) ? $_GET['f'] : ($net() ? 'all' : 'site');
@@ -126,7 +139,7 @@ return function (\Sysfera\Plugin $sf): void {
             if ($d === null) $offline = true;
         }
         if ($d === null) $d = $localFeed($q, $pg);
-        $page('index', ['d' => $d, 'f' => $f, 'q' => $q, 'offline' => $offline, 'me' => $me, 'shop' => $shop($me), 'state' => $sf->setting("sync_state_$me", ''), 'hubMod' => $sf->auth()->isAdmin() && Hooks::filter('messenger.hub', null) !== null]);
+        $page('index', ['d' => $d, 'f' => $f, 'q' => $q, 'offline' => $offline, 'me' => $me, 'admin' => $sf->auth()->isAdmin(), 'host' => $host, 'shop' => $shop($me), 'state' => $sf->setting("sync_state_$me", ''), 'hubMod' => $sf->auth()->isAdmin() && Hooks::filter('messenger.hub', null) !== null]);
     });
 
     $sf->route('GET', '/edit', function () use ($sf, $posts, $uid, $admin, $products, $shop, $err, $go, $page) {
@@ -142,21 +155,25 @@ return function (\Sysfera\Plugin $sf): void {
         $page('products', ['products' => $products($uid()), 'shop' => $shop($uid())], $sf->t('my_products'));
     });
 
-    $sf->route('POST', '/save', function () use ($posts, $uid, $admin, $products, $upload, $push, $sync, $sf, $st, $dir, $err, $go) {
-        $id = (int)($_POST['id'] ?? 0); $new = null;
+    $sf->route('POST', '/save', function () use ($posts, $uid, $admin, $products, $store, $storeMany, $drop, $push, $sync, $sf, $st, $err, $go) {
+        $id = (int)($_POST['id'] ?? 0); $new = null; $added = [];
         try {
             $old = $id ? $posts->editable($uid(), $admin(), $id) : null;
             $owner = $old ? (int)$old['owner_id'] : $uid();
-            $new = $upload();
+            $new = $store($_FILES['cover'] ?? null);
+            $added = $storeMany();
             $own = array_map(fn($p) => (int)$p['bb_id'], $products($owner));
-            $saved = $posts->save($uid(), $admin(), $id, $_POST, $own, $new);
+            $saved = $posts->save($uid(), $admin(), $id, $_POST, $own, $new, $added);
         } catch (BlogError $e) {
-            if ($new) @unlink("$dir/$new");
-            sf_session(); $_SESSION['mb_form'] = ['id' => $id] + array_intersect_key($_POST, array_flip(['title', 'body', 'status', 'scope', 'products']));
+            $drop(array_merge($added, [$new]));
+            sf_session(); $_SESSION['mb_form'] = ['id' => $id] + array_intersect_key($_POST, array_flip(['title', 'body', 'status', 'scope', 'products', 'videos']));
             flash($err($e->key), 'bad'); $go('edit' . ($id ? '?id=' . $id : ''));
         }
         $p = $st->post($saved);
-        if ($old && !empty($old['cover']) && ($p['cover'] ?? null) !== $old['cover']) @unlink("$dir/" . basename((string)$old['cover']));
+        if ($old) {   // pictures the post no longer shows
+            if (!empty($old['cover']) && ($p['cover'] ?? null) !== $old['cover']) $drop([$old['cover']]);
+            $drop(array_diff(Media::images($old['images'] ?? null), Media::images($p['images'] ?? null)));
+        }
         $r = $sync((int)$p['owner_id'], true); $push();
         $sf->log('post.save', ['id' => $saved]);
         flash($sf->t($p['status'] === 'draft' ? 'saved_draft' : 'saved'));
@@ -164,13 +181,13 @@ return function (\Sysfera\Plugin $sf): void {
         $go('post/' . $saved);
     });
 
-    $sf->route('POST', '/delete', function () use ($posts, $uid, $admin, $push, $sync, $sf, $st, $dir, $err, $go) {
+    $sf->route('POST', '/delete', function () use ($posts, $uid, $admin, $push, $sync, $sf, $drop, $err, $go) {
         $id = (int)($_POST['id'] ?? 0);
         try {
             $p = $posts->editable($uid(), $admin(), $id);
             $posts->delete($uid(), $admin(), $id);
         } catch (BlogError $e) { flash($err($e->key), 'bad'); $go('?f=mine'); }
-        if (!empty($p['cover'])) @unlink("$dir/" . basename((string)$p['cover']));
+        $drop(array_merge(Media::images($p['images'] ?? null), [$p['cover'] ?? null]));
         $sync((int)$p['owner_id'], true); $push();
         $sf->log('post.delete', ['id' => $id]); flash($sf->t('deleted'));
         $go('?f=mine');
@@ -223,7 +240,7 @@ return function (\Sysfera\Plugin $sf): void {
         $about = $sf->setting("about_$u", '');
         $publicPage('profile', ['uid' => $u, 'name' => $name, 'shopName' => $shopName, 'about' => $about, 'tab' => $tab, 'postCount' => $d['total'], 'productCount' => count($all), 'd' => $d,
             'items' => array_slice($hit, ($pg - 1) * Profile::PER_PAGE, Profile::PER_PAGE), 'f' => $f, 'cats' => Profile::categories($all), 'page' => $pg, 'pages' => $pages,
-            'sets' => $tab === 'sets' ? $sets($u) : null, 'own' => $own], $shopName !== '' ? $shopName : (string)$name, ['description' => Text::excerpt($about, 160)]);
+            'sets' => $tab === 'sets' ? $sets($u) : null, 'own' => $own, 'me' => $uid(), 'admin' => $admin()], $shopName !== '' ? $shopName : (string)$name, ['description' => Text::excerpt($about, 160)]);
     }, ['auth' => false]);
 
     $sf->route('GET', '/cover/{file}', function (array $a) use ($dir) {
@@ -281,12 +298,12 @@ return function (\Sysfera\Plugin $sf): void {
     }, ['admin' => true]);
 
     /* ---------- a user leaves: his posts leave the shared feed ---------- */
-    $sf->on('user.deleted', function (int $u) use ($st, $push, $dir, $db) {
+    $sf->on('user.deleted', function (int $u) use ($st, $push, $drop, $dir, $db) {
         $db->q('DELETE FROM {p}settings WHERE k IN (?,?,?)', ["plugin.myblog.about_$u", "plugin.myblog.sync_$u", "plugin.myblog.sync_state_$u"]);
         @unlink("$dir/sets-$u.json");
         foreach ($st->ownerPosts($u) as $p) {
-            if (!empty($p['cover'])) @unlink("$dir/" . basename((string)$p['cover']));
-            $st->update((int)$p['id'], ['deleted' => 1, 'hub_dirty' => 1, 'bb_dirty' => 0, 'cover' => null, 'updated_at' => date('Y-m-d H:i:s')]);   // the Basebase shop is the user's own and stays
+            $drop(array_merge(Media::images($p['images'] ?? null), [$p['cover'] ?? null]));
+            $st->update((int)$p['id'], ['deleted' => 1, 'hub_dirty' => 1, 'bb_dirty' => 0, 'cover' => null, 'images' => null, 'updated_at' => date('Y-m-d H:i:s')]);   // the Basebase shop is the user's own and stays
         }
         $push();
     });

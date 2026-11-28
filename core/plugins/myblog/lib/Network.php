@@ -64,7 +64,7 @@ final class Network
             $id = (int)$p['id']; $uid = (int)$p['owner_id'];
             if (isset($stop[$uid])) continue;
             $public = !$p['deleted'] && $p['status'] === 'published' && $p['scope'] === 'global' && ($p['author_status'] ?? '') === 'active';
-            $cover = !empty($p['cover']) ? (string)$p['cover'] : (string)($p['cover_url'] ?? '');
+            $cover = Posts::picture($p) ?: (string)($p['cover_url'] ?? '');
             $r = ($this->call)('POST', $public ? 'blog.publish' : 'blog.remove', [], $public
                 ? ['post_id' => $id, 'title' => (string)$p['title'], 'excerpt' => Text::excerpt((string)$p['body']), 'author' => (string)($p['author'] ?? ''), 'shop' => $shop($uid), 'cover' => $cover, 'products' => count(Text::ids($p['products'])), 'created' => date('c', strtotime((string)$p['created_at']) ?: time())]
                 : ['post_id' => $id], (string)$uid);

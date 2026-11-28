@@ -19,7 +19,7 @@ $keep = array_filter(['tab' => 'products', 'q' => $f['q'], 'min' => $f['min'], '
 
 <?php if ($tab === 'posts'): ?>
   <?php if (!$d['items']): ?><div class="card empty"><p><?= e($sf->t('none')) ?></p></div>
-  <?php else: echo \Sysfera\View::file(__DIR__ . '/_cards.php', ['sf' => $sf, 'items' => $d['items'], 'me' => 0]); endif; ?>
+  <?php else: echo \Sysfera\View::file(__DIR__ . '/_cards.php', ['sf' => $sf, 'items' => $d['items'], 'me' => $me ?? 0, 'admin' => $admin ?? false]); endif; ?>
 <?php elseif ($tab === 'products'): ?>
 <div class="mb-cols">
   <aside>

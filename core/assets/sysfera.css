@@ -101,7 +101,7 @@ input[type=color]{width:56px;height:38px;padding:3px;border:1px solid var(--line
 input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-webkit-color-swatch{border:0;border-radius:5px}input[type=color]::-moz-color-swatch{border:0;border-radius:5px}
 
 /* sidebar zones */
-.side nav .nsep{flex:none;height:0;margin:clamp(3px,.9vh,8px) 2px;border-top:2px solid #4c3d8f}
+.side nav .nsep{flex:none;height:0;margin:clamp(3px,.9vh,8px) 2px;border-top:2px solid #4c3d8f;border-top-color:color-mix(in srgb,var(--acc) 60%,#000)}
 .setlinks{padding:6px}.setlink{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;color:var(--ink);text-decoration:none}.setlink:hover{background:var(--bg)}.setlink b{white-space:nowrap}.setlink span{flex:1;min-width:0}.setlink i{font-style:normal;color:var(--mut);font-size:20px}
 
 /* date / time fields (see sysfera.js) */
@@ -153,3 +153,5 @@ input[type=color]::-webkit-color-swatch-wrapper{padding:0}input[type=color]::-we
 .land-top nav>a.on{color:var(--acc);font-weight:600}.land-sec h1.land-h1{font-size:clamp(28px,5vw,40px);margin:0 0 18px;text-align:center}
 .land-feed{padding-top:32px;min-height:55vh}.land-search{display:flex;gap:8px;max-width:640px;margin:0 auto 16px}.land-search input[type=search]{flex:1;min-width:0}
 .land-switch{display:flex;justify-content:center;flex-wrap:wrap;margin:0 0 24px}.land-switch a{padding:8px 18px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;font-weight:600;font-size:14px}.land-switch a:first-child{border-radius:99px 0 0 99px}.land-switch a:last-child{border-radius:0 99px 99px 0}.land-switch a.on{background:var(--acc);border-color:var(--acc);color:var(--acc-ink)}
+/* settings: logo previews and the accent colour */
+.logo-pv{background:var(--bg);padding:10px;border-radius:8px;display:inline-block;margin-bottom:10px;max-width:100%}.logo-pv.dark{background:var(--side)}.logo-pv.dark .lg-a{fill:#c4c9d2}.logo-pv.dark .lg-b{fill:#fff}.logo-pv.dark b{color:#fff}.fld input.accent-pick{width:64px;height:40px;padding:3px;cursor:pointer}

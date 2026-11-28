@@ -30,3 +30,15 @@
 .mb-wide{width:100%}.mb-cats{display:flex;flex-direction:column;gap:2px}.mb-cats a{padding:7px 10px;border-radius:8px;color:var(--ink);text-decoration:none;display:flex;justify-content:space-between;gap:8px}.mb-cats a.on{background:var(--bg);color:var(--acc);font-weight:600}
 .mb-tile{display:flex;flex-direction:column;gap:6px}.mb-tile .mb-item{flex:1}
 .mb-cover{text-decoration:none}.land-sec .mb-found{font-size:20px;margin:6px 0 12px;text-align:left}.mb-people{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:18px}
+
+/* manage buttons, gallery, lightbox, videos */
+.mb-manage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}.mb-manage form{margin:0}
+.mb-gal{position:relative;margin:18px 0}.mb-track{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:14px;background:#000}.mb-track::-webkit-scrollbar{display:none}
+.mb-slide{flex:0 0 100%;scroll-snap-align:start;aspect-ratio:3/2;display:block;cursor:zoom-in}.mb-slide img{width:100%;height:100%;object-fit:contain;display:block}
+.mb-arrow{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:50%;background:#000000a6;color:#fff;font:28px/1 system-ui;cursor:pointer;display:grid;place-items:center;padding:0 0 4px}.mb-arrow.prev{left:10px}.mb-arrow.next{right:10px}.mb-arrow:hover{background:#000000d9}
+.mb-count{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:#000000a6;color:#fff;border-radius:99px;padding:2px 12px;font-size:13px}
+.mb-light{position:fixed;inset:0;z-index:1000;background:#000000f2;display:flex;align-items:center;justify-content:center;padding:56px 12px}
+.mb-light-img{max-width:100%;max-height:100%;object-fit:contain}.mb-x{position:absolute;top:10px;right:12px;width:44px;height:44px;border:0;border-radius:50%;background:#ffffff26;color:#fff;font:28px/1 system-ui;cursor:pointer}
+.mb-light .mb-arrow{background:#ffffff26}.mb-light .mb-count{bottom:14px}
+.mb-video{position:relative;aspect-ratio:16/9;margin:18px 0;border-radius:14px;overflow:hidden;background:#000}.mb-video iframe,.mb-video video{position:absolute;inset:0;width:100%;height:100%;border:0}.mb-vlink{margin:14px 0}
+.mb-thumbs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.mb-thumbs label{display:flex;flex-direction:column;gap:4px;font-size:13px}.mb-thumbs img{width:110px;height:82px;object-fit:cover;border-radius:8px}
