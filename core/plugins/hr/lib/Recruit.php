@@ -8,6 +8,9 @@ final class Recruit
     /** job boards plug in here: each provider is callable(array $vacancy, array $version): ?string  (returns an external id). No providers ship with the module. */
     private array $boards = [];
 
+    /** translates an interface key (the platform sets it); used for the short facts in the Activity post */
+    public ?\Closure $label = null;
+
     public function __construct(private Env $e, private Hr $hr) {}
     public function addBoard(string $name, callable $fn): void { $this->boards[$name] = $fn; }
 
@@ -50,13 +53,59 @@ final class Recruit
         $fmt = fn(int $n) => number_format($n, 0, '.', ' '); $cur = self::CURRENCIES[$v['salary_cur'] ?? 'RUB'] ?? '₽';
         return ($f !== null && $t !== null ? $fmt($f) . ' – ' . $fmt($t) : ($f !== null ? '≥ ' . $fmt($f) : '≤ ' . $fmt($t))) . ' ' . $cur;
     }
+    /* The structured description of a vacancy: JSON next to the free text in each VERSION, so it is approved together with it. Empty fields are not stored. */
+    public const DETAIL_CHOICES = ['work_format' => ['office', 'hybrid', 'remote'], 'schedule' => ['5_2', '2_2', 'shift', 'flexible', 'irregular'], 'employment' => ['full', 'part', 'project', 'concurrent']];
+    public const DETAIL_SETS = ['contracts' => ['tk', 'gph'], 'benefits' => ['dms', 'training', 'transport', 'perks']];
+    public const DETAIL_LINES = ['location' => 200, 'hours' => 100];
+    public const DETAIL_TEXTS = ['company' => 2000, 'benefits_note' => 2000, 'stages' => 2000, 'apply_info' => 2000];
+    public const DETAIL_LISTS = ['responsibilities', 'req_must', 'req_nice', 'tools'];
+    /** the translation key prefix of every choice field */
+    public const DETAIL_LABELS = ['work_format' => 'wfm_', 'schedule' => 'sch_', 'employment' => 'empl_', 'contracts' => 'ct_', 'benefits' => 'bn_'];
+    private const DETAIL_ORDER = ['work_format', 'location', 'schedule', 'hours', 'employment', 'company', 'responsibilities', 'req_must', 'req_nice', 'tools', 'contracts', 'benefits', 'benefits_note', 'stages', 'apply_info'];
+    public const MAX_ITEMS = 30, ITEM_LEN = 500;
+    private static function cut(string $s, int $max): string { return function_exists('mb_substr') ? mb_substr($s, 0, $max) : (string)preg_replace('/^(.{0,' . $max . '}).*$/us', '$1', $s); }
+    /** The details after this input: only the keys that were sent change (top level, like the salary fields), an empty value removes the field. */
+    private function detailsIn(array $in, array $d): array
+    {
+        $text = fn($x): string => is_scalar($x) ? trim((string)preg_replace('/\r\n?/', "\n", (string)$x)) : '';
+        foreach (self::DETAIL_ORDER as $k) {
+            if (!array_key_exists($k, $in)) continue; $raw = $in[$k];
+            if (isset(self::DETAIL_CHOICES[$k])) {
+                $val = $text($raw); if ($val !== '' && !in_array($val, self::DETAIL_CHOICES[$k], true)) throw new Err('bad_choice', "$k: unknown value", 422);
+            } elseif (isset(self::DETAIL_SETS[$k])) {
+                $sent = array_filter(array_map($text, is_array($raw) ? $raw : explode(',', $text($raw))), fn($x) => $x !== '');
+                if (array_diff($sent, self::DETAIL_SETS[$k])) throw new Err('bad_choice', "$k: unknown value", 422);
+                $val = array_values(array_intersect(self::DETAIL_SETS[$k], $sent));
+            } elseif (in_array($k, self::DETAIL_LISTS, true)) {
+                $val = [];
+                foreach (is_array($raw) ? $raw : explode("\n", $text($raw)) as $line) {   // one item per line; a typed "1." or "-" is dropped, the page numbers the list itself
+                    $line = trim((string)preg_replace(['/\s+/u', '/^\s*(?:\d{1,2}[.)]\s+|[-*•–—]\s+)/u'], [' ', ''], $text($line)));
+                    if ($line !== '') $val[] = self::cut($line, self::ITEM_LEN);
+                    if (count($val) >= self::MAX_ITEMS) break;
+                }
+            } elseif (isset(self::DETAIL_LINES[$k])) $val = self::cut(trim((string)preg_replace('/\s+/u', ' ', $text($raw))), self::DETAIL_LINES[$k]);
+            else $val = self::cut($text($raw), self::DETAIL_TEXTS[$k]);
+            if ($val === '' || $val === []) unset($d[$k]); else $d[$k] = $val;
+        }
+        $out = []; foreach (self::DETAIL_ORDER as $k) if (isset($d[$k])) $out[$k] = $d[$k]; return $out;
+    }
+    /** the details of a version row ([] for versions made before they existed) */
+    public static function detailsOf(array $version): array { $j = $version['details'] ?? null; if (is_array($j)) return $j; $a = is_string($j) && $j !== '' ? json_decode($j, true) : []; return is_array($a) ? $a : []; }
+    /** Where, when and what kind of employment, in words. $t translates a key. Only the filled ones, keyed by the translation key of their label. */
+    public static function facts(array $d, callable $t): array
+    {
+        $pick = fn(string $k): string => isset($d[$k]) && in_array($d[$k], self::DETAIL_CHOICES[$k], true) ? (string)$t(self::DETAIL_LABELS[$k] . $d[$k]) : '';
+        $when = implode(', ', array_filter([$pick('schedule'), (string)($d['hours'] ?? '')], fn($x) => $x !== ''));
+        return array_filter(['f_work_format' => $pick('work_format'), 'f_location' => (string)($d['location'] ?? ''), 'f_work_schedule' => $when, 'f_employment' => $pick('employment')], fn($x) => $x !== '');
+    }
+    private function latest(int $vacancyId): array { return $this->e->s->find('vacancy_versions', ['vacancy_id' => $vacancyId], 'version DESC', 1)[0] ?? []; }
     /** What a visitor may read about a published, open vacancy (HR managers may also see the others): no permission needed, nothing internal. */
     public function preview(Ctx $c, string $uuid, string $email = ''): array
     {
         $v = $this->e->row('vacancies', $uuid);
         if (!($v['status'] === 'open' && $v['wf'] === 'published') && !$c->can('hr.vacancies.manage')) throw new Err('not_found', 'no such vacancy', 404);
         $s = $this->shape($v); $role = $this->e->s->one('roles', ['id' => (int)$v['role_id']]); $team = !empty($v['team_id']) ? $this->e->s->one('teams', ['id' => (int)$v['team_id']]) : null; $email = strtolower(trim($email));
-        return ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'description' => (string)$s['description'], 'role' => (string)($role['name'] ?? ''), 'role_ru' => (string)(($role['name_ru'] ?? '') ?: ($role['name'] ?? '')), 'team' => (string)($team['name'] ?? ''),
+        return ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'description' => (string)$s['description'], 'details' => $s['details'], 'role' => (string)($role['name'] ?? ''), 'role_ru' => (string)(($role['name_ru'] ?? '') ?: ($role['name'] ?? '')), 'team' => (string)($team['name'] ?? ''),
             'salary' => self::salaryText($v), 'skills' => $s['skills'], 'published_at' => (string)($v['published_at'] ?? ''), 'open' => $v['status'] === 'open' && $v['wf'] === 'published', 'applications' => $s['candidates'],
             'applied' => $email !== '' && (bool)$this->e->s->one('candidates', ['vacancy_id' => (int)$v['id'], 'email' => $email])];
     }
@@ -65,13 +114,13 @@ final class Recruit
         $v['skills'] = self::skillList($v);
         $v['team_uuid'] = !empty($v['team_id']) ? ($this->e->s->one('teams', ['id' => (int)$v['team_id']])['uuid'] ?? null) : null;
         $v['role_uuid'] = $this->e->s->one('roles', ['id' => (int)$v['role_id']])['uuid'] ?? null;
-        $cur = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1); $v['description'] = $cur[0]['description'] ?? '';
+        $cur = $this->latest((int)$v['id']); $v['description'] = $cur['description'] ?? ''; $v['details'] = self::detailsOf($cur);
         $v['candidates'] = count($this->e->s->find('candidates', ['vacancy_id' => (int)$v['id']])); return $v;
     }
     public function getVacancy(Ctx $c, string $uuid): array { $c->need('hr.vacancies.manage'); return $this->shape($this->e->row('vacancies', $uuid)); }
-    public function versions(Ctx $c, string $uuid): array { $c->need('hr.vacancies.manage'); return $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$this->e->row('vacancies', $uuid)['id']], 'version DESC'); }
+    public function versions(Ctx $c, string $uuid): array { $c->need('hr.vacancies.manage'); return array_map(fn($x) => ['details' => self::detailsOf($x)] + $x, $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$this->e->row('vacancies', $uuid)['id']], 'version DESC')); }
 
-    /** create or edit. A changed description makes a NEW VERSION (the old text stays) and sends an approved / published vacancy back to draft. */
+    /** create or edit. A changed description or detail makes a NEW VERSION (the old one stays) and sends an approved / published vacancy back to draft. */
     public function saveVacancy(Ctx $c, array $in): array
     {
         $c->need('hr.vacancies.manage'); $uuid = $this->e->uuidOrNew($in); $ex = $this->e->s->one('vacancies', ['uuid' => $uuid]);
@@ -80,6 +129,7 @@ final class Recruit
         $sal = $this->salary($in, $ex) + $this->skillsIn($in, $ex);
         $title = $this->e->str($in, 'title', 160, true); $desc = $this->e->str($in, 'description', 20000, !$ex);
         $team = !empty($in['team_uuid']) ? (int)$this->e->row('teams', (string)$in['team_uuid'])['id'] : ($ex['team_id'] ?? null);
+        $det = $this->detailsIn($in, $ex ? self::detailsOf($this->latest((int)$ex['id'])) : []);   // checked before anything is written
         if ($ex) {
             if ($ex['status'] !== 'open') throw new Err('closed', 'a closed vacancy cannot be edited', 409);
             $this->e->s->update('vacancies', (int)$ex['id'], ['title' => $title, 'role_id' => (int)$role['id'], 'team_id' => $team] + $sal);
@@ -87,12 +137,14 @@ final class Recruit
             $this->e->s->insert('vacancies', ['uuid' => $uuid, 'role_id' => (int)$role['id'], 'team_id' => $team, 'title' => $title, 'status' => 'open', 'wf' => 'draft', 'version' => 0, 'post_ref' => null, 'external' => null, 'created_by' => $c->actor(), 'created_at' => $this->e->now(), 'published_at' => null] + $sal);
             $this->e->log($c, 'vacancy.created', 'vacancy', $uuid, ['title' => $title]);
         }
-        $v = $this->e->row('vacancies', $uuid); $last = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1);
-        if ($desc !== '' && (!$last || $last[0]['description'] !== $desc)) {
-            $n = (int)$v['version'] + 1;
-            $this->e->s->insert('vacancy_versions', ['vacancy_id' => (int)$v['id'], 'version' => $n, 'description' => $desc, 'sha256' => hash('sha256', $desc), 'created_by' => $c->actor(), 'created_at' => $this->e->now()]);
+        $v = $this->e->row('vacancies', $uuid); $last = $this->latest((int)$v['id']);
+        $text = $desc !== '' ? $desc : (string)($last['description'] ?? '');
+        if ($text !== '' && (!$last || $last['description'] !== $text || self::detailsOf($last) !== $det)) {
+            $n = (int)$v['version'] + 1; $json = $det ? json_encode($det, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE) : null;
+            $hash = hash('sha256', $text . ($json !== null ? "\n" . $json : ''));
+            $this->e->s->insert('vacancy_versions', ['vacancy_id' => (int)$v['id'], 'version' => $n, 'description' => $text, 'details' => $json, 'sha256' => $hash, 'created_by' => $c->actor(), 'created_at' => $this->e->now()]);
             $upd = ['version' => $n]; if (in_array($v['wf'], ['approved', 'published'], true)) $upd['wf'] = 'draft';
-            $this->e->s->update('vacancies', (int)$v['id'], $upd); $this->e->log($c, 'vacancy.version', 'vacancy', $uuid, ['version' => $n, 'sha256' => hash('sha256', $desc), 'wf' => $upd['wf'] ?? $v['wf']]);
+            $this->e->s->update('vacancies', (int)$v['id'], $upd); $this->e->log($c, 'vacancy.version', 'vacancy', $uuid, ['version' => $n, 'sha256' => $hash, 'wf' => $upd['wf'] ?? $v['wf']]);
         }
         return $this->shape($this->e->row('vacancies', $uuid));
     }
@@ -115,7 +167,8 @@ final class Recruit
         if ($v['wf'] === 'published') return $this->shape($v);   // idempotent
         if (!Pipeline::canWf((string)$v['wf'], 'published')) throw new Err('bad_state', 'approve the vacancy first', 409);
         $ver = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1)[0]; $ext = [];
-        $sal = self::salaryText($v); $ref = $this->e->b->feed->publish((string)$v['title'], ($sal !== '' ? $sal . '. ' : '') . (string)$ver['description'], in_array($audience, ['global', 'users', 'admins'], true) ? $audience : 'global');
+        $sal = self::salaryText($v); $facts = $this->label ? implode(' · ', self::facts(self::detailsOf($ver), $this->label)) : '';
+        $ref = $this->e->b->feed->publish((string)$v['title'], ($sal !== '' ? $sal . '. ' : '') . ($facts !== '' ? $facts . '. ' : '') . (string)$ver['description'], in_array($audience, ['global', 'users', 'admins'], true) ? $audience : 'global');
         foreach ($this->boards as $name => $fn) { try { $ext[$name] = $fn($v, $ver); } catch (\Throwable $x) { $ext[$name] = 'error: ' . substr($x->getMessage(), 0, 80); } }
         try { \Sysfera\Hooks::do('hr.vacancy.published', $v, $ver); } catch (\Throwable) {}
         return $this->wf($c, $v, 'published', ['post_ref' => $ref, 'external' => $ext ? json_encode($ext) : null, 'published_at' => $this->e->now()]);
@@ -126,7 +179,7 @@ final class Recruit
         $email = strtolower(trim($email)); $out = [];
         foreach ($this->e->s->find('vacancies', ['status' => 'open', 'wf' => 'published'], 'id DESC') as $v) {
             $cands = $this->e->s->find('candidates', ['vacancy_id' => (int)$v['id']]);
-            $out[] = ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'salary' => self::salaryText($v), 'post_ref' => (string)($v['post_ref'] ?? ''), 'published_at' => (string)($v['published_at'] ?? ''), 'applications' => count($cands),
+            $out[] = ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'salary' => self::salaryText($v), 'details' => self::detailsOf($this->latest((int)$v['id'])), 'post_ref' => (string)($v['post_ref'] ?? ''), 'published_at' => (string)($v['published_at'] ?? ''), 'applications' => count($cands),
                 'new' => count(array_filter($cands, fn($x) => $x['stage'] === 'new')), 'applied' => $email !== '' && (bool)array_filter($cands, fn($x) => strtolower((string)$x['email']) === $email)];
         }
         return $out;

@@ -305,4 +305,28 @@ $many = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Ma
 ok($rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'None', 'description' => 'x'])['skills'] === [], 'skills: a new vacancy without them has an empty list');
 $mig3 = (string)file_get_contents($dir . '/migrations/003_vacancy_skills.sql'); ok(str_contains($mig3, 'skills') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig3), 'migration 003: one new column, nothing destructive');
 
+/* ---------- structured details of a vacancy ---------- */
+$dv = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Accountant', 'description' => 'About', 'work_format' => 'hybrid', 'location' => "  Moscow,\n Tverskaya 1 ", 'schedule' => '5_2', 'hours' => '09:00–18:00', 'employment' => 'full',
+    'responsibilities' => "1. Books\r\n\r\n2) VAT\r\n- 1C:ERP support\n• Reports\n1.5 rate work", 'req_must' => ['Degree', '', '  IPBR  certificate '], 'contracts' => ['', 'gph', 'tk'], 'benefits' => [''], 'company' => "Line 1\r\nLine 2", 'tools' => '']);
+$dd = $dv['details'];
+ok($dd['responsibilities'] === ['Books', 'VAT', '1C:ERP support', 'Reports', '1.5 rate work'] && $dd['req_must'] === ['Degree', 'IPBR certificate'], 'details: lists are one item per line, typed numbers and bullets dropped, blanks skipped');
+ok($dd['location'] === 'Moscow, Tverskaya 1' && $dd['company'] === "Line 1\nLine 2" && $dd['contracts'] === ['tk', 'gph'] && !isset($dd['benefits']) && !isset($dd['tools']) && !isset($dd['req_nice']), 'details: cleaned, empty ones are not stored');
+ok($dv['version'] === 1 && $rec->versions($oleg, $dv['uuid'])[0]['details'] === $dd, 'details: kept with the version');
+$rec->approve($oleg, $dv['uuid']); $rec->label = fn(string $k) => ['wfm_hybrid' => 'Hybrid', 'sch_5_2' => '5/2', 'empl_full' => 'Full-time'][$k] ?? $k; $spy->posts = []; $rec->publish($oleg, $dv['uuid']);
+ok(str_contains($spy->posts[0][2], 'Hybrid · Moscow, Tverskaya 1 · 5/2, 09:00–18:00 · Full-time. About'), 'details: the Activity post starts with the key facts');
+ok($rec->preview($visitor, $dv['uuid'])['details'] === $dd && array_values(array_filter($rec->openPublished(), fn($x) => $x['uuid'] === $dv['uuid']))[0]['details'] === $dd, 'details: candidates get them in the preview and the dashboard list');
+$dv2 = $rec->saveVacancy($oleg, ['uuid' => $dv['uuid'], 'title' => 'Accountant', 'description' => 'About'] + $dd);
+ok($dv2['version'] === 1 && $dv2['wf'] === 'published', 'details: saving the same ones makes no version');
+$dv3 = $rec->saveVacancy($oleg, ['uuid' => $dv['uuid'], 'title' => 'Accountant', 'hours' => '10:00–19:00']);
+ok($dv3['version'] === 2 && $dv3['wf'] === 'draft' && $dv3['description'] === 'About' && $dv3['details']['hours'] === '10:00–19:00' && $dv3['details']['responsibilities'] === $dd['responsibilities'], 'details: a change is a new version back to draft; what was not sent is kept');
+$dv4 = $rec->saveVacancy($oleg, ['uuid' => $dv['uuid'], 'title' => 'Accountant', 'description' => 'New text']);
+ok($dv4['version'] === 3 && $dv4['details'] === $dv3['details'], 'details: a new description keeps them');
+$dv5 = $rec->saveVacancy($oleg, ['uuid' => $dv['uuid'], 'title' => 'Accountant', 'contracts' => [''], 'location' => '', 'work_format' => '']);
+ok(!isset($dv5['details']['contracts'], $dv5['details']['location'], $dv5['details']['work_format']) && !isset($dv5['details']['location']) && !isset($dv5['details']['contracts']), 'details: an empty value clears the field');
+$count = count($st->t['vacancies']);
+ok(refused(fn() => $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Bad', 'description' => 'x', 'work_format' => 'moon']), 'bad_choice') && refused(fn() => $rec->saveVacancy($oleg, ['uuid' => $dv['uuid'], 'title' => 'Accountant', 'benefits' => ['yacht']]), 'bad_choice') && count($st->t['vacancies']) === $count, 'details: unknown values are refused before anything is written');
+$old = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Old', 'description' => 'plain']); $oid = $st->one('vacancy_versions', ['vacancy_id' => $st->one('vacancies', ['uuid' => $old['uuid']])['id']]);
+ok($oid['details'] === null && $oid['sha256'] === hash('sha256', 'plain') && $rec->saveVacancy($oleg, ['uuid' => $old['uuid'], 'title' => 'Old', 'description' => 'plain', 'work_format' => '', 'responsibilities' => '', 'contracts' => ['']])['version'] === 1, 'details: a vacancy without them stays as before, an empty editor makes no version');
+$mig4 = (string)file_get_contents($dir . '/migrations/004_vacancy_details.sql'); ok(str_contains($mig4, 'details') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig4), 'migration 004: one new column, nothing destructive');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

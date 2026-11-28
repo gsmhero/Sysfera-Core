@@ -36,6 +36,10 @@
 .hr-pv-text{line-height:1.6;margin:0 0 16px;word-break:break-word}
 .hrw-s{white-space:nowrap}.hrw-a{display:flex;gap:6px;align-items:center}
 
+/* vacancy details: editor and the sections candidates read */
+.hr-det{margin:8px 0 14px}.fld textarea{resize:vertical}.hr-sec{margin:0 0 16px;line-height:1.6;word-break:break-word}.card .hr-sec h3{margin:0 0 6px}.hr-sec h4{margin:8px 0 2px;font-size:13.5px;color:var(--mut)}.hr-sec p{margin:0 0 6px}.hr-sec ol,.hr-sec ul{margin:0;padding-left:22px}.hr-pre.hr-ver{white-space:normal;max-height:360px}
+.hrw-f{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
 /* skills */
 .hr-sk{display:grid;gap:6px;margin:8px 0}.hr-sk-t{font-size:13px;color:var(--mut)}.hr-sk-chips,.hr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0}.hr-sk-chips:empty{display:none}
 .hr-chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border:1px solid var(--line);border-radius:999px;background:var(--bg);font-size:13px}.hr-chip i{font-style:normal}

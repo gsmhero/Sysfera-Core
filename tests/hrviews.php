@@ -109,6 +109,8 @@ $fam = ['wf_' => ['draft', 'approved', 'published', 'closed'], 'vs_' => ['open',
     'dk_' => Hr::DOC_KINDS, 'st_' => ['unsigned', 'signed', 'expired'], 'sm_' => ['esign', 'scan'], 'pt_' => Payroll::TYPES, 'task_' => array_merge(Hr::ONBOARDING, Hr::OFFBOARDING), 'lk_' => array_merge(SysferaHr\TimeOff::KINDS, ['absent']), 'ls_' => SysferaHr\TimeOff::STATUSES, 'wd_' => range(1, 7),
     'tl_' => ['hire', 'transfer', 'role_change', 'vacation', 'sick', 'dismissal', 'recruiting'], 'tr_' => ['member', 'lead'], 'role_' => ['operator', 'office', 'viewer'], 'orphan_' => ['no_employee', 'dismissed', 'no_permission'],
     'pl_' => ['base_fixed', 'base_guaranteed', 'base_hourly', 'bonus_mission', 'commission', 'bonus_gi_issue', 'bonus_gi_receipt', 'bonus_gi_return', 'bonus_gi_count'], 'perm_' => array_map(fn($p) => str_replace('.', '_', $p), Rbac::CATALOG), 'act_' => ['approve', 'reject', 'publish', 'close', 'archive', 'hire', 'expire', 'offboard']];
+foreach (Recruit::DETAIL_LABELS as $dk => $dp) $fam[$dp] = (Recruit::DETAIL_CHOICES + Recruit::DETAIL_SETS)[$dk];
+$fam['ph_'] = array_merge(array_keys(Recruit::DETAIL_LINES), array_keys(Recruit::DETAIL_TEXTS), Recruit::DETAIL_LISTS);
 $bad = []; foreach ($fam as $p => $vals) foreach ($vals as $v) if (!isset($en[$p . $v])) $bad[] = $p . $v;
 ok($bad === [], 'lang: every dynamic key family is complete' . ($bad ? ' — missing: ' . implode(', ', $bad) : ''));
 preg_match_all("/new Err\('([a-z_]+)'/", (string)implode('', array_map('file_get_contents', glob("$dir/lib/*.php"))), $em); $noerr = array_values(array_diff(array_unique($em[1]), ['bad_json', 'stale_request', 'bad_signature', 'bad_uuid', 'bad_code', 'bad_kind', 'bad_method', 'bad_scan', 'bad_role', 'bad_phase', 'bad_consent', 'bad_permission', 'bad_decision', 'bad_user', 'bad_manager', 'bad_dates', 'bad_emp_type', 'bad_deduction', 'bad_feedback', 'bad_slot', 'bad_stage', 'bad_pay_type', 'busy', 'inactive', 'no_workdays', 'use_hire', 'started', 'unknown']));
@@ -152,4 +154,33 @@ foreach (['en' => $en, 'ru' => $ru] as $pl2 => $PL) foreach ([['open' => true, '
     ob_start(); require "$dir/views/preview.php"; $h = (string)ob_get_clean();
     ok(!$wsf->missing && !str_contains($h, 'Courier <i>') && !str_contains($h, 'Line <b>2') && str_contains($h, '100 000 – 150 000') && str_contains($h, $pl2 === 'ru' ? 'Оператор' : 'Operator') && (!$st2['open'] ? !str_contains($h, '/apply/') && str_contains($h, $PL['pv_closed']) : ($st2['applied'] ? !str_contains($h, '/apply/') : str_contains($h, '/apply/u-9'))), "preview page $pl2 " . json_encode($st2) . ': renders, escaped, Apply only while open and not yet applied');
 }
+/* vacancy details: editor, candidate preview, version history, widget */
+$full = ['work_format' => 'hybrid', 'location' => 'Moscow <x>', 'schedule' => '5_2', 'hours' => '09:00–18:00', 'employment' => 'concurrent', 'company' => 'Trading company, 3 legal entities', 'responsibilities' => "1. Keep the books\n- File VAT returns", 'req_must' => ['1C:ERP', 'Kontur.Extern'], 'req_nice' => 'IFRS', 'tools' => "SBIS\nConsultantPlus",
+    'contracts' => ['', 'tk'], 'benefits' => ['', 'dms', 'training'], 'benefits_note' => 'Lunch', 'stages' => 'Two interviews', 'apply_info' => 'Subject: accountant'];
+$fv = $call('vacancies.save', ['role_uuid' => $rOp['uuid'], 'title' => 'Accountant', 'description' => 'Join us'] + $full);
+$page = function (string $view, array $vars, string $lang) use ($en, $ru, $dir, $root): array {
+    $L = $lang === 'ru' ? $ru : $en;
+    $sf = new class($L) { public array $manifest = ['version' => '0.5.0']; public array $missing = []; public function __construct(private array $l) {} public function t(string $k, array $v = []): string { if (!isset($this->l[$k])) { $this->missing[] = $k; return 'hr.' . $k; } return $this->l[$k]; } public function url(string $p = ''): string { return '/p/hr/' . ltrim($p, '/'); } public function asset(string $f): string { return '/assets/p/hr/' . $f; } };
+    extract($vars); $c = $root; $me = null; ob_start(); try { include "$dir/views/$view.php"; } finally { $h = (string)ob_get_clean(); } return [$h, $sf->missing];
+};
+$heads = ['d_company', 'd_responsibilities', 'd_requirements', 'd_req_must', 'd_req_nice', 'd_tools', 'd_terms', 'd_stages', 'd_apply_info'];
+foreach (['en' => $en, 'ru' => $ru] as $l => $L) {
+    [$h, $m] = $page('preview', ['v' => $rec->preview($root, $fv['uuid']), 'lang' => $l, 'manage' => false, 'back' => ''], $l);
+    $all = !array_filter($heads, fn($k) => !str_contains($h, '<h3>' . $L[$k] . '</h3>') && !str_contains($h, '<h4>' . $L[$k] . '</h4>'));
+    ok(!$m && $all && str_contains($h, '<ol><li>Keep the books</li><li>File VAT returns</li></ol>') && str_contains($h, '<h4>' . $L['d_req_must'] . '</h4><ul><li>1C:ERP</li><li>Kontur.Extern</li></ul>') && str_contains($h, $L['wfm_hybrid']) && str_contains($h, $L['empl_concurrent']) && str_contains($h, $L['ct_tk']) && str_contains($h, $L['bn_dms']) && str_contains($h, '5/2, 09:00–18:00') && str_contains($h, 'Moscow &lt;x&gt;') && !str_contains($h, 'Moscow <x>') && str_contains($h, 'Join us') && !str_contains($h, $L['bn_perks']), "vacancy details $l: every section on the preview, numbered duties, required / preferred, escaped" . ($m ? ' — missing: ' . implode(', ', $m) : ''));
+    [$h, $m] = $page('preview', ['v' => $rec->preview($root, $vac['uuid']), 'lang' => $l, 'manage' => false, 'back' => ''], $l);
+    ok(!$m && !str_contains($h, 'hr-sec') && str_contains($h, '<div class="hr-pv-text">text</div>') && !array_filter(['f_work_format', 'f_location', 'f_work_schedule', 'f_employment'], fn($k) => str_contains($h, '<small>' . $L[$k] . '</small>')), "vacancy details $l: an old vacancy shows its description only, no empty fields");
+    [$h, $m] = $page('widget', ['list' => $rec->openPublished(), 'total' => 1, 'manage' => false], $l);
+    ok(!$m && !str_contains($h, 'hrw-f'), "vacancy details $l: the widget adds no line when there are no details");
+    [$h, $m] = $page('widget', ['list' => [['uuid' => 'u-1', 'title' => 'A', 'applications' => 0, 'new' => 0, 'applied' => false, 'details' => ['work_format' => 'remote', 'location' => 'Kazan']]], 'total' => 1, 'manage' => false], $l);
+    ok(!$m && str_contains($h, $L['wfm_remote'] . ' · Kazan'), "vacancy details $l: the widget shows format and place");
+    $vv2 = $call('vacancies.get', ['uuid' => $fv['uuid']]);
+    [$h, $m] = $page('vacancy', ['v' => $vv2, 'board' => $call('candidates.board', ['uuid' => $fv['uuid']]), 'versions' => $call('vacancies.versions', ['uuid' => $fv['uuid']]), 'roles' => $call('roles.list'), 'teams' => $call('teams.list'), 'users' => [], 'interviews' => [], 'tab' => 'vacancies', 'hrst' => null], $l);
+    $names = array_merge(array_keys(Recruit::DETAIL_CHOICES), array_keys(Recruit::DETAIL_LINES), array_keys(Recruit::DETAIL_TEXTS), Recruit::DETAIL_LISTS, ['contracts[]', 'benefits[]', 'description']);
+    ok(!$m && !array_filter($names, fn($n) => !str_contains($h, 'name="' . $n . '"')) && str_contains($h, "Keep the books\nFile VAT returns</textarea>") && preg_match('/value="hybrid" selected/', $h) && preg_match('/value="dms" checked/', $h) && str_contains($h, 'hr-ver'), "vacancy details $l: the editor has every field filled in, the version history shows them" . ($m ? ' — missing: ' . implode(', ', $m) : ''));
+}
+[$h] = $page('vacancies', ['vac' => [], 'roles' => $call('roles.list'), 'teams' => [], 'st' => '', 'tab' => 'vacancies'], 'en');
+ok(str_contains($h, 'name="responsibilities"') && str_contains($h, 'name="apply_info"'), 'new vacancy form: the details can be filled in at once');
+ok(str_contains((string)file_get_contents("$dir/migrations/004_vacancy_details.sql"), 'ADD COLUMN details'), 'migration 004: the details column');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good ($pages pages rendered)\n"; exit($fail ? 1 : 0);

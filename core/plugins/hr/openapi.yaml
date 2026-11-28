@@ -116,8 +116,8 @@ paths:
         default: {$ref: '#/components/responses/Err'}
     post:
       operationId: vacancies.save
-      summary: "Create or edit a vacancy; a changed description is a new version and sends approved/published back to draft"
-      description: "Permission: hr.vacancies.manage. body: uuid?, role_uuid, title, description, team_uuid?, salary_from?, salary_to?, salary_cur? (RUB|USD|EUR), skills? (list of short texts, up to 30)"
+      summary: "Create or edit a vacancy; a changed description or detail is a new version and sends approved/published back to draft"
+      description: "Permission: hr.vacancies.manage. body: uuid?, role_uuid, title, description, team_uuid?, salary_from?, salary_to?, salary_cur? (RUB|USD|EUR), skills? (list of short texts, up to 30). Structured details, all optional, returned as `details` (only the sent keys change, an empty value clears): work_format? (office|hybrid|remote), location?, schedule? (5_2|2_2|shift|flexible|irregular), hours?, employment? (full|part|project|concurrent), company?, responsibilities?, req_must?, req_nice?, tools? (each a list or one item per line, up to 30), contracts? (list: tk, gph), benefits? (list: dms, training, transport, perks), benefits_note?, stages?, apply_info?"
       requestBody:
         content:
           application/json:

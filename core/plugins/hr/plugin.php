@@ -28,9 +28,12 @@ return function (\Sysfera\Plugin $sf): void {
         static $o = null; if ($o) return $o;
         $rbac = new Rbac($store); $env = new Env($store, $rbac, DbBridges::make($db, SF_ROOT . '/storage/hr', $client), $dataKey(), fn() => time(), $cfg());
         $hr = new Hr($env); $rec = new Recruit($env, $hr); $lv = new Leave($env, $hr);
+        $rec->label = fn(string $k): string => $sf->t($k);
         return $o = ['rbac' => $rbac, 'env' => $env, 'hr' => $hr, 'rec' => $rec, 'lv' => $lv, 'ops' => Api::ops($env, $hr, $rec, $lv)];
     };
     $seed = function () use ($sf, $svc, $db) {
+        // the site deploy copies bundled components without running their migrations: apply pending ones once per version
+        if ($sf->setting('schema') !== (string)$sf->manifest['version']) { (new \Sysfera\Migrator($db))->run($sf->dir . '/migrations', 'plugin:hr:'); $sf->setSetting('schema', (string)$sf->manifest['version']); }
         if ($sf->setting('seed_v1') !== '1') { $svc()['rbac']->ensureBuiltin(); $sf->setSetting('seed_v1', '1'); }
         if ($sf->setting('teams_sync_v1') !== '1' && DbBridges::has($db, 'teams_teams')) {   // once: show the teams that existed before the Teams app was connected
             foreach ($svc()['env']->s->find('teams') as $t) $svc()['hr']->syncTeam((string)$t['uuid']);
