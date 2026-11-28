@@ -2,9 +2,9 @@
 declare(strict_types=1);
 /** HR engine tests: RBAC checker, field permissions, recruiting, documents, pay, payroll export, leave, onboarding / offboarding, audit chain. No database. Run: php tests/hr.php */
 $dir = dirname(__DIR__) . '/core/plugins/hr';
-foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Leave'] as $c) require "$dir/lib/$c.php";
+foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Network', 'Leave'] as $c) require "$dir/lib/$c.php";
 require __DIR__ . '/HrMemStore.php';
-use SysferaHr\{Err, Audit, Crypt, Ctx, Rbac, Fields, Payroll, TimeOff, Pipeline, Env, Hr, Recruit, Leave, Sig};
+use SysferaHr\{VacancyHub, VacancyFeed, Err, Audit, Crypt, Ctx, Rbac, Fields, Payroll, TimeOff, Pipeline, Env, Hr, Recruit, Leave, Sig};
 
 $fail = 0; function ok(bool $c, string $n): void { global $fail; echo ($c ? '  ok   ' : '  FAIL ') . $n . "\n"; if (!$c) $fail++; }
 function refused(callable $f, string $code): bool { try { $f(); return false; } catch (Err $e) { return $e->errCode === $code; } }
@@ -328,5 +328,36 @@ ok(refused(fn() => $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'ti
 $old = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Old', 'description' => 'plain']); $oid = $st->one('vacancy_versions', ['vacancy_id' => $st->one('vacancies', ['uuid' => $old['uuid']])['id']]);
 ok($oid['details'] === null && $oid['sha256'] === hash('sha256', 'plain') && $rec->saveVacancy($oleg, ['uuid' => $old['uuid'], 'title' => 'Old', 'description' => 'plain', 'work_format' => '', 'responsibilities' => '', 'contracts' => ['']])['version'] === 1, 'details: a vacancy without them stays as before, an empty editor makes no version');
 $mig4 = (string)file_get_contents($dir . '/migrations/004_vacancy_details.sql'); ok(str_contains($mig4, 'details') && !preg_match('/\b(DROP|DELETE|TRUNCATE)\b/i', $mig4), 'migration 004: one new column, nothing destructive');
+
+/* ---------- vacancies shared between sites ---------- */
+$calls = 0; $rec->changed = function () use (&$calls) { $calls++; };
+$sh = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Shared one', 'description' => "Text\nmore " . str_repeat('я', 400), 'location' => 'Kazan', 'company' => 'Secret Co details', 'apply_info' => 'mail hr@x.ru', 'team_uuid' => '']);
+$ids = fn() => array_column($rec->shared(), 'uuid'); $guest = new Ctx(null, 'guest', []);
+ok(!in_array($sh['uuid'], $ids(), true) && refused(fn() => $rec->preview($guest, $sh['uuid']), 'not_found'), 'sharing: a draft is neither shared nor public');
+$rec->approve($oleg, $sh['uuid']); $calls = 0; $rec->publish($oleg, $sh['uuid']); $it = array_values(array_filter($rec->shared(), fn($x) => $x['uuid'] === $sh['uuid']))[0] ?? [];
+ok($calls === 1 && array_keys($it) === ['uuid', 'title', 'salary', 'excerpt', 'details', 'published_at'] && $it['details'] === ['location' => 'Kazan'] && preg_match('/^.{1,240}$/u', $it['excerpt']) === 1 && str_starts_with($it['excerpt'], 'Text more'), 'sharing: publishing tells the platform; only the public short fields travel');
+ok($rec->preview($guest, $sh['uuid'])['title'] === 'Shared one', 'sharing: the page of a public vacancy is readable without signing in');
+foreach (['users', 'admins', 'mine'] as $au) { $x = $rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => "For $au", 'description' => 'x']); $rec->approve($oleg, $x['uuid']); $rec->publish($oleg, $x['uuid'], $au);
+    ok(!in_array($x['uuid'], $ids(), true) && refused(fn() => $rec->preview($guest, $x['uuid']), 'not_found') && $rec->preview($visitor, $x['uuid'])['open'], "sharing: audience $au stays on this site"); }
+$calls = 0; $rec->saveVacancy($oleg, ['uuid' => $sh['uuid'], 'title' => 'Shared one', 'hours' => '9-18']);
+ok($calls === 1 && !in_array($sh['uuid'], $ids(), true) && refused(fn() => $rec->preview($guest, $sh['uuid']), 'not_found'), 'sharing: back to draft = withdrawn');
+$rec->approve($oleg, $sh['uuid']); $rec->publish($oleg, $sh['uuid']); $calls = 0; $rec->closeVacancy($oleg, $sh['uuid']);
+ok($calls === 1 && !in_array($sh['uuid'], $ids(), true) && refused(fn() => $rec->preview($guest, $sh['uuid']), 'not_found'), 'sharing: a closed vacancy is withdrawn');
+$rec->changed = function () { throw new \RuntimeException('hub down'); };
+ok($rec->saveVacancy($oleg, ['role_uuid' => $roleOp['uuid'], 'title' => 'Offline', 'description' => 'x'])['title'] === 'Offline', 'sharing: an unreachable hub never breaks saving');
+$rec->changed = null;
+
+$hubSt = new HrMemStore(); $clock = $now; $hub = new VacancyHub($hubSt, function () use (&$clock) { return $clock; });
+$u = fn(int $n) => sprintf('00000000-0000-4000-8000-%012d', $n); $base = fn(string $d) => "https://$d/sf/";
+$r1 = $hub->replace('a.ru', ['items' => [['uuid' => $u(1), 'title' => 'A1', 'published_at' => '2026-11-01 10:00:00', 'details' => ['location' => 'X', 'company' => 'no', 'hours' => ['bad']], 'url' => 'https://evil.ru', 'candidates' => 7], ['uuid' => 'nope', 'title' => 'bad'], ['uuid' => $u(9), 'title' => ''], 'junk']]);
+$hub->replace('b.ru', ['items' => [['uuid' => $u(2), 'title' => 'B1', 'published_at' => '2099-01-01 00:00:00']]]);
+$f = $hub->feed('c.ru', $base)['items'];
+ok($r1['count'] === 1 && array_column($f, 'title') === ['B1', 'A1'] && $f[1]['url'] === 'https://a.ru/sf/p/hr/v/' . $u(1) && $f[1]['details'] === ['location' => 'X'] && !isset($f[1]['candidates']) && $f[0]['published_at'] <= date('Y-m-d H:i:s', $now), 'hub: bad items skipped, the address comes from the registration, unknown fields dropped, no future dates');
+ok(array_column($hub->feed('a.ru', $base)['items'], 'title') === ['B1'], 'hub: a site does not get its own vacancies back');
+$hub->replace('a.ru', ['items' => []]); ok(array_column($hub->feed('c.ru', $base)['items'], 'title') === ['B1'], 'hub: an empty list removes the vacancies of that site only');
+$clock += 31 * 86400; ok($hub->feed('c.ru', $base)['items'] === [], 'hub: a silent site drops out after 30 days');
+$hub->replace('b.ru', ['items' => array_map(fn($n) => ['uuid' => $u($n), 'title' => "V$n"], range(1, 80))]);
+ok(count($hubSt->find('hub')) === VacancyHub::PER_SITE && count($hub->feed('c.ru', $base)['items']) === VacancyHub::FEED, 'hub: limits per site and per feed');
+ok(VacancyFeed::clean(['uuid' => $u(1), 'title' => 'T', 'url' => 'javascript:alert(1)']) === null && VacancyFeed::clean('x') === null && VacancyFeed::clean(['uuid' => $u(1), 'title' => 'T', 'url' => 'https://a.ru/p'])['domain'] === '', 'feed: an item without a web address is refused on arrival');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n"; exit($fail ? 1 : 0);

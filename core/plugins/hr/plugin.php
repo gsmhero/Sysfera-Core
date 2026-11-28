@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-use SysferaHr\{Err, Api, Env, Hr, Recruit, Leave, Rbac, Sig, Crypt, DbStore, DbBridges, Payroll, Ctx};
+use SysferaHr\{VacancyHub, VacancyFeed, Err, Api, Env, Hr, Recruit, Leave, Rbac, Sig, Crypt, DbStore, DbBridges, Payroll, Ctx};
 
 /**
  * Sysfera HR (Отдел кадров). Rules live in lib/ (tested without a database); this file only wires them to the platform:
@@ -10,7 +10,7 @@ use SysferaHr\{Err, Api, Env, Hr, Recruit, Leave, Rbac, Sig, Crypt, DbStore, DbB
  *  - Encryption key: env SYSFERA_HR_KEY or core/storage/hr.key (never in the database, never in git).
  */
 return function (\Sysfera\Plugin $sf): void {
-    foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Leave', 'Api', 'DbStore', 'DbBridges'] as $c) require_once __DIR__ . "/lib/$c.php";
+    foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Network', 'Leave', 'Api', 'DbStore', 'DbBridges'] as $c) require_once __DIR__ . "/lib/$c.php";
 
     $db = $sf->db(); $store = new DbStore($db);
     $secret = function (string $k) use ($sf): string { $v = $sf->setting($k); if ($v === '') { $v = bin2hex(random_bytes(32)); $sf->setSetting($k, $v); } return $v; };
@@ -24,11 +24,12 @@ return function (\Sysfera\Plugin $sf): void {
         return ['annual_days' => max(0, min(60, (int)$sf->setting('annual_days', '28'))), 'onboarding_days' => max(0, min(60, (int)$sf->setting('onboarding_days', '3'))), 'consent_version' => preg_replace('/[^A-Za-z0-9._-]/', '', $sf->setting('consent_version', '1')) ?: '1',
             'collect_passport' => $sf->setting('collect_passport', '0') === '1', 'holidays' => array_values(array_filter(array_map('trim', explode(',', $sf->setting('holidays', ''))), fn($d) => preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)))];
     };
-    $svc = function () use ($db, $store, $dataKey, $cfg, $client, $sf): array {
+    $svc = function () use ($db, $store, $dataKey, $cfg, $client, $sf, &$share): array {
         static $o = null; if ($o) return $o;
         $rbac = new Rbac($store); $env = new Env($store, $rbac, DbBridges::make($db, SF_ROOT . '/storage/hr', $client), $dataKey(), fn() => time(), $cfg());
         $hr = new Hr($env); $rec = new Recruit($env, $hr); $lv = new Leave($env, $hr);
         $rec->label = fn(string $k): string => $sf->t($k);
+        $rec->changed = function () use (&$share) { $share(true); };
         return $o = ['rbac' => $rbac, 'env' => $env, 'hr' => $hr, 'rec' => $rec, 'lv' => $lv, 'ops' => Api::ops($env, $hr, $rec, $lv)];
     };
     $seed = function () use ($sf, $svc, $db) {
@@ -40,6 +41,40 @@ return function (\Sysfera\Plugin $sf): void {
             $sf->setSetting('teams_sync_v1', '1');
         }
     };
+
+    /* ---------- vacancies on all Sysfera sites, through the Messenger hub ---------- */
+    $feedCache = SF_ROOT . '/storage/hr-vacancies.json';
+    /** Sends the public list when it changed (and every 6 hours, so the hub keeps it). After a failure the dashboard retries at most once a minute. */
+    $share = function (bool $force = false) use ($sf, $svc, $client, $feedCache): void {
+        if (\Sysfera\Demo::on() || !($c = $client()) || !$c->ready()) return;
+        $items = $svc()['rec']->shared(); $hash = sha1((string)json_encode($items)); $sent = $sf->setting('share_hash');
+        if (($sent === $hash && time() - (int)$sf->setting('share_at', '0') < 21600) || (!$items && $sent === '')) return;
+        if (!$force && time() - (int)$sf->setting('share_try', '0') < 60) return;
+        $sf->setSetting('share_try', (string)time());
+        $r = $c->call('POST', 'hr.sync', [], ['items' => $items], null, 4, '0');
+        if ($r['ok']) { $sf->setSetting('share_hash', $hash); $sf->setSetting('share_at', (string)time()); @unlink($feedCache); @unlink($feedCache . '.try'); }
+    };
+    /** Vacancies of the other sites, cached for a minute. [] while the hub cannot be reached and nothing is cached. */
+    $remote = function () use ($client, $feedCache): array {
+        if (\Sysfera\Demo::on() || !($c = $client()) || !$c->ready()) return [];
+        $age = is_file($feedCache) ? time() - (int)filemtime($feedCache) : PHP_INT_MAX;
+        if ($age >= 60 && !(is_file($feedCache . '.try') && time() - (int)filemtime($feedCache . '.try') < 30)) {
+            @file_put_contents($feedCache . '.try', (string)time());
+            $r = $c->call('GET', 'hr.feed', [], null, null, 4, '0');
+            if ($r['ok'] && is_array($r['data']['items'] ?? null)) @file_put_contents($feedCache, json_encode($r['data']['items'], JSON_UNESCAPED_UNICODE), LOCK_EX);
+        }
+        $items = is_file($feedCache) ? json_decode((string)@file_get_contents($feedCache), true) : null;
+        return array_values(array_filter(array_map([VacancyFeed::class, 'clean'], is_array($items) ? $items : [])));
+    };
+    /* the hub side: operations the other installations call ("0" = the installation itself; the request is signed with its key) */
+    \Sysfera\Hooks::on('app.booted', function () use ($sf, $db, $store, &$seed) {
+        if (!class_exists(\SysferaMsg\HubServer::class)) return;
+        $hub = new VacancyHub($store, fn() => time());
+        $host = strtolower((string)preg_replace('/:\d+$/', '', (string)($_SERVER['HTTP_HOST'] ?? '')));
+        $base = fn(string $d): string => $d === $host ? 'https://' . $host . \Sysfera\App::basePath() : ((string)($db->val('SELECT base FROM {p}msg_installs WHERE domain = ?', [$d]) ?: '') ?: 'https://' . $d);
+        \SysferaMsg\HubServer::register('hr.sync', function (\SysferaMsg\Ctx $c) use ($hub, &$seed) { $seed(); return $hub->replace($c->domain, $c->in); }, true);
+        \SysferaMsg\HubServer::register('hr.feed', function (\SysferaMsg\Ctx $c) use ($hub, $base, &$seed) { $seed(); return $hub->feed($c->domain, $base); }, true);
+    });
 
     /** who is asking, resolved by the session */
     $ctx = function () use ($sf, $svc, $seed): Ctx {
@@ -141,12 +176,14 @@ return function (\Sysfera\Plugin $sf): void {
         catch (\Throwable $e) { \Sysfera\App::log('hr ' . $e); flash($sf->t('err_server'), 'bad'); }
         redirect($back);
     });
-    $sf->route('GET', '/v/{uuid}', function (array $p) use ($sf, $svc, $ctx, $seed, $user, $errText) {
-        if (empty($user()['id'])) { http_response_code(403); echo '<div class="card empty"><h3>' . e($sf->t('forbidden')) . '</h3></div>'; return; }
+    // readable without signing in when the vacancy is published for everybody: this is the page the other sites link to
+    $sf->route('GET', '/v/{uuid}', function (array $p) use ($sf, $svc, $ctx, $seed, $user) {
+        $guest = empty($user()['id']);
+        $show = function (string $html, string $title) use ($guest) { $guest ? \Sysfera\View::publicPage($title, $html) : \Sysfera\View::page($title, $html); };
         try { $seed(); $v = $svc()['rec']->preview($ctx(), (string)$p['uuid'], (string)($user()['email'] ?? '')); }
-        catch (Err $e) { http_response_code($e->http === 404 ? 404 : 403); echo '<div class="card empty"><h3>' . e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')) . '</h3></div>'; return; }
-        $sf->render('preview', ['v' => $v, 'lang' => ($user()['lang'] ?? '') === 'ru' ? 'ru' : 'en', 'manage' => $ctx()->can('hr.vacancies.manage'), 'back' => (string)($_GET['from'] ?? '')], $v['title']);
-    });
+        catch (Err $e) { http_response_code($e->http === 404 ? 404 : 403); $show('<div class="card empty"><h3>' . e($sf->t($e->http === 404 ? 'not_found' : 'forbidden')) . '</h3></div>', $sf->t('title')); return; }
+        $show(\Sysfera\View::file($sf->dir . '/views/preview.php', ['sf' => $sf, 'v' => $v, 'guest' => $guest, 'lang' => \Sysfera\I18n::lang() === 'ru' ? 'ru' : 'en', 'manage' => !$guest && $ctx()->can('hr.vacancies.manage'), 'back' => (string)($_GET['from'] ?? '')]), $v['title']);
+    }, ['auth' => false]);
     /* the button under the vacancy's post in the Activity feed (the post is found by the reference saved when the vacancy was published) */
     $sf->on('activity.post.actions', function (string $html, array $post) use ($sf, $open, $user) {
         if (empty($user()['id']) || \Sysfera\Demo::on() || empty($post['id'])) return $html;
@@ -156,11 +193,13 @@ return function (\Sysfera\Plugin $sf): void {
         return $html;
     });
     /* dashboard widget: published vacancies with the number of applications */
-    $sf->on('dashboard.widgets', function (array $w) use ($sf, $open, $user, $ctx, $seed) {
+    $sf->on('dashboard.widgets', function (array $w) use ($sf, $open, $user, $ctx, $seed, $share, $remote) {
         if (\Sysfera\Demo::on() || empty($user()['id'])) return $w;
         try { $seed(); $list = $open(); $manage = $ctx()->can('hr.candidates.manage'); } catch (\Throwable) { return $w; }
-        if (!$list && !$manage) return $w;
-        $w['hr'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'list' => array_slice($list, 0, 5), 'total' => count($list), 'manage' => $manage]);
+        $others = [];
+        try { $share(); $others = $remote(); } catch (\Throwable $e) { \Sysfera\App::log('hr share ' . $e); }
+        if (!$list && !$manage && !$others) return $w;
+        $w['hr'] = \Sysfera\View::file($sf->dir . '/views/widget.php', ['sf' => $sf, 'list' => array_slice($list, 0, 5), 'total' => count($list), 'manage' => $manage, 'others' => array_slice($others, 0, 8)]);
         return $w;
     });
 

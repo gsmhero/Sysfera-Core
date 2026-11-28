@@ -10,6 +10,7 @@ foreach ($board['columns'] as $col) foreach ($col as $cd) $byUuid[$cd['uuid']] =
     <?php if ($v['wf'] === 'approved') echo $act('vacancies.publish', 'act_publish', 'btn sm primary', ['audience' => 'global']); ?>
     <?= $act('vacancies.close', 'act_close') ?><?php else: ?><?php if ($v['status'] === 'closed') echo $act('vacancies.archive', 'act_archive'); endif; ?></div></div>
 <p class="muted"><?php if (\SysferaHr\Recruit::salaryText($v) !== ''): ?><b><?= e(\SysferaHr\Recruit::salaryText($v)) ?></b> · <?php endif; ?><a href="<?= e($sf->url('/v/' . $v['uuid'])) ?>"><?= e($sf->t('act_preview')) ?></a></p>
+<?php if ($v['status'] === 'open' && $v['wf'] !== 'published'): ?><p class="hint"><?= e($sf->t('share_hint')) ?></p><?php endif; ?>
 <?php if (!empty($v['skills'])): ?><p class="hr-chips"><?php foreach ($v['skills'] as $s): ?><span class="hr-chip"><i><?= e($s) ?></i></span><?php endforeach; ?></p><?php endif; ?>
 <?php if (!empty($v['post_ref'])): ?><p class="muted"><?= e($sf->t('published_as')) ?> <code><?= e($v['post_ref']) ?></code> <?= e((string)$v['published_at']) ?><?= !empty($v['external']) ? ' · ' . e($sf->t('job_boards')) . ': ' . e((string)$v['external']) : '' ?></p><?php endif; ?>
 

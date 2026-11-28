@@ -7,7 +7,7 @@ use Sysfera\Db;
 /** MySQL storage of the HR engine. Table and column names are checked against a pattern (they come from code, never from requests). The audit table has an INSERT-only path. */
 final class DbStore implements Store
 {
-    public const TABLES = ['roles', 'user_roles', 'teams', 'team_members', 'schedules', 'vacancies', 'vacancy_versions', 'employees', 'candidates', 'stage_log', 'interviews', 'feedback', 'status_history', 'docs', 'pay', 'leave', 'tasks', 'consents', 'payroll_runs', 'audit'];
+    public const TABLES = ['roles', 'user_roles', 'teams', 'team_members', 'schedules', 'vacancies', 'vacancy_versions', 'employees', 'candidates', 'stage_log', 'interviews', 'feedback', 'status_history', 'docs', 'pay', 'leave', 'tasks', 'consents', 'payroll_runs', 'audit', 'hub'];
     /** tables that are never deleted from */
     private const KEEP = ['audit', 'status_history', 'consents', 'stage_log', 'vacancy_versions', 'docs', 'payroll_runs', 'employees'];
     private int $depth = 0;

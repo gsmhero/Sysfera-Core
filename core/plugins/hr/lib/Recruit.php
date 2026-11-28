@@ -10,6 +10,9 @@ final class Recruit
 
     /** translates an interface key (the platform sets it); used for the short facts in the Activity post */
     public ?\Closure $label = null;
+    /** called after a vacancy was saved or moved in the workflow: the platform sends the public list to the other sites */
+    public ?\Closure $changed = null;
+    private function touched(): void { if ($this->changed) try { ($this->changed)(); } catch (\Throwable) {} }
 
     public function __construct(private Env $e, private Hr $hr) {}
     public function addBoard(string $name, callable $fn): void { $this->boards[$name] = $fn; }
@@ -104,6 +107,7 @@ final class Recruit
     {
         $v = $this->e->row('vacancies', $uuid);
         if (!($v['status'] === 'open' && $v['wf'] === 'published') && !$c->can('hr.vacancies.manage')) throw new Err('not_found', 'no such vacancy', 404);
+        if (!$c->uid && !self::isPublic($v)) throw new Err('not_found', 'no such vacancy', 404);   // without signing in only the vacancies published for everybody
         $s = $this->shape($v); $role = $this->e->s->one('roles', ['id' => (int)$v['role_id']]); $team = !empty($v['team_id']) ? $this->e->s->one('teams', ['id' => (int)$v['team_id']]) : null; $email = strtolower(trim($email));
         return ['uuid' => (string)$v['uuid'], 'title' => (string)$v['title'], 'description' => (string)$s['description'], 'details' => $s['details'], 'role' => (string)($role['name'] ?? ''), 'role_ru' => (string)(($role['name_ru'] ?? '') ?: ($role['name'] ?? '')), 'team' => (string)($team['name'] ?? ''),
             'salary' => self::salaryText($v), 'skills' => $s['skills'], 'published_at' => (string)($v['published_at'] ?? ''), 'open' => $v['status'] === 'open' && $v['wf'] === 'published', 'applications' => $s['candidates'],
@@ -146,12 +150,14 @@ final class Recruit
             $upd = ['version' => $n]; if (in_array($v['wf'], ['approved', 'published'], true)) $upd['wf'] = 'draft';
             $this->e->s->update('vacancies', (int)$v['id'], $upd); $this->e->log($c, 'vacancy.version', 'vacancy', $uuid, ['version' => $n, 'sha256' => $hash, 'wf' => $upd['wf'] ?? $v['wf']]);
         }
+        $this->touched();
         return $this->shape($this->e->row('vacancies', $uuid));
     }
     private function wf(Ctx $c, array $v, string $to, array $extra = []): array
     {
         if (!Pipeline::canWf((string)$v['wf'], $to)) throw new Err('bad_state', "workflow {$v['wf']} -> $to is not allowed", 409);
         $this->e->s->update('vacancies', (int)$v['id'], ['wf' => $to] + $extra); $this->e->log($c, 'vacancy.' . $to, 'vacancy', (string)$v['uuid'], ['from' => $v['wf']] + $extra);
+        $this->touched();
         return $this->shape($this->e->row('vacancies', (string)$v['uuid']));
     }
     public function approve(Ctx $c, string $uuid): array
@@ -168,10 +174,11 @@ final class Recruit
         if (!Pipeline::canWf((string)$v['wf'], 'published')) throw new Err('bad_state', 'approve the vacancy first', 409);
         $ver = $this->e->s->find('vacancy_versions', ['vacancy_id' => (int)$v['id']], 'version DESC', 1)[0]; $ext = [];
         $sal = self::salaryText($v); $facts = $this->label ? implode(' · ', self::facts(self::detailsOf($ver), $this->label)) : '';
-        $ref = $this->e->b->feed->publish((string)$v['title'], ($sal !== '' ? $sal . '. ' : '') . ($facts !== '' ? $facts . '. ' : '') . (string)$ver['description'], in_array($audience, ['global', 'users', 'admins'], true) ? $audience : 'global');
+        $audience = in_array($audience, ['global', 'users', 'admins', 'mine'], true) ? $audience : 'global';
+        $ref = $this->e->b->feed->publish((string)$v['title'], ($sal !== '' ? $sal . '. ' : '') . ($facts !== '' ? $facts . '. ' : '') . (string)$ver['description'], $audience === 'mine' ? 'global' : $audience);
         foreach ($this->boards as $name => $fn) { try { $ext[$name] = $fn($v, $ver); } catch (\Throwable $x) { $ext[$name] = 'error: ' . substr($x->getMessage(), 0, 80); } }
         try { \Sysfera\Hooks::do('hr.vacancy.published', $v, $ver); } catch (\Throwable) {}
-        return $this->wf($c, $v, 'published', ['post_ref' => $ref, 'external' => $ext ? json_encode($ext) : null, 'published_at' => $this->e->now()]);
+        return $this->wf($c, $v, 'published', ['audience' => $audience, 'post_ref' => $ref, 'external' => $ext ? json_encode($ext) : null, 'published_at' => $this->e->now()]);
     }
     /** Published, open vacancies with the number of applications. Nothing personal and no permission: it feeds the dashboard and the Activity button. $email marks the ones that person already applied to. */
     public function openPublished(string $email = ''): array
@@ -183,6 +190,19 @@ final class Recruit
                 'new' => count(array_filter($cands, fn($x) => $x['stage'] === 'new')), 'applied' => $email !== '' && (bool)array_filter($cands, fn($x) => strtolower((string)$x['email']) === $email)];
         }
         return $out;
+    }
+    /** published for everybody: shared with the other sites and readable without signing in */
+    private static function isPublic(array $v): bool { return $v['status'] === 'open' && $v['wf'] === 'published' && ($v['audience'] ?? 'global') === 'global'; }
+    /** What the other sites get about the public vacancies: nothing about people, teams or applications. */
+    public function shared(): array
+    {
+        $out = [];
+        foreach ($this->e->s->find('vacancies', ['status' => 'open', 'wf' => 'published'], 'id DESC') as $v) {
+            if (!self::isPublic($v)) continue; $ver = $this->latest((int)$v['id']);
+            $out[] = VacancyFeed::fields(['uuid' => $v['uuid'], 'title' => $v['title'], 'salary' => self::salaryText($v), 'excerpt' => $ver['description'] ?? '', 'details' => self::detailsOf($ver), 'published_at' => $v['published_at'] ?? '']);
+            if (count($out) >= VacancyHub::PER_SITE) break;
+        }
+        return array_values(array_filter($out));
     }
     /** "Apply": a signed-in user answers a published vacancy; they become a candidate in the stage NEW. HR managers are told. */
     public function apply(Ctx $c, string $vacUuid, array $in): array

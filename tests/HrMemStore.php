@@ -9,7 +9,7 @@ final class HrMemStore implements SysferaHr\Store
     public function insert(string $table, array $row): int
     {
         $id = $this->seq[$table] = ($this->seq[$table] ?? 0) + 1; $row['id'] = $id;
-        $uniq = ['employees' => [['email'], ['user_id']], 'roles' => [['code']], 'user_roles' => [['user_id', 'role_id']], 'team_members' => [['team_id', 'employee_id']], 'tasks' => [['employee_id', 'phase', 'code']], 'payroll_runs' => [['export_id']], 'feedback' => [['interview_id']], 'candidates' => [['vacancy_id', 'email']]][$table] ?? [];
+        $uniq = ['employees' => [['email'], ['user_id']], 'roles' => [['code']], 'user_roles' => [['user_id', 'role_id']], 'team_members' => [['team_id', 'employee_id']], 'tasks' => [['employee_id', 'phase', 'code']], 'payroll_runs' => [['export_id']], 'feedback' => [['interview_id']], 'candidates' => [['vacancy_id', 'email']], 'hub' => [['domain', 'uuid']]][$table] ?? [];
         if (isset($row['uuid'])) $uniq[] = ['uuid'];
         foreach ($this->t[$table] ?? [] as $o) foreach ($uniq as $k) {
             $mine = array_map(fn($c) => $row[$c] ?? null, $k); if (in_array(null, $mine, true) || in_array('', $mine, true)) continue;

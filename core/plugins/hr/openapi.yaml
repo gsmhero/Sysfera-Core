@@ -163,7 +163,7 @@ paths:
     post:
       operationId: vacancies.publish
       summary: "Workflow approved -> published: posts to the Activity feed and offers the vacancy to registered job-board hooks (idempotent)"
-      description: "Permission: hr.vacancies.approve. body: audience? (global|users|admins|mine)"
+      description: "Permission: hr.vacancies.approve. body: audience? (global|users|admins|mine). A global vacancy (the default) is also shared with all connected Sysfera sites and its page is readable without signing in"
       parameters:
         - {name: uuid, in: path, required: true, schema: {type: string}}
       requestBody:

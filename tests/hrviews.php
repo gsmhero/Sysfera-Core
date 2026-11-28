@@ -8,7 +8,7 @@ if (!function_exists('csrf_field')) { function csrf_field(): string { return '<i
 if (!function_exists('csrf_token')) { function csrf_token(): string { return 'x'; } }
 if (!function_exists('url')) { function url(string $p = '/'): string { return '/' . ltrim($p, '/'); } }
 $dir = dirname(__DIR__) . '/core/plugins/hr';
-foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Leave', 'Api'] as $c) require "$dir/lib/$c.php";
+foreach (['Err', 'Sig', 'Audit', 'Crypt', 'Store', 'Ctx', 'Rbac', 'Fields', 'Payroll', 'TimeOff', 'Pipeline', 'Bridges', 'Env', 'Hr', 'Recruit', 'Network', 'Leave', 'Api'] as $c) require "$dir/lib/$c.php";
 require __DIR__ . '/HrMemStore.php';
 use SysferaHr\{Env, Rbac, Hr, Recruit, Leave, Api, Crypt, Payroll, Pipeline};
 $fail = 0; function ok(bool $c, string $n): void { global $fail; echo ($c ? '  ok   ' : '  FAIL ') . $n . "\n"; if (!$c) $fail++; }
@@ -126,7 +126,7 @@ ok($undoc === [] && $extra === [], 'openapi: every REST route is documented and 
 $unimpl = array_values(array_filter(array_unique(array_column(Api::ROUTES, 2)), fn($o) => !isset($ops[$o]))); ok($unimpl === [], 'api: every route maps to an operation' . ($unimpl ? ' — ' . implode(', ', $unimpl) : ''));
 ok(count(array_unique(array_map(fn($r) => $r[0] . ' ' . $r[1], Api::ROUTES))) === count(Api::ROUTES), 'api: no duplicate routes');
 ok(Api::match('employees/{uuid}/pay', 'employees/abc/pay') === ['uuid' => 'abc'] && Api::match('roles', 'roles/x') === null, 'api: path matcher');
-$mig = (string)file_get_contents("$dir/migrations/001_hr.sql"); require_once "$dir/lib/DbStore.php";
+$mig = implode("\n", array_map('file_get_contents', glob("$dir/migrations/*.sql"))); require_once "$dir/lib/DbStore.php";
 $missingT = array_values(array_filter(SysferaHr\DbStore::TABLES, fn($t) => !str_contains($mig, '{p}hr_' . $t . ' (')));
 ok($missingT === [], 'migration: every table of the store exists' . ($missingT ? ' — ' . implode(', ', $missingT) : '')); ok(!preg_match('/\b(DROP|TRUNCATE)\b|DELETE FROM|ALTER TABLE .* DROP/i', $mig), 'migration: additive only');
 ok(json_decode((string)file_get_contents("$dir/plugin.json"), true)['slug'] === 'hr', 'plugin.json: slug hr');
@@ -182,5 +182,15 @@ foreach (['en' => $en, 'ru' => $ru] as $l => $L) {
 [$h] = $page('vacancies', ['vac' => [], 'roles' => $call('roles.list'), 'teams' => [], 'st' => '', 'tab' => 'vacancies'], 'en');
 ok(str_contains($h, 'name="responsibilities"') && str_contains($h, 'name="apply_info"'), 'new vacancy form: the details can be filled in at once');
 ok(str_contains((string)file_get_contents("$dir/migrations/004_vacancy_details.sql"), 'ADD COLUMN details'), 'migration 004: the details column');
+
+/* vacancies of other sites in the widget, and the public page */
+$others = [['uuid' => 'x', 'title' => 'Remote <b>', 'url' => 'https://other.ru/p/hr/v/x', 'domain' => 'other.ru', 'salary' => '5 €', 'excerpt' => '', 'details' => ['work_format' => 'remote'], 'published_at' => '']];
+foreach (['en' => $en, 'ru' => $ru] as $l => $L) {
+    [$h, $m] = $page('widget', ['list' => [], 'total' => 0, 'manage' => false, 'others' => $others], $l);
+    ok(!$m && str_contains($h, $L['w_others']) && str_contains($h, 'href="https://other.ru/p/hr/v/x"') && str_contains($h, '5 € · ' . $L['wfm_remote']) && str_contains($h, 'Remote &lt;b&gt;') && !str_contains($h, $L['w_none']) && !str_contains($h, '/apply/'), "widget $l: vacancies of other sites with a link to their own site, escaped" . ($m ? ' — ' . implode(', ', $m) : ''));
+    [$h, $m] = $page('preview', ['v' => $rec->preview(new SysferaHr\Ctx(null, 'guest', []), $vac['uuid']), 'lang' => $l, 'manage' => false, 'back' => '', 'guest' => true], $l);
+    ok(!$m && str_contains($h, $L['pv_sign_in']) && !str_contains($h, '/apply/') && !str_contains($h, $L['pv_applications']) && !str_contains($h, $L['pv_back']), "public page $l: a guest gets the vacancy, a sign-in link, no application count" . ($m ? ' — ' . implode(', ', $m) : ''));
+}
+$pl = (string)file_get_contents("$dir/plugin.php"); ok(str_contains($pl, "register('hr.sync'") && str_contains($pl, "register('hr.feed'") && str_contains($pl, "}, ['auth' => false]);"), 'plugin.php: hub operations and the public page are wired');
 
 echo $fail ? "\n$fail FAILED\n" : "\nAll good ($pages pages rendered)\n"; exit($fail ? 1 : 0);
