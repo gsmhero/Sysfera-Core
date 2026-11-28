@@ -31,7 +31,7 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/'; $baseLen
           $lab = !empty($m['slug']) ? t($m['slug'] . '.' . $m['label']) : t($m['label']);
           if ($lab === ($m['slug'] ?? '') . '.' . $m['label'] || $lab === $m['label']) $lab = $m['label'];
           $on = $m['path'] === '/' ? $path === '/' : str_starts_with($path, $m['path']); ?>
-        <a href="<?= e(url($m['path'])) ?>" class="<?= $on ? 'on' : '' ?>"><?= $ico($m['icon'] ?? null) ?><span><?= e($lab) ?></span><?php if ((int)($m['badge'] ?? 0) > 0): ?><b class="nbadge"><?= (int)$m['badge'] > 99 ? '99+' : (int)$m['badge'] ?></b><?php endif; ?></a>
+        <a href="<?= e(url($m['path'])) ?>" class="<?= $on ? 'on' : '' ?>"<?php if (!empty($m['live'])): ?> data-live="<?= e(url($m['live'])) ?>"<?php endif; ?>><?= $ico($m['icon'] ?? null) ?><span><?= e($lab) ?></span><?php if ((int)($m['badge'] ?? 0) > 0): ?><b class="nbadge"><?= (int)$m['badge'] > 99 ? '99+' : (int)$m['badge'] ?></b><?php endif; ?></a>
       <?php endforeach; ?>
     </nav>
     <div class="side-foot">

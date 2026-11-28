@@ -65,3 +65,26 @@ document.addEventListener('submit', function (e) {
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })();
+
+/* Live menu counters: a sidebar item with data-live is asked for {"unread": n}; its badge and the tab title follow. */
+(function () {
+  var title = document.title, counts = [];
+  Array.prototype.forEach.call(document.querySelectorAll('a[data-live]'), function (a, i) {
+    var timer = 0, busy = false;
+    function show(n) {
+      var b = a.querySelector('.nbadge');
+      if (n > 0) { if (!b) { b = document.createElement('b'); b.className = 'nbadge'; a.appendChild(b); } b.textContent = n > 99 ? '99+' : n; }
+      else if (b) b.remove();
+      counts[i] = n; var all = counts.reduce(function (s, x) { return s + (x || 0); }, 0);
+      document.title = (all > 0 ? '(' + all + ') ' : '') + title;
+    }
+    function plan() { clearTimeout(timer); timer = setTimeout(ask, document.hidden ? 60000 : 15000); }
+    function ask() {
+      if (busy) return; busy = true;
+      fetch(a.dataset.live, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && typeof j.unread === 'number') show(j.unread); }).catch(function () {}).then(function () { busy = false; plan(); });
+    }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) ask(); else plan(); });
+    ask();
+  });
+})();

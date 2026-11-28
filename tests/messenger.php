@@ -46,5 +46,39 @@ ok(strlen(Text::file(str_repeat('a', 300) . '.png')[0]) <= 120, 'long names are 
 ok(Text::MAX_FILE === 5242880, '5 MB limit');
 ok(Text::name("  A\nB\t") === 'A B', 'display name on one line');
 
+/* finding people */
+ok(Text::ids('12', 'a.ru') === ['12@a.ru'], 'a bare number is a user of the own site');
+ok(Text::ids(' 7@Site.RU ', 'a.ru') === ['7@site.ru', '7@www.site.ru'] && Text::ids('7@www.site.ru', 'a.ru') === ['7@www.site.ru', '7@site.ru'], 'ID: case, spaces, with and without www');
+ok(Text::ids('7@https://site.ru/', 'a.ru')[0] === '7@site.ru' && Text::ids('ivan@site.ru', 'a.ru') === [] && Text::ids('Ivan', 'a.ru') === [] && Text::ids('0', 'a.ru') === [], 'what is and is not an ID');
+$ro = Text::roster([['id' => '3', 'name' => 'Анна', 'email' => ' Anna@Mail.RU ', 'role' => 'admin']]);
+ok($ro === [['id' => 3, 'name' => 'Анна', 'email_hash' => hash('sha256', 'anna@mail.ru'), 'admin' => true]], 'the directory carries a hash, not the address');
+
+eval('namespace Sysfera; class Db {
+    public array $users = [];
+    public function q(string $sql, array $a = []): void {
+        if (str_contains($sql, "(sid, domain, uid, name, email_hash, is_admin, discoverable)")) { $old = $this->users[$a[0]] ?? null; $this->users[$a[0]] = ["sid" => $a[0], "name" => $a[3], "email_hash" => $a[4] ?? $old["email_hash"] ?? null, "discoverable" => $old["discoverable"] ?? 1]; }
+        elseif (str_contains($sql, "(sid, domain, uid, name, last_seen)")) $this->users[$a[0]] ??= ["sid" => $a[0], "name" => $a[3], "email_hash" => null, "discoverable" => 1];
+    }
+    public function rows(string $sql, array $a = []): array {
+        $me = array_pop($a);
+        if (str_contains($sql, "sid IN")) $f = fn($u) => in_array($u["sid"], $a, true);
+        elseif (str_contains($sql, "email_hash = ?")) $f = fn($u) => $u["email_hash"] === $a[0] && $u["discoverable"];
+        else $f = fn($u) => $u["discoverable"] && str_starts_with($u["name"], rtrim($a[0], "%"));
+        return array_values(array_filter($this->users, fn($u) => $u["sid"] !== $me && $f($u)));
+    }
+}');
+require dirname(__DIR__) . '/core/plugins/messenger/lib/Hub.php';
+$db = new Sysfera\Db(); $hub = new SysferaMsg\HubServer($db, sys_get_temp_dir());
+$call = fn(string $op, string $uid, array $q = [], array $in = [], string $dom = 'b.ru') => $hub->dispatch($op, new SysferaMsg\Ctx($dom, $uid, $q, $in));
+$found = fn(string $q, string $dom = 'a.ru') => array_column($call('search', '1', ['q' => $q], [], $dom)['users'], 'sid');
+$people = Text::roster([['id' => 5, 'name' => 'Boris', 'email' => '123@mail.ru', 'role' => 'user'], ['id' => 6, 'name' => 'Vera', 'email' => 'vera@mail.ru', 'role' => 'user']]);
+ok($call('roster', '0', [], ['users' => [...$people, ['id' => 'x'], 'junk']])['saved'] === 2, 'a site registers its users; broken rows are skipped');
+ok($found('5@b.ru') === ['5@b.ru'] && $found('5@www.b.ru') === ['5@b.ru'] && $found('5', 'b.ru') === ['5@b.ru'], 'found by ID without ever opening Messenger');
+ok($found('vera@mail.ru') === ['6@b.ru'] && $found('123@mail.ru') === ['5@b.ru'] && $found('Ver') === ['6@b.ru'], 'found by e-mail (also a numeric one) and by name');
+$db->users['6@b.ru']['discoverable'] = 0; $call('roster', '0', [], ['users' => $people]);
+ok($found('vera@mail.ru') === [] && $found('Ver') === [] && $found('6@b.ru') === ['6@b.ru'], 'a hidden person stays hidden after the next sync; the exact ID still works');
+$bad = 0; foreach ([fn() => $call('roster', '5', [], ['users' => []]), fn() => $call('roster', '0'), fn() => $call('search', '0', ['q' => 'x'])] as $fn) { try { $fn(); } catch (SysferaMsg\HubError) { $bad++; } }
+ok($bad === 3, 'only the installation itself sends the list, and it cannot search');
+
 echo $fail ? "\n$fail FAILED\n" : "\nAll good\n";
 exit($fail ? 1 : 0);

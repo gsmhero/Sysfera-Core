@@ -15,6 +15,7 @@ $render = function (array $m) use ($sf): string {
 <section class="card"><div id="msgs" class="msgs" data-poll="<?= e($sf->url('/poll?with=' . rawurlencode($peer['sid']))) ?>" data-file="<?= e($sf->url('/file?id=')) ?>" data-last="<?= $last ?>">
   <?php foreach ($msgs as $m) echo $render($m); ?>
   <?php if (!$msgs): ?><p class="muted" id="msg-empty"><?= e($sf->t('chat_empty')) ?></p><?php endif; ?></div>
+  <p class="muted sm" id="msg-offline" hidden><?= e($sf->t('offline')) ?></p>
   <form method="post" action="<?= e($sf->url('/send')) ?>" enctype="multipart/form-data" class="msg-form"><?= csrf_field() ?><input type="hidden" name="with" value="<?= e($peer['sid']) ?>">
     <textarea name="text" rows="2" maxlength="2000" placeholder="<?= e($sf->t('type_ph')) ?>"></textarea>
     <div class="row"><input type="file" name="file" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.zip"><small class="muted"><?= e($sf->t('file_hint')) ?></small><button class="btn primary" style="margin-left:auto"><?= e($sf->t('send')) ?></button></div></form></section>

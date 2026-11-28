@@ -58,6 +58,29 @@ final class Text
         return $h;
     }
 
+    public static function emailHash(string $email): string { return hash('sha256', strtolower(trim($email))); }
+
+    /** The Sysfera IDs a search text may mean: "12" is user 12 of the searcher's own site; "12@site.ru" also matches with or without "www." and a Cyrillic domain typed as is.
+     *  @return list<string> empty when the text is not an ID */
+    public static function ids(string $q, string $own): array
+    {
+        $q = trim($q);
+        if (preg_match('/^[1-9]\d{0,8}$/', $q)) return [$q . '@' . $own];
+        if (!preg_match('~^(\d{1,10})\s*@\s*(?:https?://)?([^@\s/:?#]+)/?$~iu', $q, $m)) return [];
+        $host = rtrim($m[2], '.');
+        $host = function_exists('mb_strtolower') ? mb_strtolower($host, 'UTF-8') : strtolower($host);
+        if (preg_match('/[^\x20-\x7E]/', $host) && function_exists('idn_to_ascii')) $host = (string)(idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46) ?: $host);
+        $other = str_starts_with($host, 'www.') ? substr($host, 4) : 'www.' . $host;
+        return [$m[1] . '@' . $host, $m[1] . '@' . $other];
+    }
+
+    /** The directory an installation sends to the hub: id, name, hash of the e-mail (never the address itself), administrator flag.
+     *  @param list<array<string,mixed>> $users rows of the users table @return list<array{id:int,name:string,email_hash:string,admin:bool}> */
+    public static function roster(array $users): array
+    {
+        return array_map(fn($u) => ['id' => (int)$u['id'], 'name' => (string)$u['name'], 'email_hash' => self::emailHash((string)$u['email']), 'admin' => ($u['role'] ?? '') === 'admin'], array_values($users));
+    }
+
     /** Allowed attachment types: extension => MIME type used when the file is served (the browser's guess is never trusted). */
     public const FILES = [
         'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp',

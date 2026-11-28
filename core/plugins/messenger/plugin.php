@@ -32,7 +32,26 @@ return function (\Sysfera\Plugin $sf): void {
     \Sysfera\Hooks::on('messenger.hub', fn($v) => $hub());
     \Sysfera\Hooks::on('demo.caps', fn(array $caps) => array_values(array_diff($caps, ['messenger.admin'])));
 
-    $sf->menu('menu', '/', ['order' => 12, 'icon' => 'chat']);
+    // the unread counter: the last known number is drawn with the page, then the menu asks /unread for a fresh one while the page is open
+    $sf->menu('menu', '/', ['order' => 12, 'icon' => 'chat', 'live' => '/unread', 'badge' => fn() => (int)($_SESSION['msg_unread']['n'] ?? 0)]);
+
+    /** Registers every active user of this site in the hub's directory, so people can be found before they ever open Messenger. At most once an hour. */
+    $roster = function () use ($sf, $db, $client, $demo): void {
+        if ($demo() || !$client()->ready() || time() - (int)$sf->setting('roster_at', '0') < 3600) return;
+        $sf->setSetting('roster_at', (string)time());
+        $users = $db->rows("SELECT id, name, email, role FROM {p}users WHERE status = 'active' ORDER BY id");
+        foreach (array_chunk(Text::roster($users), 500) as $part) if (!$client()->call('POST', 'roster', [], ['users' => $part], null, 6, '0')['ok']) break;
+    };
+    $sf->on('user.registered', fn() => $sf->setSetting('roster_at', '0'));
+
+    /** For background requests of an open page: no login redirect, and the session is released so that waiting for the hub never blocks other pages. */
+    $background = function () use ($sf, $demo, $client): bool {
+        header('Cache-Control: no-store');
+        if (!$sf->auth()->id()) { http_response_code(401); return false; }
+        $on = !$demo() && $client()->ready();
+        session_write_close();
+        return $on;
+    };
 
     /** Tell the hub who this user is (name, e-mail for the opt-in directory) — at most every 10 minutes. Returns the hub's answer or null. */
     $profile = function (bool $force = false) use ($sf, $client): ?array {
@@ -46,10 +65,11 @@ return function (\Sysfera\Plugin $sf): void {
         return $r['data'];
     };
 
-    $guard = function (callable $fn) use ($sf, $demo, $client, $profile): callable {
-        return function (array $p = []) use ($fn, $sf, $demo, $client, $profile) {
+    $guard = function (callable $fn) use ($sf, $demo, $client, $profile, $roster): callable {
+        return function (array $p = []) use ($fn, $sf, $demo, $client, $profile, $roster) {
             if ($demo()) { $sf->render('notice', ['msg' => 'demo'], $sf->t('title')); return; }
             if (!$client()->ready()) { $sf->render('notice', ['msg' => 'not_connected'], $sf->t('title')); return; }
+            $roster();
             return $fn($p, $profile());
         };
     };
@@ -60,21 +80,44 @@ return function (\Sysfera\Plugin $sf): void {
         $in = $client()->call('GET', 'inbox');
         $found = $q !== '' ? $client()->call('GET', 'search', ['q' => $q]) : null;
         if (!$in['ok']) flash($err($in['error']), 'bad');
-        $sf->render('index', ['chats' => $in['data']['chats'] ?? [], 'me' => $me, 'sid' => $client()->me(), 'q' => $q, 'found' => $found && $found['ok'] ? $found['data']['users'] : null], $sf->t('title'));
+        $sf->render('index', ['chats' => $in['data']['chats'] ?? [], 'me' => $me, 'sid' => $client()->me(), 'q' => $q, 'found' => $found && $found['ok'] ? $found['data']['users'] : null,
+            'searchError' => $found && !$found['ok'] ? $err($found['error']) : null], $sf->t('title'));
     }));
 
     $sf->route('GET', '/chat', $guard(function ($p, $me) use ($sf, $client, $err, $go) {
         $with = strtolower(trim((string)($_GET['with'] ?? '')));
         $r = $client()->call('GET', 'thread', ['with' => $with]);
         if (!$r['ok']) { flash($err($r['error']), 'bad'); $go(); }
+        unset($_SESSION['msg_unread']);   // just read: the counter is asked again
         $sf->render('chat', ['peer' => $r['data']['peer'], 'msgs' => $r['data']['messages'], 'blocked' => $r['data']['blocked'], 'sid' => $client()->me()], $r['data']['peer']['name']);
     }));
 
-    $sf->route('GET', '/poll', $guard(function ($p) use ($client) {
-        header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store');
-        $r = $client()->call('GET', 'thread', ['with' => strtolower(trim((string)($_GET['with'] ?? ''))), 'after' => (int)($_GET['after'] ?? 0)], null, null, 6);
-        echo json_encode($r['ok'] ? ['messages' => $r['data']['messages']] : ['error' => $r['error']], JSON_UNESCAPED_UNICODE);
-    }));
+    /* ---------- background requests that keep open pages up to date ---------- */
+    $sf->route('GET', '/poll', function () use ($background, $client, $json) {
+        $with = strtolower(trim((string)($_GET['with'] ?? '')));
+        if (!$background()) { $json(['error' => 'unavailable'], http_response_code() === 401 ? 401 : 200); return; }
+        $r = $client()->call('GET', 'thread', ['with' => $with, 'after' => (int)($_GET['after'] ?? 0)], null, null, 6);
+        $json($r['ok'] ? ['messages' => $r['data']['messages']] : ['error' => $r['error']]);
+    }, ['auth' => false]);
+
+    $sf->route('GET', '/list', function () use ($sf, $background, $client) {
+        if (!$background()) { if (http_response_code() !== 401) http_response_code(503); return; }
+        $r = $client()->call('GET', 'inbox', [], null, null, 6);
+        if (!$r['ok']) { http_response_code(502); return; }
+        header('Content-Type: text/html; charset=utf-8');
+        echo \Sysfera\View::file($sf->dir . '/views/_chats.php', ['sf' => $sf, 'chats' => $r['data']['chats'] ?? []]);
+    }, ['auth' => false]);
+
+    $sf->route('GET', '/unread', function () use ($background, $client, $json, $roster) {
+        if (!$background()) { $json(['unread' => 0], http_response_code() === 401 ? 401 : 200); return; }
+        $known = $_SESSION['msg_unread'] ?? null;
+        $roster();
+        if (!is_array($known) || time() - $known['t'] >= 10) {
+            $r = $client()->call('GET', 'unread', [], null, null, 6);
+            if ($r['ok']) { $known = ['t' => time(), 'n' => (int)$r['data']['unread']]; session_start(); $_SESSION['msg_unread'] = $known; session_write_close(); }
+        }
+        $json(['unread' => (int)($known['n'] ?? 0)]);
+    }, ['auth' => false]);
 
     $sf->route('POST', '/send', $guard(function ($p) use ($sf, $client, $err) {
         $with = strtolower(trim((string)($_POST['with'] ?? ''))); $text = trim((string)($_POST['text'] ?? '')); $fileId = '';
@@ -140,7 +183,7 @@ return function (\Sysfera\Plugin $sf): void {
                 $sf->setSetting('challenge', $ch);
                 $r = $client()->connect($base, $ch);
                 $sf->setSetting('challenge', '');
-                if ($r['ok']) { $sf->setSetting('hub_key', (string)$r['data']['key']); flash($sf->t('connected_ok')); }
+                if ($r['ok']) { $sf->setSetting('hub_key', (string)$r['data']['key']); $sf->setSetting('roster_at', '0'); flash($sf->t('connected_ok')); }
                 else flash($err($r['error']), 'bad');
             } elseif ($do === 'disconnect') { $sf->setSetting('hub_key', ''); flash($sf->t('disconnected_ok')); }
             $go('settings');

@@ -41,6 +41,7 @@ final class HubServer
     {
         $own = ['me', 'search', 'send', 'upload', 'inbox', 'thread', 'file', 'block', 'unread'];
         if (in_array($op, $own, true)) { if ($c->uid === '0') throw new HubError('bad_user', 400); return $this->{'op' . ucfirst($op)}($c); }
+        if ($op === 'roster') { if ($c->uid !== '0') throw new HubError('bad_user', 400); return $this->opRoster($c); }   // the installation itself lists its users
         if (isset(self::$ops[$op])) {
             // user "0" = the installation itself (read-only public data, e.g. the widget feed); only operations marked with registerSite() allow it
             if ($c->uid === '0') { if (!isset(self::$site[$op])) throw new HubError('bad_user', 400); }
@@ -78,11 +79,30 @@ final class HubServer
     private function opMe(Ctx $c): array
     {
         $this->touch($c, $c->in);
-        if (isset($c->in['email']) && is_string($c->in['email']) && $c->in['email'] !== '') $this->db->q('UPDATE {p}msg_users SET email_hash = ? WHERE sid = ?', [hash('sha256', strtolower(trim($c->in['email']))), $c->sid()]);
+        if (isset($c->in['email']) && is_string($c->in['email']) && $c->in['email'] !== '') $this->db->q('UPDATE {p}msg_users SET email_hash = ? WHERE sid = ?', [Text::emailHash($c->in['email']), $c->sid()]);
         if (array_key_exists('admin', $c->in)) $this->db->q('UPDATE {p}msg_users SET is_admin = ? WHERE sid = ?', [!empty($c->in['admin']) ? 1 : 0, $c->sid()]);   // administrator of his own site ("All Admins" in Activity)
         if (array_key_exists('discoverable', $c->in)) $this->db->q('UPDATE {p}msg_users SET discoverable = ? WHERE sid = ?', [!empty($c->in['discoverable']) ? 1 : 0, $c->sid()]);
         $r = $this->db->row('SELECT discoverable FROM {p}msg_users WHERE sid = ?', [$c->sid()]);
         return ['sid' => $c->sid(), 'discoverable' => (int)($r['discoverable'] ?? 0), 'unread' => $this->unreadCount($c->sid())];
+    }
+
+    /** Adds an installation's users to the directory, so they can be found before they ever open Messenger. Never changes anyone's "let others find me" choice. */
+    private function opRoster(Ctx $c): array
+    {
+        $list = $c->in['users'] ?? null;
+        if (!is_array($list) || count($list) > 500) throw new HubError('bad_roster', 400);
+        $n = 0;
+        foreach ($list as $u) {
+            $id = is_array($u) ? (string)($u['id'] ?? '') : '';
+            if (!preg_match('/^[1-9]\d{0,8}$/', $id)) continue;
+            $hash = is_string($u['email_hash'] ?? null) && preg_match('/^[a-f0-9]{64}$/', $u['email_hash']) ? $u['email_hash'] : null;
+            $name = Text::name((string)($u['name'] ?? ''));
+            $this->db->q('INSERT INTO {p}msg_users (sid, domain, uid, name, email_hash, is_admin, discoverable) VALUES (?,?,?,?,?,?,1)
+                ON DUPLICATE KEY UPDATE name = VALUES(name), email_hash = COALESCE(VALUES(email_hash), email_hash), is_admin = VALUES(is_admin)',
+                [$id . '@' . $c->domain, $c->domain, (int)$id, $name !== '' ? $name : 'User ' . $id, $hash, !empty($u['admin']) ? 1 : 0]);
+            $n++;
+        }
+        return ['saved' => $n];
     }
 
     private function opSearch(Ctx $c): array
@@ -90,14 +110,16 @@ final class HubServer
         $this->touch($c, null);
         $q = trim((string)($c->q['q'] ?? ''));
         if ($q === '') return ['users' => []];
-        $me = $c->sid();
-        if (preg_match('/^\d{1,10}@[a-z0-9.-]+$/i', $q)) {   // exact Sysfera ID always resolves
-            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE sid = ? AND sid <> ?', [strtolower($q), $me]);
-        } elseif (str_contains($q, '@')) {                    // exact e-mail, only people who allowed it
-            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE email_hash = ? AND discoverable = 1 AND sid <> ? LIMIT 20', [hash('sha256', strtolower($q)), $me]);
+        $me = $c->sid(); $rows = [];
+        if ($ids = Text::ids($q, $c->domain)) {   // an exact Sysfera ID always resolves
+            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE sid IN (' . implode(',', array_fill(0, count($ids), '?')) . ') AND sid <> ?', [...$ids, $me]);
+        }
+        if ($rows) { /* found by ID */ }
+        elseif (str_contains($q, '@')) {   // exact e-mail (also one that looks like an ID, e.g. 123@mail.ru), only people who allowed it
+            $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE email_hash = ? AND discoverable = 1 AND sid <> ? LIMIT 20', [Text::emailHash($q), $me]);
         } elseif ((function_exists('mb_strlen') ? mb_strlen($q) : strlen($q)) >= 2) {   // the start of the name or of any word in it ("ivan" finds "Petrov Ivan"), only people who allowed it
             $rows = $this->db->rows('SELECT sid, name FROM {p}msg_users WHERE (name LIKE ? OR name LIKE ?) AND discoverable = 1 AND sid <> ? ORDER BY name LIMIT 20', [$like = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%', '% ' . $like, $me]);
-        } else { $rows = []; }
+        }
         return ['users' => array_map(fn($r) => ['sid' => $r['sid'], 'name' => $r['name']], $rows)];
     }
 

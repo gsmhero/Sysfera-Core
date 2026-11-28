@@ -18,19 +18,19 @@ Every user gets a **Sysfera ID** `<user id>@<site domain>`, e.g. `12@shop.exampl
 Install Messenger (and Activity), open *Messenger → Connection → Advanced*, tick **This site is the hub**. The hub site talks to its own database directly. Files are kept in `storage/messenger/` (not reachable from the web). Grant `activity.admin` to moderators.
 
 ## Messenger rules
-* Find people by exact Sysfera ID (always works), exact e-mail or name prefix (3+ letters) — the last two only for people who ticked *Let others find me* (off by default; the e-mail is stored only as a SHA-256 hash).
+* Find people by exact Sysfera ID (or just the number for a colleague on your own site; always works), exact e-mail or name (2+ letters) — the last two only for people who allow *Let others find me* (on by default). An installation sends its active users to the hub directory (id, name, SHA-256 of the e-mail, administrator flag) at most once an hour, so people can be found before they first open Messenger.
 * Text ≤ 2000 characters, 30 messages/minute, 30 uploads/hour. Anyone can be blocked.
 * Attachments ≤ **5 MB**: jpg, png, gif, webp, pdf, txt, csv, doc(x), xls(x), ppt(x), odt, ods, zip. The type comes from the extension, never from the browser; scripts, HTML, SVG and executables are refused; files download as attachments (images may show inline) with `nosniff` and a sandbox CSP. Only the sender and the recipient can fetch a file.
-* The chat page checks for new messages every 8 seconds.
+* Everything updates without reloading: an open chat asks for new messages every 3 seconds (every 10 after two quiet minutes), the list of chats every 6, and the unread counter in the menu and the tab title every 15 (core 0.1.56+; once a minute in a hidden tab).
 
 ## Activity rules
 Title ≤ 20 words, text ≤ 50 words (counted on the hub as well as in the browser), 3 posts per day per user. *Report* hides a post automatically after 3 reports from different users; moderators (hub site) can hide, show or delete in *Activity → Moderation*. Authors can delete their own posts. The feed has 5/20/50 per page, pagination and a from–to date filter.
 
 ## Privacy — please read
-Using these components sends the user's **display name** (and, if allowed, a hash of the e-mail) and everything they write or upload to core.sysfera.ru, which stores it. Messages are **not end-to-end encrypted**; the hub operator can read them. Say so in your own privacy policy. Demo mode switches both components off.
+Using these components sends the user's **display name** and a hash of the e-mail (for every active user of the site, once it is connected) and everything they write or upload to core.sysfera.ru, which stores it. Messages are **not end-to-end encrypted**; the hub operator can read them. Say so in your own privacy policy. Demo mode switches both components off.
 
 ## Limits of this first version
-No e-mail notification of new messages, no unread badge in the menu, no automatic clean-up of old files, one Sysfera site per domain (two installs on one host name would share IDs). The operations are open to extension through `HubServer::register()` (see `core/plugins/activity/plugin.php`).
+No e-mail or push notification of new messages, no automatic clean-up of old files, one Sysfera site per domain (two installs on one host name would share IDs). The operations are open to extension through `HubServer::register()` (see `core/plugins/activity/plugin.php`).
 
 ## Activity widget and embed code (Activity 0.2)
 * **Dashboard ticker** — with Activity installed and connected, every signed-in user sees the latest posts scrolling on the dashboard (pauses on hover; no animation if the visitor prefers reduced motion). Administrators can switch it off in *Activity → Widget and embed code*. The list is cached for 5 minutes (`storage/activity-feed.json`), so the dashboard never waits for the hub.
